@@ -1,0 +1,71 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply text-dark bg-background;
+  }
+}
+
+@layer utilities {
+  .noise-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.05;
+    background: transparent;
+  }
+  
+  .noise-overlay::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    filter: url(#noiseFilter);
+  }
+  
+  .magnetic-btn {
+    @apply relative overflow-hidden transition-all duration-300;
+  }
+  
+  .magnetic-btn:hover {
+    transform: scale(1.03);
+    transition-timing-function: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  }
+  
+  .magnetic-btn::before {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.1);
+    transition: top 0.3s ease;
+    z-index: 0;
+  }
+  
+  .magnetic-btn:hover::before {
+    top: 0;
+  }
+  
+  .magnetic-btn > * {
+    position: relative;
+    z-index: 1;
+  }
+  
+  .hover-lift {
+    transition: transform 0.3s ease;
+  }
+  
+  .hover-lift:hover {
+    transform: translateY(-1px);
+  }
+}
