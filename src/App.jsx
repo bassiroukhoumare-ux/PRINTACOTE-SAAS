@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { ArrowRight, MapPin, Clock, User, Store, ShoppingCart, Newspaper, CheckCircle } from 'lucide-react';
+import { ArrowRight, MapPin, Clock, User, Store, ShoppingCart, Newspaper, CheckCircle, Star, MessageCircle, Phone, Award } from 'lucide-react';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -14,9 +14,9 @@ const Navbar = ({ setPage, currentPage }) => {
                 start: 'top -80',
                 onUpdate: (self) => {
                     if (self.direction === 1 || self.progress > 0) {
-                        gsap.to(navRef.current, { backgroundColor: 'rgba(242, 240, 233, 0.6)', backdropFilter: 'blur(16px)', borderColor: 'rgba(0,0,0,0.05)', color: '#1A1A1A', duration: 0.3 });
+                        gsap.to(navRef.current, { backgroundColor: 'rgba(245, 242, 235, 0.8)', backdropFilter: 'blur(16px)', borderColor: 'rgba(0,0,0,0.05)', color: '#1A1518', duration: 0.3 });
                     } else {
-                        gsap.to(navRef.current, { backgroundColor: 'transparent', backdropFilter: 'blur(0px)', borderColor: 'transparent', color: '#F2F0E9', duration: 0.3 });
+                        gsap.to(navRef.current, { backgroundColor: 'transparent', backdropFilter: 'blur(0px)', borderColor: 'transparent', color: '#F5F2EB', duration: 0.3 });
                     }
                 }
             });
@@ -26,11 +26,12 @@ const Navbar = ({ setPage, currentPage }) => {
 
     return (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-full px-6 flex justify-center">
-            <nav ref={navRef} className="flex items-center justify-between gap-4 md:gap-8 px-6 py-3 rounded-[2rem] border border-transparent transition-colors text-[#F2F0E9] w-full max-w-5xl bg-primary/40 backdrop-blur-md">
+            <nav ref={navRef} className="flex items-center justify-between gap-4 md:gap-8 px-6 py-3 rounded-[2rem] border border-transparent transition-colors text-[#F5F2EB] w-full max-w-5xl bg-primary/40 backdrop-blur-md">
                 <div className="flex items-center gap-8">
                     <a href="#" onClick={(e) => { e.preventDefault(); setPage('home'); }} className="font-bold text-xl font-sans tracking-tight shrink-0">Printacote</a>
                     <div className="hidden md:flex gap-6 text-sm font-medium opacity-90">
                         <a href="#" onClick={(e) => { e.preventDefault(); setPage('home'); }} className={`hover-lift ${currentPage === 'home' ? 'text-accent' : ''}`}>Accueil</a>
+                        <a href="#" onClick={(e) => { e.preventDefault(); setPage('printers'); }} className={`hover-lift flex items-center gap-1 ${currentPage === 'printers' ? 'text-accent' : ''}`}><Store size={16} /> Imprimeurs</a>
                         <a href="#" onClick={(e) => { e.preventDefault(); setPage('marketplace'); }} className={`hover-lift flex items-center gap-1 ${currentPage === 'marketplace' ? 'text-accent' : ''}`}><ShoppingCart size={16} /> Marketplace</a>
                         <a href="#" onClick={(e) => { e.preventDefault(); setPage('news'); }} className={`hover-lift flex items-center gap-1 ${currentPage === 'news' ? 'text-accent' : ''}`}><Newspaper size={16} /> Actualités</a>
                     </div>
@@ -69,25 +70,24 @@ const Hero = ({ setPage }) => {
                 <img 
                     src="https://images.unsplash.com/photo-1612815154858-60aa4c59eaa6?q=80&w=2500&auto=format&fit=crop" 
                     alt="Imprimerie numérique et couleurs CMJN" 
-                    className="w-full h-full object-cover opacity-50"
+                    className="w-full h-full object-cover opacity-40 mix-blend-overlay"
                 />
                 <div className="absolute inset-0 bg-hero-gradient"></div>
             </div>
             
-            <div className="relative z-10 w-full px-8 md:px-16 pb-24 md:pb-32 flex flex-col md:w-2/3">
-                <h1 className="text-[#F2F0E9] flex flex-col gap-2">
-                    <span className="hero-text text-3xl md:text-5xl font-sans font-bold tracking-tight">Printacote est la</span>
-                    <span className="hero-text text-6xl md:text-8xl font-serif italic font-semibold leading-none tracking-tight">Connexion.</span>
+            <div className="relative z-10 w-full px-8 md:px-16 pb-24 md:pb-32 flex flex-col md:w-3/4">
+                <h1 className="text-[#F5F2EB] flex flex-col gap-2">
+                    <span className="hero-text text-5xl md:text-7xl font-serif italic font-semibold leading-tight tracking-tight">Trouvez l'imprimerie la plus proche de vous.</span>
                 </h1>
-                <p className="hero-text text-[#F2F0E9]/80 mt-6 text-lg max-w-xl font-sans">
+                <p className="hero-text text-[#F5F2EB]/80 mt-6 text-lg max-w-xl font-sans">
                     Trouvez l'imprimerie la plus proche de vous en un instant, ou développez votre vitrine d'imprimeur numérique pour capter plus de commandes.
                 </p>
                 <div className="hero-text mt-10 flex flex-col sm:flex-row gap-4">
-                    <button onClick={() => setPage('home')} className="magnetic-btn bg-accent text-white px-8 py-4 rounded-[2rem] text-lg font-bold flex items-center justify-center gap-2">
+                    <button onClick={() => setPage('printers')} className="magnetic-btn bg-accent text-white px-8 py-4 rounded-[2rem] text-lg font-bold flex items-center justify-center gap-2">
                         <span>Trouver un imprimeur</span>
                         <MapPin size={20} />
                     </button>
-                    <button onClick={() => setPage('register')} className="magnetic-btn bg-transparent border-2 border-[#F2F0E9]/30 text-[#F2F0E9] px-8 py-4 rounded-[2rem] text-lg font-bold flex items-center justify-center gap-2 hover:bg-[#F2F0E9]/10 transition-colors">
+                    <button onClick={() => setPage('register')} className="magnetic-btn bg-transparent border-2 border-[#F5F2EB]/30 text-[#F5F2EB] px-8 py-4 rounded-[2rem] text-lg font-bold flex items-center justify-center gap-2 hover:bg-[#F5F2EB]/10 transition-colors">
                         <span>S'inscrire</span>
                         <User size={20} />
                     </button>
@@ -97,9 +97,107 @@ const Hero = ({ setPage }) => {
     );
 };
 
+const Printers = () => {
+    const printersList = [
+        {
+            id: 1,
+            name: "L'Atelier Print",
+            desc: "Spécialiste de l'impression numérique et grand format. Service express disponible.",
+            rating: 4.9,
+            isPro: true,
+            cover: "https://images.unsplash.com/photo-1598425237654-4fb98471ce3b?q=80&w=800&auto=format&fit=crop",
+            avatar: "https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=200&auto=format&fit=crop"
+        },
+        {
+            id: 2,
+            name: "Imprimerie du Centre",
+            desc: "Expert en offset, carnets et brochures. Finitions premium.",
+            rating: 4.7,
+            isPro: true,
+            cover: "https://images.unsplash.com/photo-1562664377-709f2c337eb2?q=80&w=800&auto=format&fit=crop",
+            avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=200&auto=format&fit=crop"
+        },
+        {
+            id: 3,
+            name: "CopieRapide Pro",
+            desc: "Copies, reliures, et impressions simples pour étudiants et entreprises.",
+            rating: 4.5,
+            isPro: false,
+            cover: "https://images.unsplash.com/photo-1603484477859-abe6a73f9366?q=80&w=800&auto=format&fit=crop",
+            avatar: "https://images.unsplash.com/photo-1531427186611-ecfd6d936c79?q=80&w=200&auto=format&fit=crop"
+        },
+        {
+            id: 4,
+            name: "CréaPrint Studio",
+            desc: "Flocage, sérigraphie et objets publicitaires personnalisés.",
+            rating: 4.8,
+            isPro: true,
+            cover: "https://images.unsplash.com/photo-1507206130118-b5907f817163?q=80&w=800&auto=format&fit=crop",
+            avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?q=80&w=200&auto=format&fit=crop"
+        }
+    ];
+
+    return (
+        <div className="min-h-screen pt-32 pb-24 px-6 md:px-16 bg-background">
+            <div className="max-w-7xl mx-auto">
+                <div className="mb-12">
+                    <h1 className="text-4xl md:text-6xl font-serif italic font-bold text-dark mb-4">Imprimeurs à proximité</h1>
+                    <p className="text-lg text-dark/70 font-sans max-w-2xl">Découvrez les professionnels certifiés prêts à réaliser vos projets d'impression.</p>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                    {printersList.map(printer => (
+                        <div key={printer.id} className="bg-white rounded-[2rem] overflow-hidden border border-dark/5 hover-lift shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative transition-all group">
+                            {/* Cover */}
+                            <div className="h-36 w-full relative">
+                                <img src={printer.cover} alt="Cover" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-dark/60 to-transparent"></div>
+                            </div>
+                            
+                            {/* Avatar */}
+                            <div className="absolute top-24 left-6 w-20 h-20 rounded-[1rem] border-4 border-white overflow-hidden bg-background shadow-sm z-10">
+                                <img src={printer.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                            </div>
+                            
+                            {/* Badges */}
+                            {printer.isPro && (
+                                <div className="absolute top-4 right-4 bg-accent text-white text-xs font-bold px-3 py-1.5 rounded-full flex items-center gap-1.5 shadow-md backdrop-blur-sm bg-accent/90">
+                                    <Award size={14} /> PRO
+                                </div>
+                            )}
+                            
+                            {/* Content */}
+                            <div className="pt-12 px-6 pb-6 bg-white relative z-0">
+                                <div className="flex justify-between items-start mb-2 mt-2">
+                                    <h3 className="text-xl font-bold font-sans text-dark tracking-tight">{printer.name}</h3>
+                                    <div className="flex items-center gap-1 text-[#D4A843] bg-[#D4A843]/10 px-2 py-1 rounded-md">
+                                        <Star size={14} fill="currentColor" />
+                                        <span className="text-sm font-bold text-dark">{printer.rating}</span>
+                                    </div>
+                                </div>
+                                <p className="text-dark/70 text-sm mb-8 leading-relaxed min-h-[40px]">{printer.desc}</p>
+                                
+                                {/* Buttons */}
+                                <div className="flex gap-3">
+                                    <button className="flex-1 bg-[#25D366]/10 text-[#25D366] py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-[#25D366] hover:text-white transition-colors font-bold text-sm">
+                                        <MessageCircle size={18} /> WhatsApp
+                                    </button>
+                                    <button className="flex-1 bg-primary/10 text-primary py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-primary hover:text-white transition-colors font-bold text-sm">
+                                        <Phone size={18} /> Appeler
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
 const Features = () => {
     return (
-        <section id="features" className="py-24 md:py-32 px-6 md:px-16 bg-[#F2F0E9]">
+        <section id="features" className="py-24 md:py-32 px-6 md:px-16 bg-background">
             <div className="max-w-7xl mx-auto flex flex-col gap-16">
                 <div className="text-center max-w-3xl mx-auto mb-8">
                     <h2 className="text-4xl md:text-5xl font-serif italic font-bold text-dark">Une plateforme, deux écosystèmes.</h2>
@@ -122,7 +220,7 @@ const Features = () => {
                             <li className="flex items-center gap-3"><CheckCircle size={20} className="text-accent" /> <span>Suivi de production en ligne</span></li>
                         </ul>
                         <div className="mt-12 mt-auto relative h-48 rounded-[2rem] bg-background border border-dark/5 overflow-hidden flex items-center justify-center">
-                            <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(#1A1A1A 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
+                            <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(#1A1518 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
                             <div className="relative z-10 bg-white p-4 rounded-xl shadow-lg flex items-center gap-4 animate-bounce" style={{ animationDuration: '3s' }}>
                                 <MapPin size={24} className="text-accent" />
                                 <div>
@@ -209,9 +307,9 @@ const Philosophy = () => {
 };
 
 const CTA = ({ setPage }) => (
-    <section className="py-24 md:py-32 px-4 md:px-16 bg-[#F2F0E9] flex justify-center">
+    <section className="py-24 md:py-32 px-4 md:px-16 bg-background flex justify-center">
         <div className="bg-primary text-background rounded-[2rem] sm:rounded-[3rem] p-8 sm:p-16 w-full max-w-5xl flex flex-col items-center text-center relative overflow-hidden">
-            <div className="absolute inset-0 bg-hero-gradient opacity-30"></div>
+            <div className="absolute inset-0 bg-hero-gradient opacity-50"></div>
             <div className="relative z-10 flex flex-col items-center gap-8">
                 <h2 className="text-3xl sm:text-4xl md:text-6xl font-sans font-bold tracking-tight">Prêt à rejoindre l'écosystème ?</h2>
                 <p className="text-base sm:text-lg md:text-xl text-background/80 max-w-2xl font-sans">
@@ -237,6 +335,7 @@ const Footer = ({ setPage }) => (
             <div className="flex flex-col gap-4">
                 <h4 className="font-mono text-sm uppercase text-background/40">Plateforme</h4>
                 <a href="#" onClick={(e) => { e.preventDefault(); setPage('home'); }} className="hover:text-accent transition-colors">Accueil</a>
+                <a href="#" onClick={(e) => { e.preventDefault(); setPage('printers'); }} className="hover:text-accent transition-colors">Imprimeurs</a>
                 <a href="#" onClick={(e) => { e.preventDefault(); setPage('marketplace'); }} className="hover:text-accent transition-colors">Marketplace</a>
                 <a href="#" onClick={(e) => { e.preventDefault(); setPage('news'); }} className="hover:text-accent transition-colors">Actualités</a>
             </div>
@@ -460,6 +559,7 @@ export default function App() {
             <Navbar setPage={setPage} currentPage={page} />
             
             {page === 'home' && <Home setPage={setPage} />}
+            {page === 'printers' && <Printers />}
             {page === 'marketplace' && <Marketplace />}
             {page === 'news' && <News />}
             {page === 'login' && <Login setPage={setPage} />}
