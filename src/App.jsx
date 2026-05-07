@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { ArrowRight, MapPin, Clock, User, Store, ShoppingCart, Newspaper, CheckCircle, Star, MessageCircle, Phone, Award, Menu, X, ArrowLeft, Image as ImageIcon } from 'lucide-react';
+import { ArrowRight, MapPin, Clock, User, Store, ShoppingCart, Newspaper, CheckCircle, Star, MessageCircle, Phone, Award, Menu, X, ArrowLeft, Image as ImageIcon, Share2 } from 'lucide-react';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -102,7 +102,7 @@ const Hero = ({ setPage }) => {
             
             <div className="relative z-10 w-full px-6 md:px-16 flex flex-col items-center">
                 <h1 className="text-[#F5F2EB] flex flex-col gap-2 items-center">
-                    <span className="hero-text text-5xl md:text-7xl lg:text-8xl font-sans font-bold leading-tight tracking-tight max-w-5xl">Trouvez l'imprimeur le plus proche de vous.</span>
+                    <span className="hero-text text-5xl md:text-7xl lg:text-8xl font-sans font-bold leading-tight tracking-tight max-w-5xl">Trouvez l'imprimeur <span className="font-serif italic font-normal text-accent">le plus proche de vous.</span></span>
                 </h1>
                 <p className="hero-text text-[#F5F2EB]/80 mt-8 text-lg md:text-xl max-w-2xl font-sans">
                     Découvrez les professionnels certifiés en un instant, ou développez votre vitrine numérique pour capter plus de commandes locales.
@@ -279,6 +279,9 @@ const PrinterDetail = ({ printer, setPage }) => {
                                 </div>
                             </div>
                             <div className="flex gap-3 w-full md:w-auto">
+                                <button className="flex-none bg-dark/5 text-dark p-3 rounded-xl flex items-center justify-center hover:bg-dark/10 transition-colors" title="Partager le profil">
+                                    <Share2 size={18} />
+                                </button>
                                 <button className="flex-1 md:flex-none bg-[#25D366] text-white px-6 py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-[#20bd5a] transition-colors font-bold text-sm">
                                     <MessageCircle size={18} /> WhatsApp
                                 </button>
@@ -290,10 +293,10 @@ const PrinterDetail = ({ printer, setPage }) => {
 
                         <p className="text-lg text-dark/70 leading-relaxed mb-12 max-w-2xl">{printer.desc}</p>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                             <div>
                                 <h3 className="text-xl font-bold font-sans mb-6 flex items-center gap-2"><Clock size={20} className="text-accent" /> Horaires d'ouverture</h3>
-                                <div className="bg-background rounded-2xl p-6 border border-dark/5">
+                                <div className="bg-background rounded-2xl p-6 border border-dark/5 h-full">
                                     <ul className="space-y-3 text-sm">
                                         <li className="flex justify-between border-b border-dark/5 pb-2"><span className="text-dark/60">Lundi - Vendredi</span><span className="font-bold text-dark">08:00 - 18:00</span></li>
                                         <li className="flex justify-between border-b border-dark/5 pb-2"><span className="text-dark/60">Samedi</span><span className="font-bold text-dark">09:00 - 14:00</span></li>
@@ -310,6 +313,19 @@ const PrinterDetail = ({ printer, setPage }) => {
                                             {s}
                                         </span>
                                     ))}
+                                </div>
+                            </div>
+
+                            <div>
+                                <h3 className="text-xl font-bold font-sans mb-6 flex items-center gap-2"><MapPin size={20} className="text-accent" /> Localisation</h3>
+                                <div className="bg-background rounded-2xl p-6 border border-dark/5 h-full flex items-start gap-4">
+                                    <div className="bg-accent/10 p-3 rounded-xl text-accent shrink-0">
+                                        <MapPin size={24} />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-dark mb-1">Adresse principale</h4>
+                                        <p className="text-dark/70 text-sm">{printer.location || "123 Avenue des Imprimeurs, Dakar, Sénégal"}</p>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -571,17 +587,13 @@ const Footer = ({ setPage }) => (
             </div>
             <div className="flex flex-col gap-4">
                 <h4 className="font-mono text-sm uppercase text-background/40">Légal</h4>
-                <a href="#" className="hover:text-accent transition-colors">Conditions d'utilisation</a>
-                <a href="#" className="hover:text-accent transition-colors">Politique de confidentialité</a>
-                <a href="#" className="hover:text-accent transition-colors">Mentions légales</a>
+                <a href="#" onClick={(e) => { e.preventDefault(); setPage('terms'); }} className="hover:text-accent transition-colors">Conditions d'utilisation</a>
+                <a href="#" onClick={(e) => { e.preventDefault(); setPage('privacy'); }} className="hover:text-accent transition-colors">Politique de confidentialité</a>
+                <a href="#" onClick={(e) => { e.preventDefault(); setPage('legal'); }} className="hover:text-accent transition-colors">Mentions légales</a>
             </div>
         </div>
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-center sm:text-left">
             <p className="text-background/40 text-sm">© 2026 Printacote. Tous droits réservés.</p>
-            <div className="flex items-center gap-2 bg-background/5 px-4 py-2 rounded-full">
-                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                <span className="font-mono text-xs text-background/80">Système Opérationnel</span>
-            </div>
         </div>
     </footer>
 );
@@ -755,9 +767,15 @@ const Register = ({ setPage }) => {
                         </div>
                     </div>
 
-                    <div>
-                        <label className="block text-sm font-bold text-dark mb-2">Email</label>
-                        <input type="email" placeholder="contact@imprimerie.com" className="w-full bg-background border border-dark/10 rounded-xl px-4 py-3 focus:outline-none focus:border-accent transition-colors" required />
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        <div>
+                            <label className="block text-sm font-bold text-dark mb-2">Email</label>
+                            <input type="email" placeholder="contact@imprimerie.com" className="w-full bg-background border border-dark/10 rounded-xl px-4 py-3 focus:outline-none focus:border-accent transition-colors" required />
+                        </div>
+                        <div>
+                            <label className="block text-sm font-bold text-dark mb-2">Numéro WhatsApp</label>
+                            <input type="tel" placeholder="+221 XX XXX XX XX" className="w-full bg-background border border-dark/10 rounded-xl px-4 py-3 focus:outline-none focus:border-accent transition-colors" required />
+                        </div>
                     </div>
                     <div>
                         <label className="block text-sm font-bold text-dark mb-2">Mot de passe</label>
@@ -780,6 +798,68 @@ const Register = ({ setPage }) => {
         </div>
     );
 };
+
+const TermsOfUse = ({ setPage }) => (
+    <div className="min-h-screen pt-32 pb-24 px-6 md:px-16 bg-background">
+        <div className="max-w-3xl mx-auto bg-white p-8 md:p-16 rounded-[3rem] shadow-sm border border-dark/5">
+            <h1 className="text-3xl md:text-5xl font-serif italic font-bold text-dark mb-8">Conditions d'utilisation</h1>
+            <div className="prose prose-lg text-dark/80 font-sans">
+                <p className="mb-4">Bienvenue sur Printacote. En accédant à notre plateforme, vous acceptez les présentes conditions générales d'utilisation applicables à notre service de mise en relation.</p>
+                <h3 className="text-xl font-bold text-dark mt-8 mb-4">1. Accès au service</h3>
+                <p className="mb-4">L'accès à la plateforme est libre pour les clients à la recherche d'imprimeurs. Les professionnels (imprimeurs) doivent créer un compte vérifié et peuvent souscrire à des forfaits premium pour bénéficier de fonctionnalités avancées (Badge PRO, priorisation).</p>
+                <h3 className="text-xl font-bold text-dark mt-8 mb-4">2. Engagements de l'imprimeur</h3>
+                <p className="mb-4">En s'inscrivant, l'imprimeur s'engage à fournir des informations exactes (adresse, numéro WhatsApp, tarifs) et à honorer les commandes acceptées via la plateforme avec professionnalisme.</p>
+                <h3 className="text-xl font-bold text-dark mt-8 mb-4">3. Rôle et Responsabilités de Printacote</h3>
+                <p className="mb-4">Printacote agit en tant qu'intermédiaire technique. Nous facilitons la visibilité et la prise de contact, mais nous ne saurions être tenus responsables de la qualité finale des impressions, des retards de livraison ou des litiges commerciaux entre l'imprimeur et le client.</p>
+                <h3 className="text-xl font-bold text-dark mt-8 mb-4">4. Propriété intellectuelle</h3>
+                <p className="mb-4">Tous les éléments visuels, logotypes, et l'architecture de la plateforme sont protégés par le droit de la propriété intellectuelle. Toute reproduction non autorisée est interdite.</p>
+            </div>
+            <button onClick={() => setPage('home')} className="mt-12 magnetic-btn bg-dark text-white px-8 py-4 rounded-xl font-bold text-sm">Retour à l'accueil</button>
+        </div>
+    </div>
+);
+
+const PrivacyPolicy = ({ setPage }) => (
+    <div className="min-h-screen pt-32 pb-24 px-6 md:px-16 bg-background">
+        <div className="max-w-3xl mx-auto bg-white p-8 md:p-16 rounded-[3rem] shadow-sm border border-dark/5">
+            <h1 className="text-3xl md:text-5xl font-serif italic font-bold text-dark mb-8">Politique de confidentialité</h1>
+            <div className="prose prose-lg text-dark/80 font-sans">
+                <p className="mb-4">La protection de vos données personnelles est une priorité pour Printacote. Cette politique vous explique comment nous gérons vos informations.</p>
+                <h3 className="text-xl font-bold text-dark mt-8 mb-4">1. Collecte des données</h3>
+                <p className="mb-4">Nous collectons uniquement les données nécessaires au fonctionnement optimal du service : nom de l'imprimerie, adresse exacte, e-mail, et numéro WhatsApp professionnel.</p>
+                <h3 className="text-xl font-bold text-dark mt-8 mb-4">2. Utilisation de vos informations</h3>
+                <p className="mb-4">Vos données publiques (nom, adresse, contacts) sont exposées sur votre vitrine afin de permettre aux clients de vous joindre. Vos identifiants de connexion restent strictement confidentiels et chiffrés.</p>
+                <h3 className="text-xl font-bold text-dark mt-8 mb-4">3. Partage avec des tiers</h3>
+                <p className="mb-4">Nous ne vendons ni ne louons vos données personnelles à des tiers. Elles peuvent être partagées uniquement sur réquisition légale ou avec des prestataires techniques essentiels (ex: hébergement).</p>
+                <h3 className="text-xl font-bold text-dark mt-8 mb-4">4. Utilisation des cookies</h3>
+                <p className="mb-4">Nous utilisons des cookies techniques nécessaires au maintien de votre session et des cookies analytiques anonymisés pour améliorer l'expérience utilisateur de la plateforme.</p>
+            </div>
+            <button onClick={() => setPage('home')} className="mt-12 magnetic-btn bg-dark text-white px-8 py-4 rounded-xl font-bold text-sm">Retour à l'accueil</button>
+        </div>
+    </div>
+);
+
+const LegalNotice = ({ setPage }) => (
+    <div className="min-h-screen pt-32 pb-24 px-6 md:px-16 bg-background">
+        <div className="max-w-3xl mx-auto bg-white p-8 md:p-16 rounded-[3rem] shadow-sm border border-dark/5">
+            <h1 className="text-3xl md:text-5xl font-serif italic font-bold text-dark mb-8">Mentions légales</h1>
+            <div className="prose prose-lg text-dark/80 font-sans">
+                <h3 className="text-xl font-bold text-dark mt-8 mb-4">1. Éditeur du service</h3>
+                <p className="mb-4">La plateforme <strong>Printacote</strong> est éditée par la société Printacote, enregistrée au Sénégal.</p>
+                <p className="mb-4"><strong>Siège social :</strong> Dakar, Sénégal.</p>
+                <p className="mb-4"><strong>Contact :</strong> contact@printacote.com</p>
+                
+                <h3 className="text-xl font-bold text-dark mt-8 mb-4">2. Directeur de la publication</h3>
+                <p className="mb-4">Le directeur de la publication est le représentant légal de Printacote.</p>
+                
+                <h3 className="text-xl font-bold text-dark mt-8 mb-4">3. Hébergement</h3>
+                <p className="mb-4">La plateforme technologique est hébergée par <strong>Vercel Inc.</strong></p>
+                <p className="mb-4">340 S Lemon Ave #4133<br/>Walnut, CA 91789, USA</p>
+            </div>
+            <button onClick={() => setPage('home')} className="mt-12 magnetic-btn bg-dark text-white px-8 py-4 rounded-xl font-bold text-sm">Retour à l'accueil</button>
+        </div>
+    </div>
+);
 
 const Layout = ({ children, setPage, currentPage }) => {
     return (
@@ -811,6 +891,9 @@ export default function App() {
             {page === 'news' && <News />}
             {page === 'login' && <Login setPage={setPage} />}
             {page === 'register' && <Register setPage={setPage} />}
+            {page === 'terms' && <TermsOfUse setPage={setPage} />}
+            {page === 'privacy' && <PrivacyPolicy setPage={setPage} />}
+            {page === 'legal' && <LegalNotice setPage={setPage} />}
         </Layout>
     );
 }
