@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { ArrowRight, MapPin, Clock, User, Store, ShoppingCart, Newspaper, CheckCircle, Star, MessageCircle, Phone, Award, Menu, X, ArrowLeft, Image as ImageIcon, Share2 } from 'lucide-react';
+import { ArrowRight, MapPin, Clock, User, Store, ShoppingCart, Newspaper, CheckCircle, Star, MessageCircle, Phone, Award, Menu, X, ArrowLeft, Image as ImageIcon, Share2, LayoutDashboard, Settings, Tool, Plus, LogOut, ChevronRight, CreditCard } from 'lucide-react';
 
 gsap.registerPlugin(ScrollTrigger);
 
@@ -64,6 +64,9 @@ const Navbar = ({ setPage, currentPage }) => {
                     <button onClick={() => handleNav('login')} className="text-sm font-bold hover:text-accent transition-colors w-full md:w-auto text-left py-2 md:py-0">
                         Se connecter
                     </button>
+                    <button onClick={() => handleNav('dashboard')} className="text-sm font-bold text-accent hover:text-dark transition-colors w-full md:w-auto text-left py-2 md:py-0 flex items-center gap-2">
+                        <LayoutDashboard size={16} /> Espace Pro
+                    </button>
                     <button onClick={() => handleNav('register')} className="magnetic-btn bg-accent text-white px-5 py-3 rounded-full text-sm font-bold flex items-center justify-center gap-2 shrink-0 w-full md:w-auto">
                         <span>Inscrire mon imprimerie</span>
                     </button>
@@ -102,7 +105,7 @@ const Hero = ({ setPage }) => {
             
             <div className="relative z-10 w-full px-6 md:px-16 flex flex-col items-center">
                 <h1 className="text-[#F5F2EB] flex flex-col gap-2 items-center">
-                    <span className="hero-text text-5xl md:text-7xl lg:text-8xl font-sans font-bold leading-tight tracking-tight max-w-5xl">Trouvez l'imprimeur <span className="font-serif italic font-normal text-accent">le plus proche de vous.</span></span>
+                    <span className="hero-text text-5xl md:text-7xl lg:text-8xl font-sans font-bold leading-tight tracking-tight max-w-5xl">Trouvez l'imprimeur le plus proche de vous.</span>
                 </h1>
                 <p className="hero-text text-[#F5F2EB]/80 mt-8 text-lg md:text-xl max-w-2xl font-sans">
                     Découvrez les professionnels certifiés en un instant, ou développez votre vitrine numérique pour capter plus de commandes locales.
@@ -218,11 +221,14 @@ const Printers = ({ setPage, setSelectedPrinter }) => {
                                 <p className="text-dark/70 text-sm mb-8 leading-relaxed min-h-[40px]">{printer.desc}</p>
                                 
                                 {/* Buttons */}
-                                <div className="flex gap-3">
-                                    <button onClick={(e) => e.stopPropagation()} className="flex-1 bg-[#25D366]/10 text-[#25D366] py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-[#25D366] hover:text-white transition-colors font-bold text-sm">
+                                <div className="flex gap-2 mt-4">
+                                    <button onClick={(e) => { e.stopPropagation(); alert('Lien du profil copié !'); }} className="bg-dark/5 text-dark p-3 rounded-xl flex items-center justify-center hover:bg-dark/10 transition-colors" title="Partager le profil">
+                                        <Share2 size={18} />
+                                    </button>
+                                    <button onClick={(e) => { e.stopPropagation(); window.open('https://wa.me/221770000000', '_blank'); }} className="flex-1 bg-[#25D366]/10 text-[#25D366] py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-[#25D366] hover:text-white transition-colors font-bold text-sm">
                                         <MessageCircle size={18} /> WhatsApp
                                     </button>
-                                    <button onClick={(e) => e.stopPropagation()} className="flex-1 bg-primary/10 text-primary py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-primary hover:text-white transition-colors font-bold text-sm">
+                                    <button onClick={(e) => { e.stopPropagation(); window.location.href='tel:+221770000000'; }} className="flex-1 bg-primary/10 text-primary py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-primary hover:text-white transition-colors font-bold text-sm">
                                         <Phone size={18} /> Appeler
                                     </button>
                                 </div>
@@ -318,13 +324,28 @@ const PrinterDetail = ({ printer, setPage }) => {
 
                             <div>
                                 <h3 className="text-xl font-bold font-sans mb-6 flex items-center gap-2"><MapPin size={20} className="text-accent" /> Localisation</h3>
-                                <div className="bg-background rounded-2xl p-6 border border-dark/5 h-full flex items-start gap-4">
-                                    <div className="bg-accent/10 p-3 rounded-xl text-accent shrink-0">
-                                        <MapPin size={24} />
+                                <div className="bg-background rounded-2xl overflow-hidden border border-dark/5 h-full flex flex-col">
+                                    <div className="p-4 flex items-start gap-3 bg-white">
+                                        <div className="bg-accent/10 p-2 rounded-xl text-accent shrink-0">
+                                            <MapPin size={20} />
+                                        </div>
+                                        <div>
+                                            <p className="font-bold text-dark text-sm">{printer.location || "Dakar, Sénégal"}</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <h4 className="font-bold text-dark mb-1">Adresse principale</h4>
-                                        <p className="text-dark/70 text-sm">{printer.location || "123 Avenue des Imprimeurs, Dakar, Sénégal"}</p>
+                                    <div className="flex-1 min-h-[150px] bg-dark/5 relative">
+                                        <iframe 
+                                            width="100%" 
+                                            height="100%" 
+                                            frameBorder="0" 
+                                            scrolling="no" 
+                                            marginHeight="0" 
+                                            marginWidth="0" 
+                                            src={`https://www.openstreetmap.org/export/embed.html?bbox=-17.4811%2C14.6780%2C-17.4111%2C14.7380&layer=mapnik`}
+                                            className="absolute inset-0 w-full h-full"
+                                            style={{ filter: 'grayscale(0.8) contrast(1.2)' }}
+                                            title="Carte de localisation"
+                                        ></iframe>
                                     </div>
                                 </div>
                             </div>
@@ -861,6 +882,262 @@ const LegalNotice = ({ setPage }) => (
     </div>
 );
 
+const PrinterDashboard = ({ setPage }) => {
+    const [activeTab, setActiveTab] = useState('overview');
+
+    return (
+        <div className="min-h-screen bg-background flex flex-col md:flex-row pt-24 md:pt-0">
+            {/* Sidebar */}
+            <aside className="w-full md:w-64 bg-white border-r border-dark/5 flex flex-col shrink-0 md:h-screen md:sticky md:top-0">
+                <div className="p-6 border-b border-dark/5 hidden md:block mt-20">
+                    <h2 className="font-bold font-sans text-xl tracking-tight text-accent">Espace Pro</h2>
+                </div>
+                <nav className="flex-1 overflow-x-auto md:overflow-y-auto p-4 flex md:flex-col gap-2">
+                    <button onClick={() => setActiveTab('overview')} className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'overview' ? 'bg-accent/10 text-accent' : 'text-dark/60 hover:bg-dark/5'}`}>
+                        <LayoutDashboard size={18} /> Vue d'ensemble
+                    </button>
+                    <button onClick={() => setActiveTab('profile')} className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'profile' ? 'bg-accent/10 text-accent' : 'text-dark/60 hover:bg-dark/5'}`}>
+                        <User size={18} /> Profil Public
+                    </button>
+                    <button onClick={() => setActiveTab('services')} className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'services' ? 'bg-accent/10 text-accent' : 'text-dark/60 hover:bg-dark/5'}`}>
+                        <Tool size={18} /> Mes Services
+                    </button>
+                    <button onClick={() => setActiveTab('portfolio')} className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'portfolio' ? 'bg-accent/10 text-accent' : 'text-dark/60 hover:bg-dark/5'}`}>
+                        <ImageIcon size={18} /> Réalisations
+                    </button>
+                    <button onClick={() => setActiveTab('marketplace')} className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'marketplace' ? 'bg-accent/10 text-accent' : 'text-dark/60 hover:bg-dark/5'}`}>
+                        <Store size={18} /> Marketplace
+                    </button>
+                    <button onClick={() => setActiveTab('billing')} className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold whitespace-nowrap transition-colors ${activeTab === 'billing' ? 'bg-accent/10 text-accent' : 'text-dark/60 hover:bg-dark/5'}`}>
+                        <CreditCard size={18} /> Abonnement
+                    </button>
+                </nav>
+                <div className="p-4 border-t border-dark/5 mt-auto">
+                    <button onClick={() => setPage('home')} className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-red-500 hover:bg-red-50 w-full transition-colors">
+                        <LogOut size={18} /> Déconnexion
+                    </button>
+                </div>
+            </aside>
+
+            {/* Main Content */}
+            <main className="flex-1 p-6 md:p-12 overflow-y-auto md:pt-32">
+                {activeTab === 'overview' && (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <h1 className="text-3xl font-bold font-sans mb-8">Tableau de bord</h1>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
+                            <div className="bg-white p-6 rounded-2xl border border-dark/5 shadow-sm">
+                                <div className="text-dark/60 text-sm font-bold mb-2">Vues du profil (30j)</div>
+                                <div className="text-4xl font-bold text-dark">1,248</div>
+                                <div className="text-[#25D366] text-sm font-bold mt-2 flex items-center gap-1">+12% vs mois dernier</div>
+                            </div>
+                            <div className="bg-white p-6 rounded-2xl border border-dark/5 shadow-sm">
+                                <div className="text-dark/60 text-sm font-bold mb-2">Clics WhatsApp</div>
+                                <div className="text-4xl font-bold text-dark">84</div>
+                                <div className="text-[#25D366] text-sm font-bold mt-2 flex items-center gap-1">+5% vs mois dernier</div>
+                            </div>
+                            <div className="bg-white p-6 rounded-2xl border border-dark/5 shadow-sm">
+                                <div className="text-dark/60 text-sm font-bold mb-2">Note moyenne</div>
+                                <div className="text-4xl font-bold text-[#D4A843] flex items-center gap-2">4.8 <Star size={24} fill="currentColor" /></div>
+                                <div className="text-dark/60 text-sm font-bold mt-2">Basé sur 12 avis</div>
+                            </div>
+                        </div>
+                        
+                        <h2 className="text-xl font-bold font-sans mb-6">Activité récente</h2>
+                        <div className="bg-white rounded-2xl border border-dark/5 shadow-sm overflow-hidden">
+                            {[1, 2, 3].map(i => (
+                                <div key={i} className="p-4 border-b border-dark/5 flex items-center justify-between hover:bg-dark/5 transition-colors cursor-pointer">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 rounded-full bg-accent/10 text-accent flex items-center justify-center">
+                                            <User size={18} />
+                                        </div>
+                                        <div>
+                                            <div className="font-bold text-sm text-dark">Nouveau client sur WhatsApp</div>
+                                            <div className="text-xs text-dark/60">Il y a {i * 2} heures</div>
+                                        </div>
+                                    </div>
+                                    <ChevronRight size={18} className="text-dark/40" />
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'profile' && (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-2xl">
+                        <h1 className="text-3xl font-bold font-sans mb-8">Profil Public</h1>
+                        <div className="bg-white rounded-3xl p-8 border border-dark/5 shadow-sm">
+                            <div className="flex items-center gap-6 mb-8">
+                                <div className="w-24 h-24 rounded-2xl bg-dark/5 overflow-hidden">
+                                    <img src="https://images.unsplash.com/photo-1560157368-946d9c8f7cb6?q=80&w=200&auto=format&fit=crop" alt="Logo" className="w-full h-full object-cover" />
+                                </div>
+                                <button className="px-4 py-2 border border-dark/10 rounded-xl text-sm font-bold hover:bg-dark/5 transition-colors">Changer le logo</button>
+                            </div>
+                            
+                            <div className="space-y-6">
+                                <div>
+                                    <label className="block text-sm font-bold text-dark mb-2">Nom de l'imprimerie</label>
+                                    <input type="text" defaultValue="Imprimerie ABC" className="w-full bg-background border border-dark/10 rounded-xl px-4 py-3 focus:outline-none focus:border-accent" />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-dark mb-2">Description</label>
+                                    <textarea rows="4" defaultValue="Spécialiste en impression numérique et offset depuis 10 ans." className="w-full bg-background border border-dark/10 rounded-xl px-4 py-3 focus:outline-none focus:border-accent resize-none"></textarea>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-bold text-dark mb-2">Adresse</label>
+                                    <input type="text" defaultValue="Point E, Dakar" className="w-full bg-background border border-dark/10 rounded-xl px-4 py-3 focus:outline-none focus:border-accent" />
+                                </div>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-bold text-dark mb-2">WhatsApp</label>
+                                        <input type="tel" defaultValue="+221 77 123 45 67" className="w-full bg-background border border-dark/10 rounded-xl px-4 py-3 focus:outline-none focus:border-accent" />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-bold text-dark mb-2">Téléphone</label>
+                                        <input type="tel" defaultValue="+221 33 800 00 00" className="w-full bg-background border border-dark/10 rounded-xl px-4 py-3 focus:outline-none focus:border-accent" />
+                                    </div>
+                                </div>
+                                <button className="mt-4 magnetic-btn bg-accent text-white px-6 py-3 rounded-xl font-bold w-full text-center">Enregistrer les modifications</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'services' && (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div className="flex justify-between items-center mb-8">
+                            <h1 className="text-3xl font-bold font-sans">Mes Services</h1>
+                            <button className="flex items-center gap-2 bg-dark text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-dark/90 transition-colors">
+                                <Plus size={16} /> Ajouter
+                            </button>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+                            {["Impression Numérique", "Offset", "Grand Format", "Sérigraphie", "Reliure spirale"].map((s, i) => (
+                                <div key={i} className="bg-white p-4 rounded-xl border border-dark/5 shadow-sm flex justify-between items-center group">
+                                    <span className="font-bold text-dark/80">{s}</span>
+                                    <button className="text-red-500 opacity-0 group-hover:opacity-100 transition-opacity"><X size={18} /></button>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'portfolio' && (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div className="flex justify-between items-center mb-8">
+                            <h1 className="text-3xl font-bold font-sans">Mes Réalisations</h1>
+                            <button className="flex items-center gap-2 bg-dark text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-dark/90 transition-colors">
+                                <Plus size={16} /> Uploader
+                            </button>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            {[1, 2, 3, 4, 5, 6].map(i => (
+                                <div key={i} className="aspect-square bg-dark/5 rounded-2xl overflow-hidden relative group">
+                                    <img src={`https://images.unsplash.com/photo-1586075010923-2dd4570fb338?q=80&w=400&auto=format&fit=crop&sig=${i}`} className="w-full h-full object-cover" />
+                                    <div className="absolute inset-0 bg-dark/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                        <button className="bg-white/20 backdrop-blur-sm text-white p-2 rounded-full hover:bg-red-500 hover:text-white transition-colors">
+                                            <X size={20} />
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'marketplace' && (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                        <div className="flex justify-between items-center mb-8">
+                            <h1 className="text-3xl font-bold font-sans">Mes Produits Marketplace</h1>
+                            <button className="flex items-center gap-2 bg-dark text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-dark/90 transition-colors">
+                                <Plus size={16} /> Nouveau Produit
+                            </button>
+                        </div>
+                        <div className="bg-white rounded-3xl border border-dark/5 shadow-sm overflow-hidden">
+                            <div className="overflow-x-auto">
+                                <table className="w-full text-left">
+                                    <thead className="bg-dark/5 text-sm font-bold text-dark/60">
+                                        <tr>
+                                            <th className="p-4">Produit</th>
+                                            <th className="p-4">Prix</th>
+                                            <th className="p-4">Statut</th>
+                                            <th className="p-4">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {[1, 2].map(i => (
+                                            <tr key={i} className="border-t border-dark/5 hover:bg-dark/5 transition-colors">
+                                                <td className="p-4 flex items-center gap-3">
+                                                    <div className="w-12 h-12 bg-dark/10 rounded-lg overflow-hidden shrink-0 hidden sm:block">
+                                                        <img src={`https://images.unsplash.com/photo-1588693895245-5df180e06001?q=80&w=150&auto=format&fit=crop&sig=${i}`} className="w-full h-full object-cover" />
+                                                    </div>
+                                                    <span className="font-bold text-sm">Cartes de visite Premium {i}</span>
+                                                </td>
+                                                <td className="p-4 font-bold text-sm">15,000 CFA</td>
+                                                <td className="p-4">
+                                                    <span className="bg-[#25D366]/10 text-[#25D366] text-xs font-bold px-2 py-1 rounded-full">En ligne</span>
+                                                </td>
+                                                <td className="p-4">
+                                                    <button className="text-dark/40 hover:text-dark transition-colors"><Settings size={18} /></button>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {activeTab === 'billing' && (
+                    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-4xl">
+                        <h1 className="text-3xl font-bold font-sans mb-8">Abonnement & Facturation</h1>
+                        
+                        <div className="bg-accent/5 rounded-3xl p-8 border border-accent/20 mb-8 flex flex-col md:flex-row justify-between items-center gap-6">
+                            <div>
+                                <h3 className="text-xl font-bold font-sans text-dark mb-2">Forfait Actuel : Essentiel</h3>
+                                <p className="text-dark/70 text-sm">Gratuit • Renouvellement automatique</p>
+                            </div>
+                            <button className="magnetic-btn bg-accent text-white px-6 py-3 rounded-xl font-bold whitespace-nowrap w-full md:w-auto">Passer à Performance</button>
+                        </div>
+
+                        <h2 className="text-xl font-bold font-sans mb-6">Historique des factures</h2>
+                        <div className="bg-white rounded-2xl border border-dark/5 shadow-sm overflow-hidden">
+                            <table className="w-full text-left">
+                                <thead className="bg-dark/5 text-sm font-bold text-dark/60">
+                                    <tr>
+                                        <th className="p-4">Date</th>
+                                        <th className="p-4">Description</th>
+                                        <th className="p-4">Montant</th>
+                                        <th className="p-4">Statut</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr className="border-t border-dark/5 hover:bg-dark/5 transition-colors">
+                                        <td className="p-4 text-sm">01 Mai 2026</td>
+                                        <td className="p-4 font-bold text-sm">Abonnement Essentiel (Mensuel)</td>
+                                        <td className="p-4 text-sm">0 CFA</td>
+                                        <td className="p-4">
+                                            <span className="bg-[#25D366]/10 text-[#25D366] text-xs font-bold px-2 py-1 rounded-full">Payé</span>
+                                        </td>
+                                    </tr>
+                                    <tr className="border-t border-dark/5 hover:bg-dark/5 transition-colors">
+                                        <td className="p-4 text-sm">01 Avr 2026</td>
+                                        <td className="p-4 font-bold text-sm">Abonnement Essentiel (Mensuel)</td>
+                                        <td className="p-4 text-sm">0 CFA</td>
+                                        <td className="p-4">
+                                            <span className="bg-[#25D366]/10 text-[#25D366] text-xs font-bold px-2 py-1 rounded-full">Payé</span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                )}
+            </main>
+        </div>
+    );
+};
+
 const Layout = ({ children, setPage, currentPage }) => {
     return (
         <div className="relative w-full min-h-screen flex flex-col font-sans bg-background text-dark">
@@ -869,7 +1146,7 @@ const Layout = ({ children, setPage, currentPage }) => {
             <main className="flex-1 relative z-10 w-full flex flex-col">
                 {children}
             </main>
-            {currentPage !== 'login' && currentPage !== 'register' && <Footer setPage={setPage} />}
+            {currentPage !== 'login' && currentPage !== 'register' && currentPage !== 'dashboard' && <Footer setPage={setPage} />}
         </div>
     );
 };
@@ -891,6 +1168,7 @@ export default function App() {
             {page === 'news' && <News />}
             {page === 'login' && <Login setPage={setPage} />}
             {page === 'register' && <Register setPage={setPage} />}
+            {page === 'dashboard' && <PrinterDashboard setPage={setPage} />}
             {page === 'terms' && <TermsOfUse setPage={setPage} />}
             {page === 'privacy' && <PrivacyPolicy setPage={setPage} />}
             {page === 'legal' && <LegalNotice setPage={setPage} />}
