@@ -5,6 +5,19 @@ import { ArrowRight, MapPin, Clock, User, Store, ShoppingCart, Newspaper, CheckC
 
 gsap.registerPlugin(ScrollTrigger);
 
+const AdBanner = () => (
+    <div className="w-full bg-primary/5 border border-primary/10 rounded-[2rem] p-6 mb-12 flex flex-col sm:flex-row items-center justify-between gap-6">
+        <div>
+            <div className="text-xs font-mono text-accent mb-2 uppercase font-bold tracking-wider">Espace Publicitaire</div>
+            <h3 className="font-bold font-sans text-2xl text-dark">Exposez votre publicité ici</h3>
+            <p className="text-sm text-dark/70 mt-1 max-w-md">Touchez des milliers d'imprimeurs et de clients en affichant votre marque directement sur notre plateforme.</p>
+        </div>
+        <button className="magnetic-btn shrink-0 bg-accent text-white px-6 py-4 rounded-xl font-bold text-sm flex items-center gap-2">
+            <Phone size={18} /> Contacter la régie
+        </button>
+    </div>
+);
+
 const Navbar = ({ setPage, currentPage }) => {
     const navRef = useRef(null);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -35,23 +48,23 @@ const Navbar = ({ setPage, currentPage }) => {
             <nav ref={navRef} className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-8 px-6 py-3 rounded-[2rem] border border-transparent transition-colors text-[#F5F2EB] w-full max-w-5xl bg-primary/40 backdrop-blur-md">
                 <div className="flex items-center justify-between w-full md:w-auto">
                     <a href="#" onClick={(e) => { e.preventDefault(); handleNav('home'); }} className="font-bold text-xl font-sans tracking-tight shrink-0">Printacote</a>
-                    <button className="md:hidden p-1" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
-                        {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                    <button className="md:hidden p-2 bg-dark/5 rounded-full" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+                        {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
                     </button>
                 </div>
                 
-                <div className={`${isMobileMenuOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row gap-6 text-sm font-medium opacity-90 mt-4 md:mt-0`}>
+                <div className={`${isMobileMenuOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row gap-6 text-sm font-medium opacity-90 mt-4 md:mt-0 bg-primary md:bg-transparent p-6 md:p-0 rounded-2xl md:rounded-none w-full md:w-auto`}>
                     <a href="#" onClick={(e) => { e.preventDefault(); handleNav('home'); }} className={`hover-lift ${currentPage === 'home' ? 'text-accent' : ''}`}>Accueil</a>
                     <a href="#" onClick={(e) => { e.preventDefault(); handleNav('printers'); }} className={`hover-lift flex items-center gap-1 ${currentPage === 'printers' || currentPage === 'printer_detail' ? 'text-accent' : ''}`}><Store size={16} /> Imprimeurs</a>
                     <a href="#" onClick={(e) => { e.preventDefault(); handleNav('marketplace'); }} className={`hover-lift flex items-center gap-1 ${currentPage === 'marketplace' ? 'text-accent' : ''}`}><ShoppingCart size={16} /> Marketplace</a>
                     <a href="#" onClick={(e) => { e.preventDefault(); handleNav('news'); }} className={`hover-lift flex items-center gap-1 ${currentPage === 'news' ? 'text-accent' : ''}`}><Newspaper size={16} /> Actualités</a>
                 </div>
 
-                <div className={`${isMobileMenuOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row items-center gap-3 mt-4 md:mt-0`}>
-                    <button onClick={() => handleNav('login')} className="text-sm font-bold hover:text-accent transition-colors">
+                <div className={`${isMobileMenuOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row items-center gap-3 mt-4 md:mt-0 w-full md:w-auto`}>
+                    <button onClick={() => handleNav('login')} className="text-sm font-bold hover:text-accent transition-colors w-full md:w-auto text-left py-2 md:py-0">
                         Se connecter
                     </button>
-                    <button onClick={() => handleNav('register')} className="magnetic-btn bg-accent text-white px-5 py-2 rounded-full text-sm font-bold flex items-center justify-center gap-2 shrink-0 w-full md:w-auto">
+                    <button onClick={() => handleNav('register')} className="magnetic-btn bg-accent text-white px-5 py-3 rounded-full text-sm font-bold flex items-center justify-center gap-2 shrink-0 w-full md:w-auto">
                         <span>Inscrire mon imprimerie</span>
                     </button>
                 </div>
@@ -169,6 +182,8 @@ const Printers = ({ setPage, setSelectedPrinter }) => {
                     <h1 className="text-4xl md:text-6xl font-serif italic font-bold text-dark mb-4">Imprimeurs à proximité</h1>
                     <p className="text-lg text-dark/70 font-sans max-w-2xl">Découvrez les professionnels certifiés prêts à réaliser vos projets d'impression.</p>
                 </div>
+                
+                <AdBanner />
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {printersList.map(printer => (
@@ -473,9 +488,71 @@ const CTA = ({ setPage }) => (
     </section>
 );
 
+const Pricing = ({ setPage }) => {
+    return (
+        <section id="pricing" className="py-24 md:py-32 px-6 md:px-16 bg-background overflow-hidden relative border-t border-dark/5">
+            <div className="max-w-7xl mx-auto relative z-10">
+                <div className="text-center max-w-3xl mx-auto mb-16">
+                    <h2 className="text-4xl md:text-5xl font-serif italic font-bold text-dark">Abonnements Imprimeurs</h2>
+                    <p className="mt-4 text-lg text-dark/60 font-sans">Choisissez le forfait qui correspond au volume de votre imprimerie.</p>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
+                    {/* Essentiel */}
+                    <div className="bg-white rounded-[2rem] p-8 border border-dark/5 flex flex-col hover-lift">
+                        <h3 className="text-xl font-bold font-sans mb-2 text-dark">Essentiel</h3>
+                        <div className="text-4xl font-bold font-sans mb-6 text-dark">Gratuit</div>
+                        <p className="text-dark/60 text-sm mb-8">Pour démarrer votre vitrine en ligne.</p>
+                        <ul className="flex flex-col gap-4 text-sm mb-10 flex-1">
+                            <li className="flex items-center gap-3 text-dark/80"><CheckCircle size={16} className="text-accent" /> <span>Profil de base</span></li>
+                            <li className="flex items-center gap-3 text-dark/80"><CheckCircle size={16} className="text-accent" /> <span>Référencement local</span></li>
+                            <li className="flex items-center gap-3 text-dark/80"><CheckCircle size={16} className="text-accent" /> <span>Accès Marketplace (Achat)</span></li>
+                        </ul>
+                        <button onClick={() => setPage('register')} className="w-full py-3 rounded-xl border border-dark/20 font-bold hover:bg-dark/5 transition-colors text-sm text-dark">
+                            S'inscrire
+                        </button>
+                    </div>
+
+                    {/* Performance */}
+                    <div className="bg-primary rounded-[2rem] p-10 shadow-2xl flex flex-col hover-lift relative md:-translate-y-4">
+                        <div className="absolute top-0 left-1/2 -translate-x-1/2 -mt-3 bg-accent text-white text-xs font-bold px-4 py-1 rounded-full shadow-lg">POPULAIRE</div>
+                        <h3 className="text-xl font-bold font-sans mb-2 text-white">Performance</h3>
+                        <div className="text-4xl font-bold font-sans mb-6 text-white">15.000 <span className="text-lg font-normal opacity-70">CFA/mois</span></div>
+                        <p className="text-white/70 text-sm mb-8">Pour les professionnels établis.</p>
+                        <ul className="flex flex-col gap-4 text-sm mb-10 flex-1 text-white/90">
+                            <li className="flex items-center gap-3"><CheckCircle size={16} className="text-accent" /> <span>Profil Premium (Badge PRO)</span></li>
+                            <li className="flex items-center gap-3"><CheckCircle size={16} className="text-accent" /> <span>Mise en avant dans les résultats</span></li>
+                            <li className="flex items-center gap-3"><CheckCircle size={16} className="text-accent" /> <span>Réception de commandes directes</span></li>
+                            <li className="flex items-center gap-3"><CheckCircle size={16} className="text-accent" /> <span>Bouton WhatsApp prioritaire</span></li>
+                        </ul>
+                        <button onClick={() => setPage('register')} className="magnetic-btn w-full py-4 rounded-xl bg-accent text-white font-bold hover:bg-accent/90 transition-colors text-sm shadow-xl">
+                            Commencer l'essai
+                        </button>
+                    </div>
+
+                    {/* Entreprise */}
+                    <div className="bg-white rounded-[2rem] p-8 border border-dark/5 flex flex-col hover-lift">
+                        <h3 className="text-xl font-bold font-sans mb-2 text-dark">Entreprise</h3>
+                        <div className="text-4xl font-bold font-sans mb-6 text-dark">Sur devis</div>
+                        <p className="text-dark/60 text-sm mb-8">Pour les grandes imprimeries industrielles.</p>
+                        <ul className="flex flex-col gap-4 text-sm mb-10 flex-1">
+                            <li className="flex items-center gap-3 text-dark/80"><CheckCircle size={16} className="text-accent" /> <span>Accès Marketplace (Vente illimitée)</span></li>
+                            <li className="flex items-center gap-3 text-dark/80"><CheckCircle size={16} className="text-accent" /> <span>Support prioritaire 24/7</span></li>
+                            <li className="flex items-center gap-3 text-dark/80"><CheckCircle size={16} className="text-accent" /> <span>Publicité sur la plateforme</span></li>
+                        </ul>
+                        <button onClick={() => setPage('register')} className="w-full py-3 rounded-xl border border-dark/20 font-bold hover:bg-dark/5 transition-colors text-sm text-dark">
+                            Contacter les ventes
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </section>
+    );
+};
+
 const Footer = ({ setPage }) => (
-    <footer className="bg-dark text-background rounded-t-[3rem] sm:rounded-t-[4rem] px-8 md:px-16 pt-24 pb-12 flex flex-col gap-12 sm:gap-16 relative z-20">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-12 border-b border-background/10 pb-12 sm:pb-16">
+    <footer className="bg-dark text-background rounded-t-[3rem] sm:rounded-t-[4rem] px-8 md:px-16 pt-24 pb-12 flex flex-col gap-12 sm:gap-16 relative z-20 mt-auto">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-12 border-b border-background/10 pb-12 sm:pb-16">
             <div className="flex flex-col gap-6 md:col-span-2">
                 <div className="font-bold text-3xl font-sans tracking-tight">Printacote</div>
                 <p className="text-background/60 max-w-sm font-sans">La connexion instantanée entre imprimeurs et clients locaux. Marketplace et annuaire numérique de confiance.</p>
@@ -491,6 +568,12 @@ const Footer = ({ setPage }) => (
                 <h4 className="font-mono text-sm uppercase text-background/40">Accès</h4>
                 <a href="#" onClick={(e) => { e.preventDefault(); setPage('login'); }} className="hover:text-accent transition-colors">Se connecter</a>
                 <a href="#" onClick={(e) => { e.preventDefault(); setPage('register'); }} className="hover:text-accent transition-colors">Inscrire mon imprimerie</a>
+            </div>
+            <div className="flex flex-col gap-4">
+                <h4 className="font-mono text-sm uppercase text-background/40">Légal</h4>
+                <a href="#" className="hover:text-accent transition-colors">Conditions d'utilisation</a>
+                <a href="#" className="hover:text-accent transition-colors">Politique de confidentialité</a>
+                <a href="#" className="hover:text-accent transition-colors">Mentions légales</a>
             </div>
         </div>
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-center sm:text-left">
@@ -510,6 +593,7 @@ const Home = ({ setPage }) => (
         <Hero setPage={setPage} />
         <Features />
         <Philosophy />
+        <Pricing setPage={setPage} />
         <CTA setPage={setPage} />
     </>
 );
@@ -531,6 +615,9 @@ const Marketplace = () => {
                     <h1 className="text-4xl md:text-6xl font-serif italic font-bold text-dark mb-4">Marketplace Consommables</h1>
                     <p className="text-lg text-dark/70 max-w-2xl">L'espace dédié aux imprimeurs pour acheter et revendre du matériel et des consommables professionnels.</p>
                 </div>
+                
+                <AdBanner />
+                
                 <div className="flex flex-col md:flex-row gap-8">
                     <div className="w-full md:w-64 shrink-0">
                         <div className="bg-white p-6 rounded-[2rem] border border-dark/5 sticky top-32">
@@ -631,34 +718,17 @@ const Login = ({ setPage }) => {
 };
 
 const Register = ({ setPage }) => {
-    const [role, setRole] = useState('client');
-
     return (
-        <div className="min-h-screen flex items-center justify-center px-6 py-24 bg-background bg-[url('https://images.unsplash.com/photo-1562664347-4950157077a9?q=80&w=2500&auto=format&fit=crop')] bg-cover bg-center">
+        <div className="min-h-screen flex items-center justify-center px-6 py-32 bg-background bg-[url('https://images.unsplash.com/photo-1562664347-4950157077a9?q=80&w=2500&auto=format&fit=crop')] bg-cover bg-center">
             <div className="absolute inset-0 bg-primary/80 backdrop-blur-sm"></div>
-            <div className="relative z-10 w-full max-w-lg bg-white p-10 rounded-[3rem] shadow-2xl">
+            <div className="relative z-10 w-full max-w-xl bg-white p-8 md:p-12 rounded-[3rem] shadow-2xl mt-12 md:mt-0">
                 <div className="text-center mb-8">
-                    <h2 className="text-3xl font-bold text-dark font-sans tracking-tight">Rejoindre le réseau.</h2>
-                    <p className="text-dark/60 mt-2">Créez votre compte en quelques secondes.</p>
+                    <h2 className="text-3xl font-bold text-dark font-sans tracking-tight">Inscription Imprimeur.</h2>
+                    <p className="text-dark/60 mt-2">Créez votre vitrine professionnelle en quelques minutes.</p>
                 </div>
                 
-                <div className="flex bg-background rounded-xl p-1 mb-8">
-                    <button 
-                        onClick={() => setRole('client')}
-                        className={`flex-1 py-3 text-sm font-bold rounded-lg transition-colors ${role === 'client' ? 'bg-white shadow-sm text-dark' : 'text-dark/50 hover:text-dark'}`}
-                    >
-                        Je suis un Client
-                    </button>
-                    <button 
-                        onClick={() => setRole('printer')}
-                        className={`flex-1 py-3 text-sm font-bold rounded-lg transition-colors ${role === 'printer' ? 'bg-white shadow-sm text-dark' : 'text-dark/50 hover:text-dark'}`}
-                    >
-                        Je suis un Imprimeur
-                    </button>
-                </div>
-
                 <form className="flex flex-col gap-5" onSubmit={(e) => { e.preventDefault(); setPage('home'); }}>
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div>
                             <label className="block text-sm font-bold text-dark mb-2">Prénom</label>
                             <input type="text" className="w-full bg-background border border-dark/10 rounded-xl px-4 py-3 focus:outline-none focus:border-accent transition-colors" required />
@@ -668,22 +738,39 @@ const Register = ({ setPage }) => {
                             <input type="text" className="w-full bg-background border border-dark/10 rounded-xl px-4 py-3 focus:outline-none focus:border-accent transition-colors" required />
                         </div>
                     </div>
-                    {role === 'printer' && (
+                    
+                    <div>
+                        <label className="block text-sm font-bold text-dark mb-2">Nom de l'imprimerie</label>
+                        <input type="text" placeholder="Ex: Imprimerie Express" className="w-full bg-background border border-dark/10 rounded-xl px-4 py-3 focus:outline-none focus:border-accent transition-colors" required />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                         <div>
-                            <label className="block text-sm font-bold text-dark mb-2">Nom de l'imprimerie</label>
-                            <input type="text" placeholder="Ex: Imprimerie Express" className="w-full bg-background border border-dark/10 rounded-xl px-4 py-3 focus:outline-none focus:border-accent transition-colors" required />
+                            <label className="block text-sm font-bold text-dark mb-2">Pays</label>
+                            <input type="text" placeholder="Ex: Sénégal" className="w-full bg-background border border-dark/10 rounded-xl px-4 py-3 focus:outline-none focus:border-accent transition-colors" required />
                         </div>
-                    )}
+                        <div>
+                            <label className="block text-sm font-bold text-dark mb-2">Adresse exacte</label>
+                            <input type="text" placeholder="Quartier, Rue..." className="w-full bg-background border border-dark/10 rounded-xl px-4 py-3 focus:outline-none focus:border-accent transition-colors" required />
+                        </div>
+                    </div>
+
                     <div>
                         <label className="block text-sm font-bold text-dark mb-2">Email</label>
-                        <input type="email" className="w-full bg-background border border-dark/10 rounded-xl px-4 py-3 focus:outline-none focus:border-accent transition-colors" required />
+                        <input type="email" placeholder="contact@imprimerie.com" className="w-full bg-background border border-dark/10 rounded-xl px-4 py-3 focus:outline-none focus:border-accent transition-colors" required />
                     </div>
                     <div>
                         <label className="block text-sm font-bold text-dark mb-2">Mot de passe</label>
                         <input type="password" placeholder="••••••••" className="w-full bg-background border border-dark/10 rounded-xl px-4 py-3 focus:outline-none focus:border-accent transition-colors" required />
                     </div>
-                    <button type="submit" className="magnetic-btn bg-accent text-white font-bold py-4 rounded-xl mt-2 w-full">
-                        Créer mon compte
+                    
+                    <div className="flex items-start gap-3 mt-2">
+                        <input type="checkbox" id="terms" className="mt-1 accent-accent" required />
+                        <label htmlFor="terms" className="text-sm text-dark/70">J'accepte les <a href="#" className="text-accent hover:underline font-bold">conditions d'utilisation</a> et la <a href="#" className="text-accent hover:underline font-bold">politique de confidentialité</a>.</label>
+                    </div>
+
+                    <button type="submit" className="magnetic-btn bg-accent text-white font-bold py-4 rounded-xl mt-4 w-full text-lg shadow-lg">
+                        Créer ma vitrine
                     </button>
                 </form>
                 <div className="mt-8 text-center text-sm text-dark/60">
