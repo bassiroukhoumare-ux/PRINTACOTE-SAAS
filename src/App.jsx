@@ -76,7 +76,7 @@ const Hero = ({ setPage }) => {
     }, []);
 
     return (
-        <section className="relative h-[100dvh] w-full overflow-hidden bg-primary flex items-end">
+        <section className="relative min-h-[100dvh] w-full overflow-hidden bg-primary flex items-center justify-center text-center pt-24 pb-16">
             <div className="absolute inset-0 w-full h-full">
                 <img 
                     src="https://images.unsplash.com/photo-1612815154858-60aa4c59eaa6?q=80&w=2500&auto=format&fit=crop" 
@@ -84,16 +84,17 @@ const Hero = ({ setPage }) => {
                     className="w-full h-full object-cover opacity-40 mix-blend-overlay"
                 />
                 <div className="absolute inset-0 bg-hero-gradient"></div>
+                <div className="absolute top-0 left-0 w-full h-48 bg-gradient-to-b from-primary/90 to-transparent"></div>
             </div>
             
-            <div className="relative z-10 w-full px-8 md:px-16 pb-24 md:pb-32 flex flex-col md:w-3/4">
-                <h1 className="text-[#F5F2EB] flex flex-col gap-2">
-                    <span className="hero-text text-5xl md:text-7xl font-sans font-bold leading-tight tracking-tight">Trouvez l'imprimerie la plus proche de vous.</span>
+            <div className="relative z-10 w-full px-6 md:px-16 flex flex-col items-center">
+                <h1 className="text-[#F5F2EB] flex flex-col gap-2 items-center">
+                    <span className="hero-text text-5xl md:text-7xl lg:text-8xl font-sans font-bold leading-tight tracking-tight max-w-5xl">Trouvez l'imprimeur le plus proche de vous.</span>
                 </h1>
-                <p className="hero-text text-[#F5F2EB]/80 mt-6 text-lg max-w-xl font-sans">
-                    Trouvez l'imprimerie la plus proche de vous en un instant, ou développez votre vitrine d'imprimeur numérique pour capter plus de commandes.
+                <p className="hero-text text-[#F5F2EB]/80 mt-8 text-lg md:text-xl max-w-2xl font-sans">
+                    Découvrez les professionnels certifiés en un instant, ou développez votre vitrine numérique pour capter plus de commandes locales.
                 </p>
-                <div className="hero-text mt-10 flex flex-col sm:flex-row gap-4">
+                <div className="hero-text mt-12 flex flex-col sm:flex-row gap-4">
                     <button onClick={() => setPage('printers')} className="magnetic-btn bg-accent text-white px-8 py-4 rounded-[2rem] text-lg font-bold flex items-center justify-center gap-2">
                         <span>Trouver un imprimeur</span>
                         <MapPin size={20} />
@@ -693,6 +694,19 @@ const Register = ({ setPage }) => {
     );
 };
 
+const Layout = ({ children, setPage, currentPage }) => {
+    return (
+        <div className="relative w-full min-h-screen flex flex-col font-sans bg-background text-dark">
+            <div className="noise-overlay z-0" />
+            <Navbar setPage={setPage} currentPage={currentPage} />
+            <main className="flex-1 relative z-10 w-full flex flex-col">
+                {children}
+            </main>
+            {currentPage !== 'login' && currentPage !== 'register' && <Footer setPage={setPage} />}
+        </div>
+    );
+};
+
 export default function App() {
     const [page, setPage] = useState('home');
     const [selectedPrinter, setSelectedPrinter] = useState(null);
@@ -702,10 +716,7 @@ export default function App() {
     }, [page]);
 
     return (
-        <div className="relative w-full">
-            <div className="noise-overlay" />
-            <Navbar setPage={setPage} currentPage={page} />
-            
+        <Layout setPage={setPage} currentPage={page}>
             {page === 'home' && <Home setPage={setPage} />}
             {page === 'printers' && <Printers setPage={setPage} setSelectedPrinter={setSelectedPrinter} />}
             {page === 'printer_detail' && <PrinterDetail printer={selectedPrinter} setPage={setPage} />}
@@ -713,8 +724,6 @@ export default function App() {
             {page === 'news' && <News />}
             {page === 'login' && <Login setPage={setPage} />}
             {page === 'register' && <Register setPage={setPage} />}
-            
-            {page !== 'login' && page !== 'register' && <Footer setPage={setPage} />}
-        </div>
+        </Layout>
     );
 }
