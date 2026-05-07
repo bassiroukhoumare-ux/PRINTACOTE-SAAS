@@ -42,7 +42,7 @@ const Navbar = ({ setPage, currentPage }) => {
                 
                 <div className={`${isMobileMenuOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row gap-6 text-sm font-medium opacity-90 mt-4 md:mt-0`}>
                     <a href="#" onClick={(e) => { e.preventDefault(); handleNav('home'); }} className={`hover-lift ${currentPage === 'home' ? 'text-accent' : ''}`}>Accueil</a>
-                    <a href="#" onClick={(e) => { e.preventDefault(); handleNav('printers'); }} className={`hover-lift flex items-center gap-1 ${currentPage === 'printers' ? 'text-accent' : ''}`}><Store size={16} /> Imprimeurs</a>
+                    <a href="#" onClick={(e) => { e.preventDefault(); handleNav('printers'); }} className={`hover-lift flex items-center gap-1 ${currentPage === 'printers' || currentPage === 'printer_detail' ? 'text-accent' : ''}`}><Store size={16} /> Imprimeurs</a>
                     <a href="#" onClick={(e) => { e.preventDefault(); handleNav('marketplace'); }} className={`hover-lift flex items-center gap-1 ${currentPage === 'marketplace' ? 'text-accent' : ''}`}><ShoppingCart size={16} /> Marketplace</a>
                     <a href="#" onClick={(e) => { e.preventDefault(); handleNav('news'); }} className={`hover-lift flex items-center gap-1 ${currentPage === 'news' ? 'text-accent' : ''}`}><Newspaper size={16} /> Actualités</a>
                 </div>
@@ -220,11 +220,13 @@ const Printers = ({ setPage, setSelectedPrinter }) => {
 };
 
 const PrinterDetail = ({ printer, setPage }) => {
-    if (!printer) return null;
-
     useEffect(() => {
-        window.scrollTo(0, 0);
-    }, []);
+        if (!printer) {
+            setPage('printers');
+        }
+    }, [printer, setPage]);
+
+    if (!printer) return null;
 
     return (
         <div className="min-h-screen pt-32 pb-24 px-6 md:px-16 bg-background">
