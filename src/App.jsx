@@ -1,12 +1,18 @@
 import React, { useEffect, useRef, useState } from 'react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
-import { ArrowRight, MapPin, Clock, User, Store, ShoppingCart, Newspaper, CheckCircle, Star, MessageCircle, Phone, Award } from 'lucide-react';
+import { ArrowRight, MapPin, Clock, User, Store, ShoppingCart, Newspaper, CheckCircle, Star, MessageCircle, Phone, Award, Menu, X, ArrowLeft, Image as ImageIcon } from 'lucide-react';
 
 gsap.registerPlugin(ScrollTrigger);
 
 const Navbar = ({ setPage, currentPage }) => {
     const navRef = useRef(null);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+
+    const handleNav = (page) => {
+        setPage(page);
+        setIsMobileMenuOpen(false);
+    };
 
     useEffect(() => {
         const ctx = gsap.context(() => {
@@ -26,22 +32,27 @@ const Navbar = ({ setPage, currentPage }) => {
 
     return (
         <div className="fixed top-6 left-1/2 -translate-x-1/2 z-50 w-full px-6 flex justify-center">
-            <nav ref={navRef} className="flex items-center justify-between gap-4 md:gap-8 px-6 py-3 rounded-[2rem] border border-transparent transition-colors text-[#F5F2EB] w-full max-w-5xl bg-primary/40 backdrop-blur-md">
-                <div className="flex items-center gap-8">
-                    <a href="#" onClick={(e) => { e.preventDefault(); setPage('home'); }} className="font-bold text-xl font-sans tracking-tight shrink-0">Printacote</a>
-                    <div className="hidden md:flex gap-6 text-sm font-medium opacity-90">
-                        <a href="#" onClick={(e) => { e.preventDefault(); setPage('home'); }} className={`hover-lift ${currentPage === 'home' ? 'text-accent' : ''}`}>Accueil</a>
-                        <a href="#" onClick={(e) => { e.preventDefault(); setPage('printers'); }} className={`hover-lift flex items-center gap-1 ${currentPage === 'printers' ? 'text-accent' : ''}`}><Store size={16} /> Imprimeurs</a>
-                        <a href="#" onClick={(e) => { e.preventDefault(); setPage('marketplace'); }} className={`hover-lift flex items-center gap-1 ${currentPage === 'marketplace' ? 'text-accent' : ''}`}><ShoppingCart size={16} /> Marketplace</a>
-                        <a href="#" onClick={(e) => { e.preventDefault(); setPage('news'); }} className={`hover-lift flex items-center gap-1 ${currentPage === 'news' ? 'text-accent' : ''}`}><Newspaper size={16} /> Actualités</a>
-                    </div>
+            <nav ref={navRef} className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-8 px-6 py-3 rounded-[2rem] border border-transparent transition-colors text-[#F5F2EB] w-full max-w-5xl bg-primary/40 backdrop-blur-md">
+                <div className="flex items-center justify-between w-full md:w-auto">
+                    <a href="#" onClick={(e) => { e.preventDefault(); handleNav('home'); }} className="font-bold text-xl font-sans tracking-tight shrink-0">Printacote</a>
+                    <button className="md:hidden p-1" onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}>
+                        {isMobileMenuOpen ? <X size={24} /> : <Menu size={24} />}
+                    </button>
                 </div>
-                <div className="flex items-center gap-3">
-                    <button onClick={() => setPage('login')} className="hidden sm:block text-sm font-bold hover:text-accent transition-colors">
+                
+                <div className={`${isMobileMenuOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row gap-6 text-sm font-medium opacity-90 mt-4 md:mt-0`}>
+                    <a href="#" onClick={(e) => { e.preventDefault(); handleNav('home'); }} className={`hover-lift ${currentPage === 'home' ? 'text-accent' : ''}`}>Accueil</a>
+                    <a href="#" onClick={(e) => { e.preventDefault(); handleNav('printers'); }} className={`hover-lift flex items-center gap-1 ${currentPage === 'printers' ? 'text-accent' : ''}`}><Store size={16} /> Imprimeurs</a>
+                    <a href="#" onClick={(e) => { e.preventDefault(); handleNav('marketplace'); }} className={`hover-lift flex items-center gap-1 ${currentPage === 'marketplace' ? 'text-accent' : ''}`}><ShoppingCart size={16} /> Marketplace</a>
+                    <a href="#" onClick={(e) => { e.preventDefault(); handleNav('news'); }} className={`hover-lift flex items-center gap-1 ${currentPage === 'news' ? 'text-accent' : ''}`}><Newspaper size={16} /> Actualités</a>
+                </div>
+
+                <div className={`${isMobileMenuOpen ? 'flex' : 'hidden'} md:flex flex-col md:flex-row items-center gap-3 mt-4 md:mt-0`}>
+                    <button onClick={() => handleNav('login')} className="text-sm font-bold hover:text-accent transition-colors">
                         Se connecter
                     </button>
-                    <button onClick={() => setPage('register')} className="magnetic-btn bg-accent text-white px-5 py-2 rounded-full text-sm font-bold flex items-center gap-2 shrink-0">
-                        <span>S'inscrire</span>
+                    <button onClick={() => handleNav('register')} className="magnetic-btn bg-accent text-white px-5 py-2 rounded-full text-sm font-bold flex items-center justify-center gap-2 shrink-0 w-full md:w-auto">
+                        <span>Inscrire mon imprimerie</span>
                     </button>
                 </div>
             </nav>
@@ -77,7 +88,7 @@ const Hero = ({ setPage }) => {
             
             <div className="relative z-10 w-full px-8 md:px-16 pb-24 md:pb-32 flex flex-col md:w-3/4">
                 <h1 className="text-[#F5F2EB] flex flex-col gap-2">
-                    <span className="hero-text text-5xl md:text-7xl font-serif italic font-semibold leading-tight tracking-tight">Trouvez l'imprimerie la plus proche de vous.</span>
+                    <span className="hero-text text-5xl md:text-7xl font-sans font-bold leading-tight tracking-tight">Trouvez l'imprimerie la plus proche de vous.</span>
                 </h1>
                 <p className="hero-text text-[#F5F2EB]/80 mt-6 text-lg max-w-xl font-sans">
                     Trouvez l'imprimerie la plus proche de vous en un instant, ou développez votre vitrine d'imprimeur numérique pour capter plus de commandes.
@@ -88,7 +99,7 @@ const Hero = ({ setPage }) => {
                         <MapPin size={20} />
                     </button>
                     <button onClick={() => setPage('register')} className="magnetic-btn bg-transparent border-2 border-[#F5F2EB]/30 text-[#F5F2EB] px-8 py-4 rounded-[2rem] text-lg font-bold flex items-center justify-center gap-2 hover:bg-[#F5F2EB]/10 transition-colors">
-                        <span>S'inscrire</span>
+                        <span>Inscrire mon imprimerie</span>
                         <User size={20} />
                     </button>
                 </div>
@@ -97,7 +108,7 @@ const Hero = ({ setPage }) => {
     );
 };
 
-const Printers = () => {
+const Printers = ({ setPage, setSelectedPrinter }) => {
     const printersList = [
         {
             id: 1,
@@ -105,6 +116,8 @@ const Printers = () => {
             desc: "Spécialiste de l'impression numérique et grand format. Service express disponible.",
             rating: 4.9,
             isPro: true,
+            location: "Médina, Dakar",
+            services: ["Impression Numérique", "Offset", "Grand Format"],
             cover: "https://images.unsplash.com/photo-1598425237654-4fb98471ce3b?q=80&w=800&auto=format&fit=crop",
             avatar: "https://images.unsplash.com/photo-1560250097-0b93528c311a?q=80&w=200&auto=format&fit=crop"
         },
@@ -114,6 +127,8 @@ const Printers = () => {
             desc: "Expert en offset, carnets et brochures. Finitions premium.",
             rating: 4.7,
             isPro: true,
+            location: "Plateau, Dakar",
+            services: ["Offset", "Reliure", "Brochures", "Cartes de visite"],
             cover: "https://images.unsplash.com/photo-1562664377-709f2c337eb2?q=80&w=800&auto=format&fit=crop",
             avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?q=80&w=200&auto=format&fit=crop"
         },
@@ -123,6 +138,8 @@ const Printers = () => {
             desc: "Copies, reliures, et impressions simples pour étudiants et entreprises.",
             rating: 4.5,
             isPro: false,
+            location: "Point E, Dakar",
+            services: ["Photocopie", "Reliure spirale", "Flyers"],
             cover: "https://images.unsplash.com/photo-1603484477859-abe6a73f9366?q=80&w=800&auto=format&fit=crop",
             avatar: "https://images.unsplash.com/photo-1531427186611-ecfd6d936c79?q=80&w=200&auto=format&fit=crop"
         },
@@ -132,10 +149,17 @@ const Printers = () => {
             desc: "Flocage, sérigraphie et objets publicitaires personnalisés.",
             rating: 4.8,
             isPro: true,
+            location: "Almadies, Dakar",
+            services: ["Sérigraphie", "Flocage T-shirt", "Objets Pub", "Bâches"],
             cover: "https://images.unsplash.com/photo-1507206130118-b5907f817163?q=80&w=800&auto=format&fit=crop",
             avatar: "https://images.unsplash.com/photo-1580489944761-15a19d654956?q=80&w=200&auto=format&fit=crop"
         }
     ];
+
+    const handlePrinterClick = (printer) => {
+        setSelectedPrinter(printer);
+        setPage('printer_detail');
+    };
 
     return (
         <div className="min-h-screen pt-32 pb-24 px-6 md:px-16 bg-background">
@@ -147,7 +171,7 @@ const Printers = () => {
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                     {printersList.map(printer => (
-                        <div key={printer.id} className="bg-white rounded-[2rem] overflow-hidden border border-dark/5 hover-lift shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative transition-all group">
+                        <div key={printer.id} onClick={() => handlePrinterClick(printer)} className="bg-white rounded-[2rem] overflow-hidden border border-dark/5 hover-lift shadow-[0_8px_30px_rgb(0,0,0,0.04)] relative transition-all group cursor-pointer">
                             {/* Cover */}
                             <div className="h-36 w-full relative">
                                 <img src={printer.cover} alt="Cover" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
@@ -179,16 +203,137 @@ const Printers = () => {
                                 
                                 {/* Buttons */}
                                 <div className="flex gap-3">
-                                    <button className="flex-1 bg-[#25D366]/10 text-[#25D366] py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-[#25D366] hover:text-white transition-colors font-bold text-sm">
+                                    <button onClick={(e) => e.stopPropagation()} className="flex-1 bg-[#25D366]/10 text-[#25D366] py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-[#25D366] hover:text-white transition-colors font-bold text-sm">
                                         <MessageCircle size={18} /> WhatsApp
                                     </button>
-                                    <button className="flex-1 bg-primary/10 text-primary py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-primary hover:text-white transition-colors font-bold text-sm">
+                                    <button onClick={(e) => e.stopPropagation()} className="flex-1 bg-primary/10 text-primary py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-primary hover:text-white transition-colors font-bold text-sm">
                                         <Phone size={18} /> Appeler
                                     </button>
                                 </div>
                             </div>
                         </div>
                     ))}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+const PrinterDetail = ({ printer, setPage }) => {
+    if (!printer) return null;
+
+    useEffect(() => {
+        window.scrollTo(0, 0);
+    }, []);
+
+    return (
+        <div className="min-h-screen pt-32 pb-24 px-6 md:px-16 bg-background">
+            <div className="max-w-4xl mx-auto">
+                <button onClick={() => setPage('printers')} className="mb-8 flex items-center gap-2 text-dark/60 hover:text-dark transition-colors font-bold text-sm">
+                    <ArrowLeft size={16} /> Retour aux imprimeurs
+                </button>
+
+                <div className="bg-white rounded-[3rem] overflow-hidden border border-dark/5 shadow-sm relative">
+                    <div className="h-64 md:h-80 w-full relative">
+                        <img src={printer.cover} alt="Cover" className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-dark/80 to-transparent"></div>
+                        {printer.isPro && (
+                            <div className="absolute top-6 right-6 bg-accent text-white text-sm font-bold px-4 py-2 rounded-full flex items-center gap-2 shadow-lg backdrop-blur-sm bg-accent/90">
+                                <Award size={16} /> COMPTE PRO
+                            </div>
+                        )}
+                    </div>
+
+                    <div className="absolute top-48 md:top-64 left-8 md:left-12 w-32 h-32 md:w-40 md:h-40 rounded-[2rem] border-8 border-white overflow-hidden bg-background shadow-lg z-10">
+                        <img src={printer.avatar} alt="Avatar" className="w-full h-full object-cover" />
+                    </div>
+
+                    <div className="pt-20 md:pt-28 px-8 md:px-12 pb-12">
+                        <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-8">
+                            <div>
+                                <h1 className="text-3xl md:text-5xl font-bold font-sans text-dark tracking-tight mb-2">{printer.name}</h1>
+                                <div className="flex flex-wrap items-center gap-4 text-dark/60 font-medium text-sm mt-4">
+                                    <div className="flex items-center gap-1 text-[#D4A843] bg-[#D4A843]/10 px-3 py-1.5 rounded-md">
+                                        <Star size={16} fill="currentColor" />
+                                        <span className="font-bold text-dark">{printer.rating}</span>
+                                    </div>
+                                    <span className="flex items-center gap-1 bg-dark/5 px-3 py-1.5 rounded-md"><MapPin size={16} /> {printer.location || "Dakar, Sénégal"}</span>
+                                </div>
+                            </div>
+                            <div className="flex gap-3 w-full md:w-auto">
+                                <button className="flex-1 md:flex-none bg-[#25D366] text-white px-6 py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-[#20bd5a] transition-colors font-bold text-sm">
+                                    <MessageCircle size={18} /> WhatsApp
+                                </button>
+                                <button className="flex-1 md:flex-none bg-primary text-white px-6 py-3 rounded-xl flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors font-bold text-sm">
+                                    <Phone size={18} /> Appeler
+                                </button>
+                            </div>
+                        </div>
+
+                        <p className="text-lg text-dark/70 leading-relaxed mb-12 max-w-2xl">{printer.desc}</p>
+
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                            <div>
+                                <h3 className="text-xl font-bold font-sans mb-6 flex items-center gap-2"><Clock size={20} className="text-accent" /> Horaires d'ouverture</h3>
+                                <div className="bg-background rounded-2xl p-6 border border-dark/5">
+                                    <ul className="space-y-3 text-sm">
+                                        <li className="flex justify-between border-b border-dark/5 pb-2"><span className="text-dark/60">Lundi - Vendredi</span><span className="font-bold text-dark">08:00 - 18:00</span></li>
+                                        <li className="flex justify-between border-b border-dark/5 pb-2"><span className="text-dark/60">Samedi</span><span className="font-bold text-dark">09:00 - 14:00</span></li>
+                                        <li className="flex justify-between text-accent"><span className="text-accent/60">Dimanche</span><span className="font-bold">Fermé</span></li>
+                                    </ul>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h3 className="text-xl font-bold font-sans mb-6 flex items-center gap-2"><Store size={20} className="text-accent" /> Services proposés</h3>
+                                <div className="flex flex-wrap gap-2">
+                                    {(printer.services || ["Impression Numérique", "Offset", "Grand Format", "Reliure"]).map((s, i) => (
+                                        <span key={i} className="bg-primary/5 text-primary border border-primary/10 px-4 py-2 rounded-lg text-sm font-bold">
+                                            {s}
+                                        </span>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-12">
+                            <h3 className="text-xl font-bold font-sans mb-6 flex items-center gap-2"><ImageIcon size={20} className="text-accent" /> Réalisations</h3>
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                {[1, 2, 3, 4].map(i => (
+                                    <div key={i} className="aspect-square bg-dark/5 rounded-2xl overflow-hidden hover-lift cursor-pointer relative group">
+                                        <img src={`https://images.unsplash.com/photo-1586075010923-2dd4570fb338?q=80&w=400&auto=format&fit=crop&sig=${i * printer.id}`} className="w-full h-full object-cover transition-all duration-500 group-hover:scale-110" />
+                                        <div className="absolute inset-0 bg-dark/20 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="mt-12 pt-12 border-t border-dark/5">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-8">
+                                <h3 className="text-xl font-bold font-sans flex items-center gap-2">Notes et avis</h3>
+                                <button className="magnetic-btn bg-dark text-white px-6 py-2 rounded-full text-sm font-bold">Laisser un avis</button>
+                            </div>
+                            <div className="bg-background rounded-2xl p-6 md:p-8 border border-dark/5 flex flex-col sm:flex-row gap-8 items-center">
+                                <div className="text-center sm:w-1/3">
+                                    <div className="text-6xl font-bold text-dark font-sans tracking-tight mb-2">{printer.rating}</div>
+                                    <div className="flex gap-1 text-[#D4A843] justify-center">
+                                        {[1,2,3,4,5].map(i => <Star key={i} size={20} fill={i <= Math.floor(printer.rating) ? "currentColor" : "transparent"} />)}
+                                    </div>
+                                    <div className="text-sm text-dark/50 mt-2 font-medium">Basé sur 124 avis</div>
+                                </div>
+                                <div className="flex-1 w-full space-y-3">
+                                    {[5,4,3,2,1].map(r => (
+                                        <div key={r} className="flex items-center gap-3 text-sm font-mono text-dark/70">
+                                            <span className="w-8">{r} <Star size={12} className="inline mb-1" /></span>
+                                            <div className="flex-1 h-2.5 bg-dark/10 rounded-full overflow-hidden">
+                                                <div className="h-full bg-[#D4A843] rounded-full" style={{ width: `${r === 5 ? 70 : r === 4 ? 20 : r === 3 ? 5 : 2}%` }}></div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -317,7 +462,7 @@ const CTA = ({ setPage }) => (
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 mt-4 w-full sm:w-auto">
                     <button onClick={() => setPage('register')} className="magnetic-btn bg-accent text-white px-8 py-4 rounded-full font-bold text-lg w-full sm:w-auto">
-                        Créer un compte
+                        Inscrire mon imprimerie
                     </button>
                 </div>
             </div>
@@ -342,7 +487,7 @@ const Footer = ({ setPage }) => (
             <div className="flex flex-col gap-4">
                 <h4 className="font-mono text-sm uppercase text-background/40">Accès</h4>
                 <a href="#" onClick={(e) => { e.preventDefault(); setPage('login'); }} className="hover:text-accent transition-colors">Se connecter</a>
-                <a href="#" onClick={(e) => { e.preventDefault(); setPage('register'); }} className="hover:text-accent transition-colors">Créer un compte</a>
+                <a href="#" onClick={(e) => { e.preventDefault(); setPage('register'); }} className="hover:text-accent transition-colors">Inscrire mon imprimerie</a>
             </div>
         </div>
         <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-center sm:text-left">
@@ -475,7 +620,7 @@ const Login = ({ setPage }) => {
                     </button>
                 </form>
                 <div className="mt-8 text-center text-sm text-dark/60">
-                    Pas encore de compte ? <button onClick={() => setPage('register')} className="text-accent font-bold hover:underline">S'inscrire</button>
+                    Pas encore de compte ? <button onClick={() => setPage('register')} className="text-accent font-bold hover:underline">Inscrire mon imprimerie</button>
                 </div>
             </div>
         </div>
@@ -548,6 +693,7 @@ const Register = ({ setPage }) => {
 
 export default function App() {
     const [page, setPage] = useState('home');
+    const [selectedPrinter, setSelectedPrinter] = useState(null);
 
     useEffect(() => {
         window.scrollTo(0, 0);
@@ -559,7 +705,8 @@ export default function App() {
             <Navbar setPage={setPage} currentPage={page} />
             
             {page === 'home' && <Home setPage={setPage} />}
-            {page === 'printers' && <Printers />}
+            {page === 'printers' && <Printers setPage={setPage} setSelectedPrinter={setSelectedPrinter} />}
+            {page === 'printer_detail' && <PrinterDetail printer={selectedPrinter} setPage={setPage} />}
             {page === 'marketplace' && <Marketplace />}
             {page === 'news' && <News />}
             {page === 'login' && <Login setPage={setPage} />}

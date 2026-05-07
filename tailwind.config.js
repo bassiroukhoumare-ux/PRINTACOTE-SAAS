@@ -12,7 +12,7 @@ export default {
         dark: '#1A1518',
       },
       fontFamily: {
-        sans: ['"Plus Jakarta Sans"', 'Outfit', 'sans-serif'],
+        sans: ['"Inter"', '"Plus Jakarta Sans"', 'Outfit', 'sans-serif'],
         serif: ['"Cormorant Garamond"', 'serif'],
         mono: ['"IBM Plex Mono"', 'monospace'],
       },
