@@ -4,7 +4,7 @@
 
 @layer base {
   body {
-    @apply text-[#1A1A1A] bg-[#F2F0E9] antialiased overflow-x-hidden selection:bg-[#CC5833] selection:text-white;
+    @apply text-dark bg-background antialiased overflow-x-hidden selection:bg-accent selection:text-dark;
   }
 }
 
