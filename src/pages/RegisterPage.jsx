@@ -34,16 +34,20 @@ const RegisterPage = ({ setPage }) => {
         e.preventDefault();
         setLoading(true);
         setError('');
-
         const finalCountry = showCustomCountryInput ? customCountry : country;
 
         const { data: authData, error: authError } = await supabase.auth.signUp({
             email,
             password,
             options: {
+                emailRedirectTo: `${window.location.origin}/`,
                 data: {
                     first_name: firstName,
                     last_name: lastName,
+                    business_name: businessName,
+                    city: city,
+                    country: finalCountry,
+                    whatsapp: whatsapp
                 }
             }
         });
@@ -55,31 +59,69 @@ const RegisterPage = ({ setPage }) => {
         }
 
         if (authData.user) {
-            const { error: profileError } = await supabase.from('printers').insert([
-                {
-                    owner_id: authData.user.id,
-                    name: businessName,
-                    city: city,
-                    country: finalCountry,
-                    whatsapp: whatsapp,
-                    first_name: firstName,
-                    last_name: lastName,
-                    logo_url: `https://ui-avatars.com/api/?name=${encodeURIComponent(businessName)}&background=random`,
-                    cover_url: 'https://images.unsplash.com/photo-1562664347-4950157077a9?q=80&w=2500&auto=format&fit=crop',
-                    rating: 5.0,
-                    views: 0
-                }
-            ]);
-
-            if (profileError) {
-                setError(profileError.message);
-                setLoading(false);
-            } else {
-                setSuccess(true);
-                setLoading(false);
-            }
+            setSuccess(true);
+            setLoading(false);
         }
     };
+
+    if (success) {
+        return (
+            <div className="min-h-screen bg-background flex items-center justify-center p-6 pt-32 pb-20">
+                <div className="absolute inset-0 z-0 overflow-hidden">
+                    <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] bg-[#F5F5DC]/10 rounded-full blur-[120px]"></div>
+                    <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-[#3D0B37]/10 rounded-full blur-[100px]"></div>
+                </div>
+
+                <div className="w-full max-w-5xl bg-white rounded-[4rem] border border-dark/10 shadow-2xl overflow-hidden relative z-10 flex flex-col md:flex-row min-h-[850px]">
+                    <div className="md:w-[35%] p-12 md:p-16 flex flex-col justify-between bg-[#F5F5DC] text-[#3D0B37] relative">
+                        <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/40 rounded-full blur-2xl"></div>
+                        <div>
+                            <button onClick={() => setPage('home')} className="flex items-center gap-2 text-dark/40 hover:text-dark transition-colors mb-12">
+                                <ArrowLeft size={18} /> Accueil
+                            </button>
+                            <h1 className="text-4xl font-black tracking-tight mb-6">Rejoignez le <br />Réseau Mondial.</h1>
+                            <p className="text-dark/40 leading-relaxed">Connectez votre imprimerie aux clients les plus exigeants, où qu'ils soient.</p>
+                        </div>
+                        <div className="mt-12">
+                            <img src="/logo.png" alt="Logo" className="h-10 w-auto opacity-30 grayscale" />
+                        </div>
+                    </div>
+
+                    <div className="md:w-[65%] p-10 md:p-16 flex flex-col justify-center items-center text-center bg-white">
+                        <div className="w-24 h-24 bg-[#F5F5DC] rounded-[2.5rem] flex items-center justify-center text-[#3D0B37] mb-8 shadow-xl shadow-black/5 animate-pulse">
+                            <Mail size={40} className="stroke-[1.5]" />
+                        </div>
+                        <h2 className="text-3xl font-black text-[#3D0B37] mb-6 tracking-tight">Presque fini !</h2>
+                        <p className="text-dark/60 text-lg leading-relaxed max-w-md mb-8">
+                            Un e-mail de confirmation a été envoyé à l'adresse <strong className="text-[#3D0B37]">{email}</strong>.
+                        </p>
+                        <div className="bg-[#F5F5DC]/40 border border-[#3D0B37]/5 rounded-3xl p-6 text-sm text-[#3D0B37]/80 max-w-md mb-10 leading-relaxed font-medium">
+                            Veuillez cliquer sur le lien de validation présent dans ce message pour activer votre compte.
+                            <br />
+                            <span className="block mt-3 text-xs opacity-65 italic">
+                                Pensez à vérifier votre dossier de courriers indésirables (Spams) si vous ne recevez rien d'ici quelques minutes.
+                            </span>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-4 w-full max-w-md animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <button 
+                                onClick={() => setPage('login')} 
+                                className="flex-1 bg-[#3D0B37] text-[#F5F5DC] py-4 rounded-xl font-black text-sm shadow-xl shadow-black/10 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
+                            >
+                                Se connecter
+                                <ArrowRight size={18} />
+                            </button>
+                            <button 
+                                onClick={() => setPage('home')} 
+                                className="flex-1 bg-dark/5 text-dark hover:bg-dark/10 py-4 rounded-xl font-bold text-sm transition-all"
+                            >
+                                Retour à l'accueil
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="min-h-screen bg-background flex items-center justify-center p-6 pt-32 pb-20">

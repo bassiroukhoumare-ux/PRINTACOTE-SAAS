@@ -20,6 +20,12 @@ CREATE TABLE IF NOT EXISTS printers (
     whatsapp TEXT,
     phone TEXT,
     logo_url TEXT,
+    cover_url TEXT,
+    rating NUMERIC DEFAULT 5.0,
+    website TEXT,
+    address TEXT,
+    first_name TEXT,
+    last_name TEXT,
     views INTEGER DEFAULT 0,
     clicks INTEGER DEFAULT 0,
     owner_id UUID REFERENCES auth.users(id) ON DELETE CASCADE
@@ -78,3 +84,44 @@ CREATE POLICY "Public read for products" ON products FOR SELECT USING (true);
 CREATE POLICY "Printers can manage products" ON products FOR ALL USING (
     EXISTS (SELECT 1 FROM printers WHERE id = products.printer_id AND owner_id = auth.uid())
 );
+
+-- 6. Trigger to automatically create a printer profile on user signup
+-- This avoids RLS insert policy issues when email confirmation is enabled.
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.printers (
+    owner_id,
+    name,
+    city,
+    country,
+    whatsapp,
+    first_name,
+    last_name,
+    logo_url,
+    cover_url,
+    rating,
+    views
+  ) VALUES (
+    new.id,
+    COALESCE(new.raw_user_meta_data->>'business_name', 'Mon Imprimerie'),
+    COALESCE(new.raw_user_meta_data->>'city', ''),
+    COALESCE(new.raw_user_meta_data->>'country', 'Sénégal'),
+    COALESCE(new.raw_user_meta_data->>'whatsapp', ''),
+    COALESCE(new.raw_user_meta_data->>'first_name', ''),
+    COALESCE(new.raw_user_meta_data->>'last_name', ''),
+    'https://ui-avatars.com/api/?name=' || replace(COALESCE(new.raw_user_meta_data->>'business_name', 'Mon Imprimerie'), ' ', '+') || '&background=random',
+    'https://images.unsplash.com/photo-1562664347-4950157077a9?q=80&w=2500&auto=format&fit=crop',
+    5.0,
+    0
+  );
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Recreate trigger
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+

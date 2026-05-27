@@ -13,6 +13,7 @@ import TermsOfServicePage from './pages/TermsOfServicePage';
 import MaquettePlace from './pages/MaquettePlace';
 import PrinterDetailPage from './pages/PrinterDetailPage';
 import NewsPage from './pages/NewsPage';
+import { CheckCircle2 } from 'lucide-react';
 
 
 
@@ -72,6 +73,16 @@ const App = () => {
     const [page, setPage] = useState('home');
     const [user, setUser] = useState(null);
     const [selectedPrinterId, setSelectedPrinterId] = useState(null);
+    const [showSuccessToast, setShowSuccessToast] = useState(false);
+
+    useEffect(() => {
+        if (showSuccessToast) {
+            const timer = setTimeout(() => {
+                setShowSuccessToast(false);
+            }, 5000);
+            return () => clearTimeout(timer);
+        }
+    }, [showSuccessToast]);
 
     useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
@@ -81,15 +92,23 @@ const App = () => {
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
             setUser(session?.user ?? null);
             if (session?.user) {
-                // Only redirect if on login/register
-                if (page === 'login' || page === 'register') setPage('dashboard');
+                const hash = window.location.hash;
+                // Only redirect if on login/register, or if verifying email (hash has type=signup)
+                if (page === 'login' || page === 'register' || hash.includes('type=signup')) {
+                    setPage('dashboard');
+                    if (hash.includes('type=signup')) {
+                        setShowSuccessToast(true);
+                        // Clean up hash from URL to keep it pristine
+                        window.history.replaceState(null, null, window.location.pathname + window.location.search);
+                    }
+                }
             } else {
                 if (page === 'dashboard') setPage('home');
             }
         });
 
         return () => subscription.unsubscribe();
-    }, [page]);
+    }, [page, showSuccessToast]);
 
     useEffect(() => {
         window.scrollTo(0, 0);
@@ -108,6 +127,18 @@ const App = () => {
             {page === 'legal' && <LegalNoticePage setPage={setPage} />}
             {page === 'privacy' && <PrivacyPolicyPage setPage={setPage} />}
             {page === 'terms' && <TermsOfServicePage setPage={setPage} />}
+            
+            {showSuccessToast && (
+                <div className="fixed bottom-6 right-6 z-[9999] bg-[#F5F5DC] border-2 border-[#3D0B37]/10 rounded-3xl p-6 shadow-2xl flex items-center gap-4 max-w-sm animate-in slide-in-from-bottom-5 duration-500">
+                    <div className="w-10 h-10 rounded-xl bg-[#3D0B37] text-[#F5F5DC] flex items-center justify-center shrink-0">
+                        <CheckCircle2 size={22} />
+                    </div>
+                    <div className="text-left">
+                        <h4 className="font-black text-sm text-[#3D0B37] uppercase tracking-wider">Connexion réussie</h4>
+                        <p className="text-xs text-[#3D0B37]/70 font-bold mt-0.5">Votre compte a été activé avec succès !</p>
+                    </div>
+                </div>
+            )}
         </Layout>
     );
 };
