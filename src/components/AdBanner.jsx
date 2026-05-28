@@ -19,80 +19,80 @@ const AdBanner = () => {
 
     return (
         <>
-            <div className="w-full bg-primary/5 border border-primary/10 rounded-[3rem] p-8 md:p-12 mb-12 flex flex-col lg:flex-row items-center justify-between gap-10 relative overflow-hidden group">
+            <div className="w-full max-w-[1000px] aspect-[2/1] md:h-[500px] mx-auto bg-primary/5 border border-primary/10 rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-8 md:p-12 mb-12 flex flex-col md:flex-row items-center justify-center md:justify-between gap-4 md:gap-10 relative overflow-hidden group">
                 {/* Background Decorative Blur */}
                 <div className="absolute top-0 right-0 w-64 h-64 bg-accent/10 rounded-full blur-[80px] -mr-32 -mt-32 group-hover:scale-150 transition-transform duration-700"></div>
                 
-                <div className="relative z-10 text-center lg:text-left">
-                    <div className="inline-flex items-center gap-2 px-3 py-1 bg-accent/20 text-accent rounded-full text-[10px] font-black uppercase tracking-widest mb-4">
+                <div className="relative z-10 text-center md:text-left flex flex-col justify-center">
+                    <div className="w-fit mx-auto md:mx-0 inline-flex items-center gap-2 px-3 py-1 bg-accent/20 text-accent rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-widest mb-2 sm:mb-4">
                         Espace Partenaire
                     </div>
-                    <h3 className="font-black text-3xl md:text-4xl text-primary leading-tight mb-4">
+                    <h3 className="font-black text-lg sm:text-2xl md:text-3xl lg:text-4xl text-primary leading-tight mb-2 sm:mb-4">
                         Propulsez votre marque ici.
                     </h3>
-                    <p className="text-primary/60 text-lg max-w-xl font-medium">
+                    <p className="hidden md:block text-primary/60 text-base lg:text-lg max-w-xl font-medium">
                         Rejoignez la régie publicitaire Printacote et touchez directement vos futurs clients en quête d'impression.
                     </p>
                 </div>
                 
-                <div className="flex flex-col sm:flex-row gap-4 relative z-10 w-full lg:w-auto">
+                <div className="flex flex-row md:flex-col lg:flex-row gap-2 sm:gap-4 relative z-10 w-full sm:w-auto shrink-0 justify-center">
                     <button 
                         onClick={() => setShowTariffs(true)}
-                        className="bg-[#F5F5DC] text-[#3D0B37] px-8 py-5 rounded-2xl font-black flex items-center justify-center gap-3 hover:scale-105 active:scale-95 transition-all shadow-xl"
+                        className="bg-[#F5F5DC] text-[#3D0B37] px-4 py-2.5 sm:px-8 sm:py-5 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 sm:gap-3 hover:scale-105 active:scale-95 transition-all shadow-xl"
                     >
-                        <MessageCircle size={20} />
+                        <MessageCircle size={16} className="sm:w-5 sm:h-5" />
                         Contacter le support
                     </button>
                     <button 
                         onClick={() => setShowInfo(true)}
-                        className="bg-white border border-primary/10 text-primary px-8 py-5 rounded-2xl font-black flex items-center justify-center gap-3 hover:bg-primary/5 transition-all"
+                        className="bg-white border border-primary/10 text-primary px-4 py-2.5 sm:px-8 sm:py-5 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 sm:gap-3 hover:bg-primary/5 transition-all"
                     >
                         En savoir plus
-                        <ArrowRight size={20} />
+                        <ArrowRight size={16} className="sm:w-5 sm:h-5" />
                     </button>
                 </div>
             </div>
 
             {/* Tariffs Popup */}
             {showTariffs && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-primary/40 backdrop-blur-md animate-in fade-in duration-300">
-                    <div className="bg-white rounded-[3rem] w-full max-w-xl overflow-hidden shadow-2xl border border-primary/10 animate-in zoom-in-95 duration-300">
-                        <div className="bg-primary p-8 text-accent flex justify-between items-center">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-primary/40 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[2rem] sm:rounded-[3rem] w-full max-w-xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl border border-primary/10 animate-in zoom-in-95 duration-300">
+                        <div className="bg-primary p-6 sm:p-8 text-accent flex justify-between items-center shrink-0">
                             <div>
-                                <h4 className="text-2xl font-black mb-1">Tarifs Publicitaires</h4>
-                                <p className="text-accent/60 text-sm font-bold tracking-wider uppercase">Choisissez votre durée</p>
+                                <h4 className="text-xl sm:text-2xl font-black mb-1">Tarifs Publicitaires</h4>
+                                <p className="text-accent/60 text-[10px] sm:text-sm font-bold tracking-wider uppercase">Choisissez votre durée</p>
                             </div>
-                            <button onClick={() => setShowTariffs(false)} className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center hover:bg-white/20 transition-all">
-                                <X size={24} />
+                            <button onClick={() => setShowTariffs(false)} className="w-10 h-10 sm:w-12 sm:h-12 bg-white/10 rounded-xl sm:rounded-2xl flex items-center justify-center hover:bg-white/20 transition-all shrink-0">
+                                <X size={20} />
                             </button>
                         </div>
                         
-                        <div className="p-8 space-y-4">
-                            <div className="bg-accent/5 p-6 rounded-2xl border border-primary/5 mb-6">
-                                <p className="text-primary/70 font-medium leading-relaxed">
+                        <div className="p-6 sm:p-8 space-y-4 overflow-y-auto custom-scrollbar">
+                            <div className="bg-accent/5 p-4 sm:p-6 rounded-2xl border border-primary/5 mb-2 sm:mb-6">
+                                <p className="text-primary/70 text-xs sm:text-sm font-medium leading-relaxed">
                                     Exposez votre bannière publicitaire à des milliers d'utilisateurs qualifiés. La conception de votre affiche est <span className="font-black text-primary">offerte</span>.
                                 </p>
                             </div>
 
-                            <div className="grid grid-cols-1 gap-4">
+                            <div className="grid grid-cols-1 gap-3 sm:gap-4">
                                 {tariffs.map((t, i) => (
                                     <button 
                                         key={i}
                                         onClick={() => contactWhatsApp(t.duration, t.price)}
-                                        className="flex items-center justify-between p-6 bg-white border border-primary/5 rounded-2xl hover:border-primary/30 hover:bg-primary hover:text-accent transition-all group"
+                                        className="flex items-center justify-between p-4 sm:p-6 bg-white border border-primary/5 rounded-2xl hover:border-primary/30 hover:bg-primary hover:text-accent transition-all group"
                                     >
-                                        <div className="flex items-center gap-4">
-                                            <div className="w-12 h-12 rounded-xl bg-primary/5 flex items-center justify-center group-hover:bg-accent/10">
-                                                <Clock size={20} />
+                                        <div className="flex items-center gap-3 sm:gap-4">
+                                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-primary/5 flex items-center justify-center group-hover:bg-accent/10 shrink-0">
+                                                <Clock size={18} className="sm:w-5 sm:h-5" />
                                             </div>
                                             <div className="text-left">
-                                                <div className="font-black text-lg">{t.label || `${t.duration} jours`}</div>
-                                                <div className="text-sm opacity-60 font-bold uppercase tracking-widest">Exposition Garantie</div>
+                                                <div className="font-black text-sm sm:text-lg leading-tight">{t.label || `${t.duration} jours`}</div>
+                                                <div className="text-[9px] sm:text-sm opacity-60 font-bold uppercase tracking-widest">Exposition Garantie</div>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-4">
-                                            <div className="text-xl font-black">{t.price}</div>
-                                            <Zap size={20} className="text-yellow-500 group-hover:text-accent" fill="currentColor" />
+                                        <div className="flex items-center gap-2 sm:gap-4 shrink-0">
+                                            <div className="text-base sm:text-xl font-black">{t.price}</div>
+                                            <Zap size={18} className="text-yellow-500 group-hover:text-accent shrink-0 sm:w-5 sm:h-5" fill="currentColor" />
                                         </div>
                                     </button>
                                 ))}
@@ -104,47 +104,47 @@ const AdBanner = () => {
 
             {/* Info Popup */}
             {showInfo && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-primary/40 backdrop-blur-md animate-in fade-in duration-300">
-                    <div className="bg-white rounded-[3rem] w-full max-w-2xl overflow-hidden shadow-2xl border border-primary/10 animate-in zoom-in-95 duration-300">
-                        <div className="bg-primary p-10 text-accent flex justify-between items-start">
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-primary/40 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[2rem] sm:rounded-[3rem] w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden shadow-2xl border border-primary/10 animate-in zoom-in-95 duration-300">
+                        <div className="bg-primary p-6 sm:p-10 text-accent flex justify-between items-start shrink-0">
                             <div>
-                                <h4 className="text-3xl font-black mb-2">Concept Publicitaire</h4>
-                                <p className="text-accent/60 font-bold tracking-widest uppercase text-xs">Propulsez votre activité</p>
+                                <h4 className="text-2xl sm:text-3xl font-black mb-1 sm:mb-2">Concept Publicitaire</h4>
+                                <p className="text-accent/60 font-bold tracking-widest uppercase text-[10px] sm:text-xs">Propulsez votre activité</p>
                             </div>
-                            <button onClick={() => setShowInfo(false)} className="w-12 h-12 bg-white/10 rounded-2xl flex items-center justify-center hover:bg-white/20 transition-all">
-                                <X size={24} />
+                            <button onClick={() => setShowInfo(false)} className="w-10 h-10 sm:w-12 sm:h-12 bg-white/10 rounded-xl sm:rounded-2xl flex items-center justify-center hover:bg-white/20 transition-all shrink-0">
+                                <X size={20} />
                             </button>
                         </div>
                         
-                        <div className="p-10 space-y-10">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div className="space-y-4">
-                                    <div className="w-14 h-14 bg-primary/5 rounded-2xl flex items-center justify-center text-primary">
-                                        <ImageIcon size={28} />
+                        <div className="p-6 sm:p-10 space-y-6 sm:space-y-10 overflow-y-auto custom-scrollbar">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 sm:gap-8">
+                                <div className="space-y-2 sm:space-y-4">
+                                    <div className="w-12 h-12 sm:w-14 sm:h-14 bg-primary/5 rounded-2xl flex items-center justify-center text-primary shrink-0">
+                                        <ImageIcon size={24} className="sm:w-7 sm:h-7" />
                                     </div>
-                                    <h5 className="text-xl font-black text-primary">Affiches & Photos</h5>
-                                    <p className="text-primary/60 text-sm leading-relaxed font-medium">
+                                    <h5 className="text-lg sm:text-xl font-black text-primary">Affiches & Photos</h5>
+                                    <p className="text-primary/60 text-xs sm:text-sm leading-relaxed font-medium">
                                         Exposez vos produits via des visuels haute définition. Nous prenons en charge la **conception graphique** de votre affiche gratuitement dès la souscription.
                                     </p>
                                 </div>
-                                <div className="space-y-4">
-                                    <div className="w-14 h-14 bg-primary/5 rounded-2xl flex items-center justify-center text-primary">
-                                        <Video size={28} />
+                                <div className="space-y-2 sm:space-y-4">
+                                    <div className="w-12 h-12 sm:w-14 sm:h-14 bg-primary/5 rounded-2xl flex items-center justify-center text-primary shrink-0">
+                                        <Video size={24} className="sm:w-7 sm:h-7" />
                                     </div>
-                                    <h5 className="text-xl font-black text-primary">Vidéos & Animations</h5>
-                                    <p className="text-primary/60 text-sm leading-relaxed font-medium">
+                                    <h5 className="text-lg sm:text-xl font-black text-primary">Vidéos & Animations</h5>
+                                    <p className="text-primary/60 text-xs sm:text-sm leading-relaxed font-medium">
                                         Captivez l'audience avec des vidéos ou des affiches animées. *Note : La création vidéo est facturée séparément du prix d'exposition.*
                                     </p>
                                 </div>
                             </div>
 
-                            <div className="bg-accent rounded-[2rem] p-8 border border-primary/10 flex items-start gap-6">
-                                <div className="w-12 h-12 bg-primary rounded-xl flex items-center justify-center text-accent shrink-0">
-                                    <Palette size={24} />
+                            <div className="bg-accent rounded-[1.5rem] sm:rounded-[2rem] p-4 sm:p-8 border border-primary/10 flex items-start gap-4 sm:gap-6">
+                                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-primary rounded-xl flex items-center justify-center text-accent shrink-0">
+                                    <Palette size={20} className="sm:w-6 sm:h-6" />
                                 </div>
                                 <div>
-                                    <h5 className="text-lg font-black text-primary mb-2">Conception incluse</h5>
-                                    <p className="text-primary/70 text-sm font-medium leading-relaxed">
+                                    <h5 className="text-sm sm:text-lg font-black text-primary mb-1 sm:mb-2">Conception incluse</h5>
+                                    <p className="text-primary/70 text-xs sm:text-sm font-medium leading-relaxed">
                                         Pour toute campagne d'affichage, notre équipe créative construit votre visuel publicitaire pour garantir un impact maximal auprès des imprimeurs et clients.
                                     </p>
                                 </div>
@@ -152,7 +152,7 @@ const AdBanner = () => {
 
                             <button 
                                 onClick={() => { setShowInfo(false); setShowTariffs(true); }}
-                                className="w-full bg-primary text-accent py-6 rounded-2xl font-black flex items-center justify-center gap-3 hover:scale-[1.02] transition-transform shadow-xl"
+                                className="w-full bg-primary text-accent py-4 sm:py-6 rounded-2xl font-black text-sm sm:text-base flex items-center justify-center gap-3 hover:scale-[1.02] transition-transform shadow-xl shrink-0"
                             >
                                 Voir les tarifs d'exposition
                                 <ArrowRight size={20} />

@@ -70,22 +70,22 @@ const PrintersPage = ({ setPage, setSelectedPrinterId }) => {
                 <div className="max-w-3xl mx-auto mb-20 relative z-30">
                     <div className="bg-white rounded-[2.5rem] p-3 shadow-2xl border border-dark/5 flex items-center gap-3">
                         <div className="flex-1 relative group">
-                            <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-dark/30 group-focus-within:text-accent transition-colors" size={24} />
+                            <Search className="absolute left-4 sm:left-6 top-1/2 -translate-y-1/2 text-dark/30 group-focus-within:text-accent transition-colors" size={20} />
                             <input 
                                 type="text" 
                                 placeholder="Rechercher une imprimerie..."
-                                className="w-full bg-transparent pl-16 pr-8 py-5 text-lg font-bold focus:outline-none"
+                                className="w-full bg-transparent pl-12 sm:pl-16 pr-4 sm:pr-8 py-4 sm:py-5 text-base sm:text-lg font-bold focus:outline-none"
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
                         <button 
                             onClick={() => setShowFilters(!showFilters)}
-                            className={`px-8 py-5 rounded-2xl font-black text-sm uppercase tracking-widest flex items-center gap-3 transition-all
-                                ${showFilters ? 'bg-primary text-white' : 'bg-dark/5 text-dark hover:bg-dark/10'}`}
+                            className={`px-4 sm:px-8 py-4 sm:py-5 rounded-2xl font-black text-xs sm:text-sm uppercase tracking-widest flex items-center gap-2 sm:gap-3 transition-all
+                                ${showFilters ? 'bg-primary text-white shadow-xl' : 'bg-dark/5 text-dark hover:bg-dark/10'}`}
                         >
                             <SlidersHorizontal size={20} />
-                            {showFilters ? 'Fermer' : 'Filtrer'}
+                            <span className="hidden sm:inline">{showFilters ? 'Fermer' : 'Filtrer'}</span>
                         </button>
                     </div>
 
@@ -225,7 +225,7 @@ const PrintersPage = ({ setPage, setSelectedPrinterId }) => {
                                             onClick={(e) => { e.stopPropagation(); setSelectedPrinterId(p.id); setPage('printer_detail'); }}
                                             className="bg-[#3D0B37] text-[#F5F5DC] py-4 rounded-xl font-black text-[10px] uppercase tracking-widest hover:scale-105 transition-transform flex items-center justify-center gap-2 shadow-lg"
                                         >
-                                            Profil Pro
+                                            Profil
                                             <ArrowRight size={14} />
                                         </button>
                                         <button 

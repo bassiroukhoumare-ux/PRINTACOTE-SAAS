@@ -51,22 +51,22 @@ const MaquettePlace = ({ setPage }) => {
             <div className="container mx-auto px-6 -mt-8 relative z-30 max-w-3xl">
                 <div className="bg-white rounded-[2.5rem] p-3 shadow-2xl border border-dark/5 flex items-center gap-3">
                     <div className="flex-1 relative group">
-                        <Search className="absolute left-6 top-1/2 -translate-y-1/2 text-dark/30 group-focus-within:text-accent transition-colors" size={24} />
+                        <Search className="absolute left-4 sm:left-6 top-1/2 -translate-y-1/2 text-dark/30 group-focus-within:text-accent transition-colors" size={20} />
                         <input 
                             type="text" 
                             placeholder="Rechercher un produit..."
-                            className="w-full bg-transparent pl-16 pr-8 py-5 text-lg font-bold focus:outline-none"
+                            className="w-full bg-transparent pl-12 sm:pl-16 pr-4 sm:pr-8 py-4 sm:py-5 text-base sm:text-lg font-bold focus:outline-none"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                         />
                     </div>
                     <button 
                         onClick={() => setShowFilters(!showFilters)}
-                        className={`px-8 py-5 rounded-2xl font-black text-sm uppercase tracking-widest flex items-center gap-3 transition-all
+                        className={`px-4 sm:px-8 py-4 sm:py-5 rounded-2xl font-black text-xs sm:text-sm uppercase tracking-widest flex items-center gap-2 sm:gap-3 transition-all
                             ${showFilters ? 'bg-primary text-white shadow-xl' : 'bg-dark/5 text-dark hover:bg-dark/10'}`}
                     >
                         <SlidersHorizontal size={20} />
-                        {showFilters ? 'Fermer' : 'Filtrer'}
+                        <span className="hidden sm:inline">{showFilters ? 'Fermer' : 'Filtrer'}</span>
                     </button>
                 </div>
 
@@ -102,8 +102,8 @@ const MaquettePlace = ({ setPage }) => {
                             <div className="lg:w-1/2 aspect-square">
                                 <img src={selectedProduct.img} alt={selectedProduct.title} className="w-full h-full object-cover" />
                             </div>
-                            <div className="lg:w-1/2 p-12 md:p-20 flex flex-col justify-center">
-                                <div className="flex items-center gap-4 mb-8">
+                            <div className="lg:w-1/2 p-6 sm:p-12 lg:p-20 flex flex-col justify-center">
+                                <div className="flex items-center gap-4 mb-6">
                                     <div className="px-4 py-2 bg-primary/5 rounded-full text-primary text-xs font-black uppercase tracking-widest w-fit border border-primary/10">
                                         {selectedProduct.category}
                                     </div>
@@ -119,17 +119,17 @@ const MaquettePlace = ({ setPage }) => {
                                     {selectedProduct.desc}
                                 </p>
                                 
-                                <div className="flex flex-col sm:flex-row gap-6">
+                                <div className="flex flex-col sm:flex-row gap-4 sm:gap-6">
                                     <button 
                                         onClick={() => contactSeller(selectedProduct)}
-                                        className="bg-[#3D0B37] text-[#F5F5DC] px-10 py-5 rounded-2xl font-black flex items-center justify-center gap-3 hover:scale-105 transition-transform shadow-2xl border border-white/10"
+                                        className="bg-[#3D0B37] text-[#F5F5DC] px-6 sm:px-10 py-4 sm:py-5 rounded-2xl font-black text-sm sm:text-base flex items-center justify-center gap-3 hover:scale-105 transition-transform shadow-2xl border border-white/10"
                                     >
                                         <ShoppingCart size={20} />
                                         Acheter le produit
                                     </button>
                                     <button 
                                         onClick={() => contactSeller(selectedProduct)}
-                                        className="bg-[#F5F5DC] text-[#3D0B37] px-10 py-5 rounded-2xl font-black flex items-center justify-center gap-3 hover:scale-105 transition-transform shadow-2xl"
+                                        className="bg-[#F5F5DC] text-[#3D0B37] px-6 sm:px-10 py-4 sm:py-5 rounded-2xl font-black text-sm sm:text-base flex items-center justify-center gap-3 hover:scale-105 transition-transform shadow-2xl"
                                     >
                                         <MessageCircle size={20} />
                                         Contacter le vendeur
@@ -152,10 +152,10 @@ const MaquettePlace = ({ setPage }) => {
                                         {item.country}
                                     </div>
                                 </div>
-                                <div className="p-10 flex flex-col flex-1">
-                                    <div className="flex justify-between items-start mb-4">
-                                        <h3 className="text-xl font-black text-primary tracking-tight max-w-[70%] leading-tight group-hover:text-accent transition-colors">{item.title}</h3>
-                                        <div className="text-primary font-black text-lg">{item.price}</div>
+                                <div className="p-6 md:p-10 flex flex-col flex-1">
+                                    <div className="flex flex-col sm:flex-row sm:justify-between items-start gap-2 sm:gap-4 mb-4">
+                                        <h3 className="text-xl font-black text-primary tracking-tight leading-tight group-hover:text-accent transition-colors w-full sm:max-w-[70%]">{item.title}</h3>
+                                        <div className="text-primary font-black text-lg shrink-0">{item.price}</div>
                                     </div>
                                     <p className="text-primary/60 text-sm font-medium mb-8 line-clamp-2 flex-1">
                                         {item.desc}
