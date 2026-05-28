@@ -1,47 +1,101 @@
 import React, { useEffect, useState } from 'react';
-import { MapPin, Star, MessageCircle, Phone, ArrowLeft, CheckCircle, Image as ImageIcon, ExternalLink, Globe, User, Send, CreditCard } from 'lucide-react';
+import { MapPin, Star, MessageCircle, Phone, ArrowLeft, CheckCircle, Image as ImageIcon, ExternalLink, Globe, User, Send, CreditCard, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 const PrinterDetailPage = ({ id, setPage }) => {
     const [printer, setPrinter] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [reviews, setReviews] = useState([
-        { id: 1, author: "Amadou Diallo", rating: 5, text: "Excellent travail sur mes dépliants. Très réactif sur WhatsApp.", date: "Il y a 3 jours" },
-        { id: 2, author: "Fatou Kane", rating: 4, text: "Qualité d'impression irréprochable. Un peu d'attente pour la livraison mais ça valait le coup.", date: "Il y a 1 semaine" }
-    ]);
+    const [reviews, setReviews] = useState([]);
     const [newReview, setNewReview] = useState({ rating: 5, text: '' });
+    const [activeImage, setActiveImage] = useState(null);
+
+    const getImageUrl = (item) => {
+        if (!item) return '';
+        if (typeof item === 'string') {
+            try {
+                const parsed = JSON.parse(item);
+                return parsed.image_url || parsed.url || item;
+            } catch (e) {
+                return item;
+            }
+        }
+        return item.image_url || item.url || '';
+    };
 
     useEffect(() => {
         if (id) {
             fetchPrinter();
+        } else {
+            setLoading(false);
         }
     }, [id]);
 
     const fetchPrinter = async () => {
-        setLoading(true);
-        const { data, error } = await supabase
-            .from('printers')
-            .select('*')
-            .eq('id', id)
-            .single();
+        try {
+            setLoading(true);
+            const { data, error } = await supabase
+                .from('printers')
+                .select('*')
+                .eq('id', id)
+                .single();
 
-        if (!error && data) {
-            setPrinter(data);
+            if (!error && data) {
+                setPrinter(data);
+                let dbReviews = [];
+                if (data.reviews) {
+                    if (typeof data.reviews === 'string') {
+                        try {
+                            dbReviews = JSON.parse(data.reviews);
+                        } catch (e) {
+                            dbReviews = [];
+                        }
+                    } else if (Array.isArray(data.reviews)) {
+                        dbReviews = data.reviews;
+                    }
+                }
+                setReviews(dbReviews);
+            }
+        } catch (e) {
+            console.error("Error fetching printer:", e);
+        } finally {
+            setLoading(false);
         }
-        setLoading(false);
     };
 
-    const handlePublishReview = () => {
+    const handlePublishReview = async () => {
         if (!newReview.text) return;
         const review = {
             id: reviews.length + 1,
             author: "Client Anonyme",
             rating: newReview.rating,
             text: newReview.text,
-            date: "À l'instant"
+            date: new Date().toLocaleDateString('fr-FR')
         };
-        setReviews([review, ...reviews]);
-        setNewReview({ rating: 5, text: '' });
+        const updatedReviews = [review, ...reviews];
+        
+        // Calculate new average rating
+        const totalRating = updatedReviews.reduce((acc, r) => acc + r.rating, 0);
+        const averageRating = parseFloat((totalRating / updatedReviews.length).toFixed(1));
+
+        const { error } = await supabase
+            .from('printers')
+            .update({ 
+                reviews: updatedReviews,
+                rating: averageRating
+            })
+            .eq('id', printer.id);
+
+        if (!error) {
+            setReviews(updatedReviews);
+            setPrinter({
+                ...printer,
+                reviews: updatedReviews,
+                rating: averageRating
+            });
+            setNewReview({ rating: 5, text: '' });
+        } else {
+            alert("Erreur lors de la publication de l'avis : " + error.message);
+        }
     };
 
     if (loading) {
@@ -60,13 +114,6 @@ const PrinterDetailPage = ({ id, setPage }) => {
             </div>
         );
     }
-
-    const atelierServices = [
-        { name: "Cartes de Visite", desc: "Impression haute fidélité sur papier 350g, finition mate ou brillante.", price: "à partir de 15 000 FCFA / 100 unités" },
-        { name: "Flyers & Dépliants", desc: "Idéal pour vos campagnes promotionnelles. Papier 135g haute qualité.", price: "à partir de 25 000 FCFA / 500 unités" },
-        { name: "Bâches & Grand Format", desc: "Impression résistante aux intempéries pour vos enseignes et événements.", price: "à partir de 8 500 FCFA / m²" },
-        { name: "Conception Graphique", desc: "Besoin d'un design ? Notre équipe s'occupe de créer vos maquettes pro.", price: "sur devis" }
-    ];
 
     return (
         <div className="min-h-screen bg-background pb-20">
@@ -90,34 +137,60 @@ const PrinterDetailPage = ({ id, setPage }) => {
                     {/* Main Content */}
                     <div className="lg:w-2/3 space-y-10">
                         <div className="bg-white rounded-[3rem] p-10 md:p-16 border border-primary/10 shadow-2xl">
-                            <div className="flex flex-col md:flex-row gap-8 items-start md:items-center mb-10">
-                                <div className="w-32 h-32 rounded-[2.5rem] border-4 border-white shadow-2xl overflow-hidden bg-white shrink-0">
-                                    <img src={printer.logo_url} className="w-full h-full object-cover" />
-                                </div>
-                                <div className="flex-1 space-y-2">
-                                    <h1 className="text-4xl md:text-5xl font-black text-primary tracking-tight">{printer.name}</h1>
-                                    <div className="flex items-center gap-4 text-primary/60 font-bold">
-                                        <div className="flex items-center gap-1.5"><MapPin size={18} /> {printer.city}, {printer.neighborhood || 'Quartier Pro'}</div>
-                                        <div className="flex items-center gap-1.5"><Star size={18} className="text-yellow-600" fill="currentColor" /> {printer.rating} ({reviews.length} avis)</div>
-                                    </div>
-                                </div>
-                                <div className="flex gap-4 shrink-0 w-full md:w-auto">
-                                    <button 
-                                        onClick={() => window.open(`https://wa.me/${printer.whatsapp || '221709465891'}`, '_blank')}
-                                        className="flex-1 md:flex-none bg-[#25D366] text-white px-6 py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:scale-105 transition-transform shadow-xl"
-                                    >
-                                        <MessageCircle size={20} />
-                                        WhatsApp
-                                    </button>
-                                    <button 
-                                        onClick={() => window.location.href = `tel:${printer.phone || '221709465891'}`}
-                                        className="flex-1 md:flex-none bg-[#F5F5DC] text-[#3D0B37] px-6 py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:scale-105 transition-transform shadow-xl border border-[#3D0B37]/10"
-                                    >
-                                        <Phone size={20} />
-                                        Appeler
-                                    </button>
-                                </div>
-                            </div>
+                             <div className="flex flex-col sm:flex-row gap-8 items-start mb-8 pb-8 border-b border-primary/5">
+                                 <div className="w-32 h-32 rounded-[2.5rem] border-4 border-white shadow-2xl overflow-hidden bg-white shrink-0 mx-auto sm:mx-0">
+                                     <img src={printer.logo_url} className="w-full h-full object-cover" />
+                                 </div>
+                                  <div className="flex-1 space-y-3 text-center sm:text-left">
+                                      <h1 className="text-4xl md:text-5xl font-black text-primary tracking-tight leading-tight">{printer.name}</h1>
+                                      <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 text-primary/60 font-bold text-sm">
+                                          <div className="flex items-center gap-1.5"><MapPin size={18} /> {printer.city}, {printer.neighborhood || 'Quartier Pro'}</div>
+                                          <div className="flex items-center gap-1.5"><Star size={18} className="text-yellow-600" fill="currentColor" /> {reviews.length > 0 ? printer.rating : 0} ({reviews.length} avis)</div>
+                                      </div>
+                                      {/* Social Links */}
+                                      <div className="flex justify-center sm:justify-start gap-3 pt-2">
+                                          {printer.facebook && (
+                                              <a href={printer.facebook} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-xl bg-primary/5 hover:bg-primary hover:text-white flex items-center justify-center text-primary transition-all" title="Facebook">
+                                                  <svg className="w-[18px] h-[18px]" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                      <path d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.8c4.56-.93 8-4.96 8-9.8z"/>
+                                                  </svg>
+                                              </a>
+                                          )}
+                                          {printer.instagram && (
+                                              <a href={printer.instagram} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-xl bg-primary/5 hover:bg-primary hover:text-white flex items-center justify-center text-primary transition-all" title="Instagram">
+                                                  <svg className="w-[18px] h-[18px]" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                      <rect x="2" y="2" width="20" height="20" rx="5" ry="5"></rect>
+                                                      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"></path>
+                                                      <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"></line>
+                                                  </svg>
+                                              </a>
+                                          )}
+                                          {printer.tiktok && (
+                                              <a href={printer.tiktok} target="_blank" rel="noopener noreferrer" className="w-10 h-10 rounded-xl bg-primary/5 hover:bg-primary hover:text-white flex items-center justify-center text-primary transition-all" title="TikTok">
+                                                  <svg className="w-[18px] h-[18px]" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                                                      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .8.11V9.4a6.27 6.27 0 0 0-3.11 0 6.34 6.34 0 0 0-4.25 5.85 6.34 6.34 0 0 0 10.82 4.48 6.34 6.34 0 0 0 2.23-4.82V7.9c1.24.85 2.75 1.35 4.37 1.35V5.8a4.86 4.86 0 0 1-3.7-2.11z"/>
+                                                  </svg>
+                                              </a>
+                                          )}
+                                      </div>
+                                  </div>
+                              </div>
+                              <div className="flex flex-col sm:flex-row gap-4 mb-4">
+                                  <button 
+                                      onClick={() => window.open(`https://wa.me/${printer.whatsapp || '221709465891'}`, '_blank')}
+                                      className="flex-1 sm:flex-none bg-[#25D366] text-white px-8 py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:scale-105 transition-transform shadow-xl"
+                                  >
+                                      <MessageCircle size={20} />
+                                      WhatsApp
+                                  </button>
+                                  <button 
+                                      onClick={() => window.location.href = `tel:${printer.phone || '221709465891'}`}
+                                      className="flex-1 sm:flex-none bg-[#F5F5DC] text-[#3D0B37] px-8 py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:scale-105 transition-transform shadow-xl border border-[#3D0B37]/10"
+                                  >
+                                      <Phone size={20} />
+                                      Appeler
+                                  </button>
+                              </div>
 
                             <div className="space-y-6">
                                 <h3 className="text-2xl font-black text-primary flex items-center gap-3">
@@ -129,7 +202,7 @@ const PrinterDetailPage = ({ id, setPage }) => {
                             </div>
                         </div>
 
-                        {/* Services Section - NEW */}
+                        {/* Services Section */}
                         <div className="bg-white rounded-[3rem] p-10 md:p-16 border border-primary/10 shadow-2xl space-y-10">
                             <div className="flex items-center justify-between">
                                 <h3 className="text-3xl font-black text-primary flex items-center gap-4">
@@ -138,24 +211,43 @@ const PrinterDetailPage = ({ id, setPage }) => {
                                 </h3>
                             </div>
                             
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                {atelierServices.map((service, i) => (
-                                    <div key={i} className="bg-primary/5 p-8 rounded-[2rem] border border-primary/5 hover:bg-primary hover:text-white transition-all duration-500 group">
-                                        <h4 className="text-xl font-black mb-3">{service.name}</h4>
-                                        <p className="text-sm opacity-60 mb-6 font-medium leading-relaxed group-hover:text-white/80">{service.desc}</p>
-                                        <div className="flex items-center justify-between pt-4 border-t border-primary/10 group-hover:border-white/10">
-                                            <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest">
-                                                <CreditCard size={14} />
-                                                Tarif
-                                            </div>
-                                            <div className="font-black text-sm">{service.price}</div>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                 {printer.services && printer.services.length > 0 ? (
+                                     printer.services.map((service, i) => (
+                                         <div key={i} className="bg-primary/5 p-8 rounded-[2rem] border border-primary/5 hover:bg-primary hover:text-white transition-all duration-500 group flex flex-col justify-between">
+                                             <div>
+                                                 <h4 className="text-xl font-black mb-3">{service.name}</h4>
+                                                 <p className="text-sm opacity-60 mb-6 font-medium leading-relaxed group-hover:text-white/80">{service.description}</p>
+                                                 {service.parameters && service.parameters.length > 0 && (
+                                                     <div className="flex flex-wrap gap-2 mb-6">
+                                                         {service.parameters.map((param, pIdx) => (
+                                                             <span key={pIdx} className="text-[10px] font-bold text-primary bg-primary/10 group-hover:bg-white/20 group-hover:text-white px-2.5 py-1 rounded-lg transition-colors">
+                                                                 {param.label} : {param.value}
+                                                             </span>
+                                                         ))}
+                                                     </div>
+                                                 )}
+                                             </div>
+                                             <div className="flex items-center justify-between pt-4 border-t border-primary/10 group-hover:border-white/10">
+                                                 <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest">
+                                                     <CreditCard size={14} />
+                                                     Tarif
+                                                 </div>
+                                                 <div className="font-black text-sm">
+                                                     {service.price ? `à partir de ${service.price} FCFA ${service.quantity ? `/ ${service.quantity}` : ''}` : 'Sur devis'}
+                                                 </div>
+                                             </div>
+                                         </div>
+                                     ))
+                                 ) : (
+                                     <div className="col-span-full py-12 text-center text-primary/45 font-bold">
+                                         Aucun service répertorié pour le moment.
+                                     </div>
+                                 )}
+                             </div>
                         </div>
 
-                        {/* Localization Section - NEW */}
+                        {/* Localization Section */}
                         <div className="bg-white rounded-[3rem] p-10 md:p-16 border border-primary/10 shadow-2xl space-y-10">
                             <h3 className="text-3xl font-black text-primary flex items-center gap-4">
                                 <MapPin size={32} className="text-primary" />
@@ -265,21 +357,49 @@ const PrinterDetailPage = ({ id, setPage }) => {
                                 <ImageIcon size={24} />
                                 Portfolio
                             </h3>
-                            <div className="grid grid-cols-1 gap-6">
-                                {[
-                                    "https://images.unsplash.com/photo-1544431950-21da23bd9918?q=80&w=1000&auto=format&fit=crop",
-                                    "https://images.unsplash.com/photo-1626785774573-4b799315345d?q=80&w=1000&auto=format&fit=crop",
-                                    "https://images.unsplash.com/photo-1589330694653-ded6df03f754?q=80&w=1000&auto=format&fit=crop"
-                                ].map((img, i) => (
-                                    <div key={i} className="aspect-video rounded-2xl overflow-hidden border border-accent/10">
-                                        <img src={img} className="w-full h-full object-cover" />
-                                    </div>
-                                ))}
-                            </div>
+                             <div className="grid grid-cols-1 gap-6">
+                                 {printer.portfolio && printer.portfolio.length > 0 ? (
+                                     printer.portfolio.map((item, i) => (
+                                         <div 
+                                             key={i} 
+                                             onClick={() => setActiveImage(getImageUrl(item))}
+                                             className="aspect-video rounded-2xl overflow-hidden border border-accent/10 cursor-zoom-in hover:opacity-90 transition-all shadow-lg"
+                                         >
+                                             <img src={getImageUrl(item)} className="w-full h-full object-cover" />
+                                         </div>
+                                     ))
+                                 ) : (
+                                     <div className="text-center py-10 opacity-50 font-bold text-xs uppercase tracking-widest">
+                                         Aucune réalisation disponible.
+                                     </div>
+                                 )}
+                             </div>
                         </div>
                     </div>
                 </div>
             </div>
+
+            {/* Image Lightbox Modal */}
+            {activeImage && (
+                <div 
+                    onClick={() => setActiveImage(null)}
+                    className="fixed inset-0 z-[300] bg-dark/95 backdrop-blur-md flex items-center justify-center p-4 cursor-zoom-out animate-in fade-in duration-300"
+                >
+                    <button 
+                        onClick={() => setActiveImage(null)}
+                        className="absolute top-6 right-6 p-4 bg-white/10 hover:bg-white/20 text-[#F5F5DC] rounded-full transition-colors z-[310]"
+                    >
+                        <X size={24} />
+                    </button>
+                    <div className="max-w-5xl max-h-[90vh] rounded-[2.5rem] overflow-hidden border-4 border-white/20 shadow-2xl relative z-[305] animate-in zoom-in-95 duration-300">
+                        <img 
+                            src={activeImage} 
+                            alt="Agrandissement de la réalisation" 
+                            className="max-w-full max-h-[85vh] object-contain pointer-events-none" 
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

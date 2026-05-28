@@ -28,6 +28,13 @@ CREATE TABLE IF NOT EXISTS printers (
     last_name TEXT,
     views INTEGER DEFAULT 0,
     clicks INTEGER DEFAULT 0,
+    services JSONB DEFAULT '[]'::jsonb,
+    portfolio JSONB DEFAULT '[]'::jsonb,
+    facebook TEXT,
+    instagram TEXT,
+    tiktok TEXT,
+    reviews JSONB DEFAULT '[]'::jsonb,
+    name_last_modified_at TIMESTAMP WITH TIME ZONE,
     owner_id UUID REFERENCES auth.users(id) ON DELETE CASCADE
 );
 

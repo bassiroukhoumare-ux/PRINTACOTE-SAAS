@@ -16,6 +16,12 @@ const DashboardPage = ({ setPage, user }) => {
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
     const [printerData, setPrinterData] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [autoOpenModal, setAutoOpenModal] = useState(false);
+
+    const triggerTabWithModal = (tab) => {
+        setActiveTab(tab);
+        setAutoOpenModal(true);
+    };
 
     useEffect(() => {
         if (user) {
@@ -24,7 +30,7 @@ const DashboardPage = ({ setPage, user }) => {
     }, [user]);
 
     const fetchPrinterData = async () => {
-        setLoading(true);
+        if (!printerData) setLoading(true);
         const { data, error } = await supabase
             .from('printers')
             .select('*')
@@ -38,6 +44,12 @@ const DashboardPage = ({ setPage, user }) => {
     };
 
     const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
+
+    const handleLogout = async () => {
+        if (window.confirm("Êtes-vous sûr de vouloir vous déconnecter ?")) {
+            await supabase.auth.signOut();
+        }
+    };
 
     const menuItems = [
         { id: 'overview', label: 'Vue d\'ensemble', icon: LayoutDashboard },
@@ -84,7 +96,7 @@ const DashboardPage = ({ setPage, user }) => {
 
                 <div className="p-8 border-t border-dark/5">
                     <button 
-                        onClick={() => supabase.auth.signOut()}
+                        onClick={handleLogout}
                         className="w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold text-red-500 hover:bg-red-50 transition-colors"
                     >
                         <LogOut size={20} />
@@ -96,40 +108,33 @@ const DashboardPage = ({ setPage, user }) => {
             {/* Mobile Header */}
             <div className="lg:hidden fixed top-0 left-0 right-0 z-[100] bg-white/80 backdrop-blur-xl border-b border-dark/5 px-6 py-4 flex items-center justify-between">
                 <img src="/logo.png" alt="Logo" className="h-8 w-auto" />
-                <button onClick={toggleSidebar} className="p-2 bg-dark/5 rounded-xl">
-                    {isSidebarOpen ? <X size={24} /> : <Menu size={24} />}
+                <button 
+                    onClick={handleLogout} 
+                    className="p-2.5 bg-red-50 text-red-500 rounded-xl hover:scale-105 active:scale-95 transition-transform flex items-center gap-1.5 font-black text-[10px] uppercase tracking-wider shadow-sm border border-red-100"
+                >
+                    <LogOut size={14} />
+                    Quitter
                 </button>
             </div>
 
-            {/* Mobile Sidebar Overlay */}
-            {isSidebarOpen && (
-                <div className="lg:hidden fixed inset-0 z-[90] bg-dark/60 backdrop-blur-sm" onClick={toggleSidebar}></div>
-            )}
-            <aside className={`lg:hidden fixed top-0 right-0 bottom-0 w-4/5 max-w-xs bg-white z-[95] p-10 flex flex-col transition-transform duration-500 cubic-bezier(0.16, 1, 0.3, 1) ${isSidebarOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-                <nav className="flex-1 space-y-4 mt-20">
-                    {menuItems.map((item) => (
-                        <button
-                            key={item.id}
-                            onClick={() => { setActiveTab(item.id); toggleSidebar(); }}
-                            className={`w-full flex items-center gap-4 p-4 rounded-2xl font-bold transition-all
-                                ${activeTab === item.id ? 'bg-primary text-white shadow-xl' : 'text-dark/50 hover:bg-dark/5'}`}
-                        >
-                            <item.icon size={24} />
-                            <span>{item.label}</span>
-                        </button>
-                    ))}
-                </nav>
-                <button 
-                    onClick={() => supabase.auth.signOut()}
-                    className="w-full flex items-center gap-4 p-4 rounded-2xl font-bold text-red-500 border border-red-100"
-                >
-                    <LogOut size={20} />
-                    <span>Déconnexion</span>
-                </button>
-            </aside>
+            {/* Mobile Bottom Navigation Bar */}
+            <div className="lg:hidden fixed bottom-6 left-6 right-6 z-[100] bg-[#F5F5DC] border border-[#3D0B37]/10 rounded-full px-6 py-4 flex justify-around items-center shadow-2xl shadow-[#3D0B37]/20">
+                {menuItems.filter(item => item.id !== 'billing').map((item) => (
+                    <button
+                        key={item.id}
+                        onClick={() => setActiveTab(item.id)}
+                        className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === item.id ? 'text-[#3D0B37] scale-110 font-black' : 'text-[#3D0B37]/40 hover:text-[#3D0B37]/70'}`}
+                    >
+                        <item.icon size={22} strokeWidth={activeTab === item.id ? 2.5 : 2} />
+                        <span className="text-[8px] font-black uppercase tracking-wider">
+                            {item.id === 'overview' ? 'Accueil' : item.id === 'profile' ? 'Profil' : item.id === 'services' ? 'Services' : item.id === 'portfolio' ? 'Portfolio' : 'Boutique'}
+                        </span>
+                    </button>
+                ))}
+            </div>
 
             {/* Main Content Area */}
-            <main className="flex-1 lg:p-12 p-6 pt-24 lg:pt-12 overflow-y-auto">
+            <main className="flex-1 lg:p-12 p-6 pb-32 pt-24 lg:pt-12 overflow-y-auto">
                 <div className="max-w-6xl mx-auto">
                     {/* Header */}
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-16">
@@ -166,11 +171,11 @@ const DashboardPage = ({ setPage, user }) => {
 
                     {/* Tab Content */}
                     <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
-                        {activeTab === 'overview' && <DashboardOverview printerData={printerData} />}
+                        {activeTab === 'overview' && <DashboardOverview printerData={printerData} setActiveTab={triggerTabWithModal} />}
                         {activeTab === 'profile' && <DashboardProfile printerData={printerData} onUpdate={fetchPrinterData} />}
-                        {activeTab === 'services' && <DashboardServices printerData={printerData} onUpdate={fetchPrinterData} />}
-                        {activeTab === 'portfolio' && <DashboardPortfolio printerData={printerData} onUpdate={fetchPrinterData} />}
-                        {activeTab === 'marketplace' && <DashboardMarketplace printerData={printerData} onUpdate={fetchPrinterData} />}
+                        {activeTab === 'services' && <DashboardServices printerData={printerData} onUpdate={fetchPrinterData} autoOpenModal={autoOpenModal} setAutoOpenModal={setAutoOpenModal} />}
+                        {activeTab === 'portfolio' && <DashboardPortfolio printerData={printerData} onUpdate={fetchPrinterData} autoOpenModal={autoOpenModal} setAutoOpenModal={setAutoOpenModal} />}
+                        {activeTab === 'marketplace' && <DashboardMarketplace printerData={printerData} onUpdate={fetchPrinterData} autoOpenModal={autoOpenModal} setAutoOpenModal={setAutoOpenModal} />}
                     </div>
                 </div>
             </main>

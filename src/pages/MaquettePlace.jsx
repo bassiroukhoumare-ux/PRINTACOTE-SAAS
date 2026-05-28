@@ -1,32 +1,72 @@
-import React, { useState } from 'react';
-import { ShoppingBag, Search, Filter, ShoppingCart, Star, ArrowRight, MessageCircle, SlidersHorizontal, ChevronDown, X, Globe } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { ShoppingBag, Search, ShoppingCart, ArrowRight, MessageCircle, SlidersHorizontal, X, Globe, MapPin, Loader2 } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 const MaquettePlace = ({ setPage }) => {
     const [searchTerm, setSearchTerm] = useState('');
     const [filterCategory, setFilterCategory] = useState('Tous');
     const [showFilters, setShowFilters] = useState(false);
     const [selectedProduct, setSelectedProduct] = useState(null);
+    const [items, setItems] = useState([]);
+    const [loading, setLoading] = useState(true);
 
-    const categories = ["Tous", "Encre", "Papier", "Machines", "Accessoires"];
-    
-    const items = [
-        { id: 1, title: "Encre Offset Premium - Cyan", price: "45 000 FCFA", category: "Encre", country: "Sénégal", rating: 4.8, sales: 124, img: "https://images.unsplash.com/photo-1585776245991-cf89dd7fc53e?q=80&w=1000&auto=format&fit=crop", desc: "Encre haute densité pour une reproduction fidèle des couleurs sur tous types de supports." },
-        { id: 2, title: "Papier Couché Brillant 135g - 500 f.", price: "12 500 FCFA", category: "Papier", country: "Côte d'Ivoire", rating: 4.9, sales: 89, img: "https://images.unsplash.com/photo-1589330694653-ded6df03f754?q=80&w=1000&auto=format&fit=crop", desc: "Papier de qualité supérieure idéal pour vos flyers et brochures publicitaires." },
-        { id: 3, title: "Presse Numérique Pro X-200", price: "2 500 000 FCFA", category: "Machines", country: "Sénégal", rating: 5.0, sales: 45, img: "https://images.unsplash.com/photo-1563986768609-322da13575f3?q=80&w=1000&auto=format&fit=crop", desc: "Machine d'impression numérique haute performance pour gros volumes." },
-        { id: 4, title: "Plaques Offset Thermiques", price: "85 000 FCFA", category: "Accessoires", country: "Mali", rating: 4.7, sales: 210, img: "https://images.unsplash.com/photo-1549490349-8643362247b5?q=80&w=1000&auto=format&fit=crop", desc: "Plaques de haute précision pour un transfert d'image optimal sur presse." },
-        { id: 5, title: "Vernis UV Séchage Rapide", price: "35 000 FCFA", category: "Encre", country: "Sénégal", rating: 4.9, sales: 67, img: "https://images.unsplash.com/photo-1572044162444-ad60f128bde2?q=80&w=1000&auto=format&fit=crop", desc: "Vernis de protection haute brillance pour une finition professionnelle." },
-        { id: 6, title: "Massicot Hydraulique 52cm", price: "85 000 FCFA", category: "Machines", country: "Sénégal", rating: 4.6, sales: 156, img: "https://images.unsplash.com/photo-1544431950-21da23bd9918?q=80&w=1000&auto=format&fit=crop", desc: "Coupe précise et sécurisée pour tous vos travaux de finition." }
+    const categories = [
+        "Tous",
+        ...new Set([
+            "Encre",
+            "Papier",
+            "Machines",
+            "Accessoires",
+            ...items.map(item => item.category).filter(cat => cat && cat !== 'Tous')
+        ])
     ];
 
+    useEffect(() => {
+        fetchProducts();
+    }, []);
+
+    const fetchProducts = async () => {
+        setLoading(true);
+        const { data, error } = await supabase
+            .from('products')
+            .select('*, printers(name, country, city, description, whatsapp)')
+            .eq('status', 'En ligne');
+
+        if (!error && data) {
+            const mapped = data.map(item => ({
+                id: item.id,
+                title: item.name,
+                price: `${parseFloat(item.price).toLocaleString()} FCFA`,
+                category: item.options?.category || 'Encre',
+                country: item.printers?.country || 'Sénégal',
+                city: item.printers?.city || 'Dakar',
+                img: item.images?.[0] || 'https://images.unsplash.com/photo-1585776245991-cf89dd7fc53e?q=80&w=1000',
+                desc: item.description,
+                sellerName: item.printers?.name || 'Imprimerie Partenaire',
+                sellerDesc: item.printers?.description || "Atelier d'impression professionnel certifié.",
+                whatsapp: item.printers?.whatsapp || '221709465891',
+                promoPrice: item.promo_price ? `${parseFloat(item.promo_price).toLocaleString()} FCFA` : null,
+                discount: item.discount
+            }));
+            setItems(mapped);
+        } else {
+            console.error("Error loading products:", error);
+        }
+        setLoading(false);
+    };
+
     const filteredItems = items.filter(item => 
-        (item.title.toLowerCase().includes(searchTerm.toLowerCase())) &&
+        (item.title.toLowerCase().includes(searchTerm.toLowerCase()) || 
+         item.desc.toLowerCase().includes(searchTerm.toLowerCase())) &&
         (filterCategory === 'Tous' || item.category === filterCategory)
     );
 
     const contactSeller = (product) => {
         const productUrl = `${window.location.origin}/?product=${product.id}`;
-        const message = `Bonjour, je suis intéressé par le produit "${product.title}" au prix de ${product.price}. \nLien du produit : ${productUrl} \n\nEnvoyé depuis printacote.com`;
-        window.open(`https://wa.me/221709465891?text=${encodeURIComponent(message)}`, '_blank');
+        const message = `Bonjour, je suis intéressé par le produit "${product.title}" au prix de ${product.promoPrice || product.price}. \nLien du produit : ${productUrl} \n\nEnvoyé depuis printacote.com`;
+        const phone = product.whatsapp || '221709465891';
+        const cleanPhone = phone.replace(/[^0-9]/g, '');
+        window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, '_blank');
     };
 
     return (
@@ -91,7 +131,11 @@ const MaquettePlace = ({ setPage }) => {
 
             {/* Grid Area */}
             <div className="container mx-auto px-6 py-20 relative z-10">
-                {selectedProduct ? (
+                {loading ? (
+                    <div className="flex justify-center py-20">
+                        <Loader2 className="animate-spin text-white" size={48} />
+                    </div>
+                ) : selectedProduct ? (
                     <div className="animate-in fade-in slide-in-from-bottom-10 duration-700">
                         <button onClick={() => setSelectedProduct(null)} className="flex items-center gap-2 text-[#F5F5DC] font-bold mb-10 hover:translate-x-[-4px] transition-transform">
                             <ArrowRight className="rotate-180" size={20} />
@@ -112,8 +156,27 @@ const MaquettePlace = ({ setPage }) => {
                                         Disponible au {selectedProduct.country}
                                     </div>
                                 </div>
-                                <h2 className="text-4xl md:text-5xl font-black text-primary mb-6 leading-tight">{selectedProduct.title}</h2>
-                                <div className="text-3xl font-black text-primary mb-10">{selectedProduct.price}</div>
+                                <h2 className="text-4xl md:text-5xl font-black text-primary mb-4 leading-tight">{selectedProduct.title}</h2>
+                                <div className="flex items-center gap-4 mb-8">
+                                    {selectedProduct.promoPrice ? (
+                                        <>
+                                            <div className="text-3xl font-black text-primary">{selectedProduct.promoPrice}</div>
+                                            <div className="text-lg text-dark/30 line-through font-bold">{selectedProduct.price}</div>
+                                        </>
+                                    ) : (
+                                        <div className="text-3xl font-black text-primary">{selectedProduct.price}</div>
+                                    )}
+                                </div>
+
+                                {/* Seller Card */}
+                                <div className="bg-primary/5 p-6 rounded-[2rem] border border-primary/10 mb-10">
+                                    <div className="text-[9px] font-black uppercase tracking-[0.15em] text-primary/45 mb-2 flex items-center gap-1.5">
+                                        <MapPin size={10} /> Vendu par
+                                    </div>
+                                    <h4 className="text-lg font-black text-primary mb-1">{selectedProduct.sellerName}</h4>
+                                    <div className="text-xs text-primary/60 font-bold mb-2">📍 {selectedProduct.city}, {selectedProduct.country}</div>
+                                    <p className="text-xs text-primary/65 leading-relaxed">{selectedProduct.sellerDesc}</p>
+                                </div>
                                 
                                 <p className="text-primary/60 text-lg leading-relaxed mb-12 font-medium">
                                     {selectedProduct.desc}
@@ -151,12 +214,27 @@ const MaquettePlace = ({ setPage }) => {
                                         <Globe size={12} className="text-accent" />
                                         {item.country}
                                     </div>
+                                    {item.discount && (
+                                        <div className="absolute top-6 left-6 bg-red-500 text-white px-3 py-1.5 rounded-xl text-xs font-black shadow-xl">
+                                            -{item.discount}%
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="p-6 md:p-10 flex flex-col flex-1">
-                                    <div className="flex flex-col sm:flex-row sm:justify-between items-start gap-2 sm:gap-4 mb-4">
+                                    <div className="flex flex-col sm:flex-row sm:justify-between items-start gap-2 sm:gap-4 mb-3">
                                         <h3 className="text-xl font-black text-primary tracking-tight leading-tight group-hover:text-accent transition-colors w-full sm:max-w-[70%]">{item.title}</h3>
-                                        <div className="text-primary font-black text-lg shrink-0">{item.price}</div>
+                                        <div className="text-right shrink-0">
+                                            {item.promoPrice ? (
+                                                <>
+                                                    <div className="text-primary font-black text-lg">{item.promoPrice}</div>
+                                                    <div className="text-xs text-dark/30 line-through font-bold">{item.price}</div>
+                                                </>
+                                            ) : (
+                                                <div className="text-primary font-black text-lg">{item.price}</div>
+                                            )}
+                                        </div>
                                     </div>
+                                    <div className="text-[10px] font-bold text-primary/40 mb-3">📍 {item.sellerName} ({item.city})</div>
                                     <p className="text-primary/60 text-sm font-medium mb-8 line-clamp-2 flex-1">
                                         {item.desc}
                                     </p>

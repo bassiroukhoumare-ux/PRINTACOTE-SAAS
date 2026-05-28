@@ -1,17 +1,29 @@
-import React, { useState } from 'react';
-import { Plus, Wrench, X, Save, Loader2, AlertCircle } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Plus, Wrench, X, Save, Loader2, CreditCard } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
-const DashboardServices = ({ printerData, onUpdate }) => {
+const DashboardServices = ({ printerData, onUpdate, autoOpenModal, setAutoOpenModal }) => {
     const [loading, setLoading] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [newService, setNewService] = useState({ name: '', description: '' });
+    const [newService, setNewService] = useState({ name: '', description: '', price: '', quantity: '' });
+    const [customParams, setCustomParams] = useState([]);
+
+    useEffect(() => {
+        if (autoOpenModal) {
+            setIsModalOpen(true);
+            setAutoOpenModal(false);
+        }
+    }, [autoOpenModal, setAutoOpenModal]);
 
     const handleAddService = async (e) => {
         e.preventDefault();
         setLoading(true);
         
-        const updatedServices = [...(printerData.services || []), newService];
+        const finalService = {
+            ...newService,
+            parameters: customParams.filter(p => p.label.trim() !== '' && p.value.trim() !== '')
+        };
+        const updatedServices = [...(printerData.services || []), finalService];
         
         const { error } = await supabase
             .from('printers')
@@ -21,19 +33,28 @@ const DashboardServices = ({ printerData, onUpdate }) => {
         if (!error) {
             onUpdate();
             setIsModalOpen(false);
-            setNewService({ name: '', description: '' });
+            setNewService({ name: '', description: '', price: '', quantity: '' });
+            setCustomParams([]);
+        } else {
+            alert("Erreur lors de l'ajout : " + error.message);
         }
         setLoading(false);
     };
 
     const removeService = async (index) => {
+        if (!window.confirm("Êtes-vous sûr de vouloir supprimer ce service ?")) return;
+        
         const updatedServices = printerData.services.filter((_, i) => i !== index);
         const { error } = await supabase
             .from('printers')
             .update({ services: updatedServices })
             .eq('id', printerData.id);
         
-        if (!error) onUpdate();
+        if (!error) {
+            onUpdate();
+        } else {
+            alert("Erreur lors de la suppression : " + error.message);
+        }
     };
 
     return (
@@ -60,12 +81,30 @@ const DashboardServices = ({ printerData, onUpdate }) => {
                         >
                             <X size={20} />
                         </button>
-                        <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary mb-8 group-hover:scale-110 transition-transform">
-                            <Wrench size={28} />
-                        </div>
                         <div>
+                            <div className="w-16 h-16 bg-primary/10 rounded-2xl flex items-center justify-center text-primary mb-8 group-hover:scale-110 transition-transform">
+                                <Wrench size={28} />
+                            </div>
                             <h3 className="text-2xl font-bold mb-3 tracking-tight">{s.name}</h3>
-                            <p className="text-dark/40 leading-relaxed">{s.description}</p>
+                            <p className="text-dark/40 text-sm leading-relaxed mb-6 font-medium">{s.description}</p>
+                            {s.parameters && s.parameters.length > 0 && (
+                                <div className="flex flex-wrap gap-2 mb-6">
+                                    {s.parameters.map((param, pIdx) => (
+                                        <span key={pIdx} className="text-[10px] font-bold text-primary bg-primary/5 px-2.5 py-1 rounded-lg">
+                                            {param.label} : {param.value}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex items-center justify-between pt-4 border-t border-dark/5 mt-auto">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-dark/30 flex items-center gap-1.5">
+                                <CreditCard size={12} />
+                                Tarif
+                            </span>
+                            <span className="font-black text-xs text-primary bg-primary/5 px-3 py-1.5 rounded-lg">
+                                {s.price ? `à partir de ${s.price} FCFA ${s.quantity ? `/ ${s.quantity}` : ''}` : 'Sur devis'}
+                            </span>
                         </div>
                     </div>
                 ))}
@@ -81,8 +120,7 @@ const DashboardServices = ({ printerData, onUpdate }) => {
 
             {/* Modal */}
             {isModalOpen && (
-                <div className="fixed inset-0 z-[200] flex items-center justify-center p-6">
-                    <div className="absolute inset-0 bg-dark/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-primary/20 backdrop-blur-sm animate-in fade-in duration-300">
                     <div className="bg-white rounded-[3rem] p-10 w-full max-w-lg relative z-10 shadow-2xl animate-in zoom-in-95 duration-300">
                         <div className="flex justify-between items-center mb-8">
                             <h3 className="text-2xl font-black">Nouveau Service</h3>
@@ -90,7 +128,7 @@ const DashboardServices = ({ printerData, onUpdate }) => {
                         </div>
                         <form onSubmit={handleAddService} className="space-y-6">
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-dark/30 ml-2">Nom du service</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-dark/30 ml-2">Nom du service (Obligatoire)</label>
                                 <input 
                                     required
                                     placeholder="Ex: Impression de Bâches"
@@ -99,28 +137,99 @@ const DashboardServices = ({ printerData, onUpdate }) => {
                                     onChange={(e) => setNewService({ ...newService, name: e.target.value })}
                                 />
                             </div>
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-dark/30 ml-2">Description courte</label>
-                                <textarea 
-                                    required
-                                    rows="3"
-                                    placeholder="Détails sur ce que vous proposez..."
-                                    className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold resize-none"
-                                    value={newService.description}
-                                    onChange={(e) => setNewService({ ...newService, description: e.target.value })}
-                                ></textarea>
+                            
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-dark/30 ml-2">Prix de départ (FCFA - Optionnel)</label>
+                                    <input 
+                                        type="text"
+                                        placeholder="Ex: 15 000"
+                                        className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold text-sm"
+                                        value={newService.price}
+                                        onChange={(e) => setNewService({ ...newService, price: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-dark/30 ml-2">Pour quelle quantité ? (Optionnel)</label>
+                                    <input 
+                                        type="text"
+                                        placeholder="Ex: 500 pièces"
+                                        className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold text-sm"
+                                        value={newService.quantity}
+                                        onChange={(e) => setNewService({ ...newService, quantity: e.target.value })}
+                                    />
+                                </div>
                             </div>
-                            <button 
-                                type="submit" 
-                                disabled={loading}
-                                className="w-full bg-primary text-white py-5 rounded-[2rem] font-black text-lg flex items-center justify-center gap-3 shadow-xl shadow-primary/20"
-                            >
-                                {loading ? <Loader2 className="animate-spin" /> : <><Plus size={22} /> Ajouter le service</>}
-                            </button>
-                        </form>
-                    </div>
-                </div>
-            )}
+
+                             <div className="space-y-2">
+                                 <label className="text-[10px] font-black uppercase tracking-widest text-dark/30 ml-2">Description courte (Obligatoire)</label>
+                                 <textarea 
+                                     required
+                                     rows="3"
+                                     placeholder="Détails sur ce que vous proposez..."
+                                     className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold resize-none"
+                                     value={newService.description}
+                                     onChange={(e) => setNewService({ ...newService, description: e.target.value })}
+                                 ></textarea>
+                             </div>
+                             
+                             {/* Paramètres personnalisés */}
+                             <div className="space-y-4 pt-4 border-t border-dark/5">
+                                 <div className="flex justify-between items-center">
+                                     <label className="text-[10px] font-black uppercase tracking-widest text-dark/30 ml-2">Paramètres (Ex: dimensions, pièces...)</label>
+                                     <button 
+                                         type="button"
+                                         onClick={() => setCustomParams([...customParams, { label: '', value: '' }])}
+                                         className="text-[10px] font-black uppercase text-primary hover:underline flex items-center gap-1 font-bold"
+                                     >
+                                         + Ajouter
+                                     </button>
+                                 </div>
+                                 
+                                 {customParams.map((p, idx) => (
+                                     <div key={idx} className="flex gap-2 items-center animate-in fade-in slide-in-from-top-2">
+                                         <input 
+                                             placeholder="Nom (Ex: Dimensions)"
+                                             className="flex-1 bg-dark/5 border-2 border-transparent rounded-xl px-4 py-3 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold text-xs"
+                                             value={p.label}
+                                             onChange={(e) => {
+                                                 const updated = [...customParams];
+                                                 updated[idx].label = e.target.value;
+                                                 setCustomParams(updated);
+                                             }}
+                                         />
+                                         <input 
+                                             placeholder="Valeur (Ex: 2x3m)"
+                                             className="flex-1 bg-dark/5 border-2 border-transparent rounded-xl px-4 py-3 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold text-xs"
+                                             value={p.value}
+                                             onChange={(e) => {
+                                                 const updated = [...customParams];
+                                                 updated[idx].value = e.target.value;
+                                                 setCustomParams(updated);
+                                             }}
+                                         />
+                                         <button 
+                                             type="button"
+                                             onClick={() => setCustomParams(customParams.filter((_, i) => i !== idx))}
+                                             className="p-3 bg-red-50 text-red-500 rounded-xl hover:scale-105 active:scale-95 transition-all shrink-0"
+                                         >
+                                             <X size={16} />
+                                         </button>
+                                     </div>
+                                 ))}
+                             </div>
+                             
+                             <button 
+                                 type="submit" 
+                                 disabled={loading}
+                                 className="w-full bg-primary text-white py-5 rounded-[2rem] font-black text-lg flex items-center justify-center gap-3 shadow-xl shadow-primary/20"
+                             >
+                                 {loading ? <Loader2 className="animate-spin" /> : <><Plus size={22} /> Ajouter le service</>}
+                             </button>
+                         </form>
+                     </div>
+                 </div>
+             )}
         </div>
     );
 };

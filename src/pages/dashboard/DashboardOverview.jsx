@@ -1,52 +1,80 @@
 import React from 'react';
 import { LayoutDashboard, Star, ShoppingCart, TrendingUp, Users, MessageSquare } from 'lucide-react';
 
-const DashboardOverview = ({ printerData }) => {
-    const stats = [
-        { label: 'Vues Profil', value: printerData?.views || '0', sub: '+12% ce mois', icon: Users, color: 'bg-primary' },
-        { label: 'Note Moyenne', value: printerData?.rating || '5.0', sub: 'Basé sur 0 avis', icon: Star, color: 'bg-yellow-500' },
-        { label: 'Ventes Market', value: '0', sub: '0 CFA gagnés', icon: ShoppingCart, color: 'bg-green-500' },
-        { label: 'Lead WhatsApp', value: '0', sub: '0 clics ce jour', icon: MessageSquare, color: 'bg-accent' },
-    ];
+const DashboardOverview = ({ printerData, setActiveTab }) => {
+    const getReviews = () => {
+        const rawReviews = printerData?.reviews;
+        if (!rawReviews) return [];
+        if (typeof rawReviews === 'string') {
+            try {
+                return JSON.parse(rawReviews);
+            } catch (e) {
+                return [];
+            }
+        }
+        return Array.isArray(rawReviews) ? rawReviews : [];
+    };
+
+    const reviews = getReviews();
+    const reviewCount = reviews.length;
+    const displayRating = reviewCount > 0 ? (printerData?.rating || 0) : 0;
+
+    const stat = { 
+        label: 'Note Moyenne', 
+        value: reviewCount > 0 ? displayRating.toFixed(1) : '0', 
+        sub: `Basé sur ${reviewCount} avis réel${reviewCount > 1 ? 's' : ''}`, 
+        icon: Star, 
+        color: 'bg-yellow-500' 
+    };
 
     return (
         <div className="space-y-12">
             {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-                {stats.map((stat, i) => (
-                    <div key={i} className="bg-white border border-dark/5 rounded-[2.5rem] p-10 flex flex-col justify-between min-h-[220px] hover:shadow-2xl transition-all duration-500 group relative overflow-hidden">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-dark/5 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700"></div>
-                        <div className="flex justify-between items-start relative z-10">
-                            <span className="text-dark/40 text-xs font-black uppercase tracking-[0.2em]">{stat.label}</span>
-                            <div className={`w-12 h-12 ${stat.color} rounded-2xl flex items-center justify-center text-white shadow-lg`}>
-                                <stat.icon size={20} />
-                            </div>
-                        </div>
-                        <div className="relative z-10 mt-8">
-                            <div className="text-5xl font-black text-dark tracking-tight mb-2">{stat.value}</div>
-                            <div className="flex items-center gap-2 text-[10px] font-mono font-bold text-dark/30 uppercase tracking-widest">
-                                <TrendingUp size={12} className="text-green-500" />
-                                {stat.sub}
-                            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+                <div className="bg-white border border-dark/5 rounded-[2.5rem] p-10 flex flex-col justify-between min-h-[220px] hover:shadow-2xl transition-all duration-500 group relative overflow-hidden">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-dark/5 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700"></div>
+                    <div className="flex justify-between items-start relative z-10">
+                        <span className="text-dark/40 text-xs font-black uppercase tracking-[0.2em]">{stat.label}</span>
+                        <div className={`w-12 h-12 ${stat.color} rounded-2xl flex items-center justify-center text-white shadow-lg`}>
+                            <stat.icon size={20} />
                         </div>
                     </div>
-                ))}
+                    <div className="relative z-10 mt-8">
+                        <div className="text-5xl font-black text-dark tracking-tight mb-2">{stat.value}</div>
+                        <div className="flex items-center gap-2 text-[10px] font-mono font-bold text-dark/30 uppercase tracking-widest">
+                            <TrendingUp size={12} className="text-green-500" />
+                            {stat.sub}
+                        </div>
+                    </div>
+                </div>
             </div>
 
             {/* Performance Chart Placeholder / Main Action */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                <div className="lg:col-span-2 bg-dark rounded-[3rem] p-12 text-white relative overflow-hidden">
-                    <div className="absolute top-0 right-0 w-[50%] h-full bg-gradient-to-l from-primary/20 to-transparent"></div>
-                    <h3 className="text-3xl font-black mb-6 tracking-tight">Boostez votre visibilité.</h3>
-                    <p className="text-white/40 max-w-md mb-10 leading-relaxed text-lg">
-                        Complétez votre profil à 100% pour apparaître en haut des résultats de recherche et capter plus de clients locaux.
+                <div className="lg:col-span-2 bg-[#3D0B37] rounded-[3rem] p-12 text-[#F5F5DC] relative overflow-hidden shadow-2xl border border-primary/5">
+                    <div className="absolute top-0 right-0 w-[50%] h-full bg-gradient-to-l from-primary/10 to-transparent"></div>
+                    <h3 className="text-3xl font-black mb-6 tracking-tight">Actions Rapides</h3>
+                    <p className="text-[#F5F5DC]/60 max-w-md mb-10 leading-relaxed text-base font-medium">
+                        Accédez instantanément aux fonctionnalités clés pour enrichir votre vitrine et augmenter vos opportunités commerciales.
                     </p>
-                    <div className="flex flex-col sm:flex-row gap-4">
-                        <button className="bg-primary text-white px-8 py-4 rounded-2xl font-bold flex items-center justify-center gap-3 hover:scale-105 transition-transform">
-                            Lancer une campagne
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <button 
+                            onClick={() => setActiveTab('services')}
+                            className="bg-[#F5F5DC] text-[#3D0B37] py-4 px-6 rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-transform flex items-center justify-center gap-2 shadow-xl shrink-0"
+                        >
+                            + Service
                         </button>
-                        <button className="bg-white/10 text-white px-8 py-4 rounded-2xl font-bold hover:bg-white/20 transition-all">
-                            Voir statistiques détaillées
+                        <button 
+                            onClick={() => setActiveTab('portfolio')}
+                            className="bg-white/10 hover:bg-white/20 text-white py-4 px-6 rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-transform flex items-center justify-center gap-2"
+                        >
+                            + Réalisation
+                        </button>
+                        <button 
+                            onClick={() => setActiveTab('marketplace')}
+                            className="bg-accent text-white py-4 px-6 rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-transform flex items-center justify-center gap-2 shadow-xl"
+                        >
+                            + Produit
                         </button>
                     </div>
                 </div>
