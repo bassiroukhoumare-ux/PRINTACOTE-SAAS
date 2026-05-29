@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Phone, ArrowRight, MessageCircle, X, Clock, Zap, Info, Image as ImageIcon, Video, Palette } from 'lucide-react';
 
-const AdBanner = () => {
+const AdBanner = ({ dark = false }) => {
     const [showTariffs, setShowTariffs] = useState(false);
     const [showInfo, setShowInfo] = useState(false);
 
@@ -19,18 +19,20 @@ const AdBanner = () => {
 
     return (
         <>
-            <div className="w-full max-w-[1000px] aspect-[2/1] md:h-[500px] mx-auto bg-primary/5 border border-primary/10 rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-8 md:p-12 mb-12 flex flex-col md:flex-row items-center justify-center md:justify-between gap-4 md:gap-10 relative overflow-hidden group">
+            <div className={`w-full max-w-[1000px] min-h-[250px] md:h-[250px] mx-auto border rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-8 flex flex-col md:flex-row items-center justify-center md:justify-between gap-4 md:gap-10 relative overflow-hidden group
+                ${dark ? 'bg-white/5 border-white/10' : 'bg-primary/5 border-primary/10'}`}>
                 {/* Background Decorative Blur */}
                 <div className="absolute top-0 right-0 w-64 h-64 bg-accent/10 rounded-full blur-[80px] -mr-32 -mt-32 group-hover:scale-150 transition-transform duration-700"></div>
                 
                 <div className="relative z-10 text-center md:text-left flex flex-col justify-center">
-                    <div className="w-fit mx-auto md:mx-0 inline-flex items-center gap-2 px-3 py-1 bg-accent/20 text-accent rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-widest mb-2 sm:mb-4">
+                    <div className={`w-fit mx-auto md:mx-0 inline-flex items-center gap-2 px-3 py-1 rounded-full text-[9px] sm:text-[10px] font-black uppercase tracking-widest mb-2 sm:mb-4
+                        ${dark ? 'bg-white/10 text-accent' : 'bg-primary/10 text-primary'}`}>
                         Espace Partenaire
                     </div>
-                    <h3 className="font-black text-lg sm:text-2xl md:text-3xl lg:text-4xl text-primary leading-tight mb-2 sm:mb-4">
+                    <h3 className={`font-black text-lg sm:text-2xl md:text-3xl lg:text-4xl leading-tight mb-2 sm:mb-4 ${dark ? 'text-accent' : 'text-primary'}`}>
                         Propulsez votre marque ici.
                     </h3>
-                    <p className="hidden md:block text-primary/60 text-base lg:text-lg max-w-xl font-medium">
+                    <p className={`hidden md:block text-base lg:text-lg max-w-xl font-medium ${dark ? 'text-white/60' : 'text-primary/60'}`}>
                         Rejoignez la régie publicitaire Printacote et touchez directement vos futurs clients en quête d'impression.
                     </p>
                 </div>
@@ -45,7 +47,8 @@ const AdBanner = () => {
                     </button>
                     <button 
                         onClick={() => setShowInfo(true)}
-                        className="bg-white border border-primary/10 text-primary px-4 py-2.5 sm:px-8 sm:py-5 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 sm:gap-3 hover:bg-primary/5 transition-all"
+                        className={`px-4 py-2.5 sm:px-8 sm:py-5 rounded-xl sm:rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 sm:gap-3 transition-all border
+                            ${dark ? 'bg-white/5 border-white/10 text-accent hover:bg-white/10' : 'bg-white border-primary/10 text-primary hover:bg-primary/5'}`}
                     >
                         En savoir plus
                         <ArrowRight size={16} className="sm:w-5 sm:h-5" />

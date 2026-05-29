@@ -72,8 +72,8 @@ const RegisterPage = ({ setPage }) => {
                     <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-[#3D0B37]/10 rounded-full blur-[100px]"></div>
                 </div>
 
-                <div className="w-full max-w-5xl bg-white rounded-[4rem] border border-dark/10 shadow-2xl overflow-hidden relative z-10 flex flex-col md:flex-row min-h-[850px]">
-                    <div className="md:w-[35%] p-12 md:p-16 flex flex-col justify-between bg-[#F5F5DC] text-[#3D0B37] relative">
+                <div className="w-full max-w-5xl bg-white rounded-[2rem] md:rounded-[4rem] border border-dark/10 shadow-2xl overflow-hidden relative z-10 flex flex-col md:flex-row h-auto md:min-h-[800px]">
+                    <div className="md:w-[35%] p-6 sm:p-12 md:p-16 flex flex-col justify-between bg-[#F5F5DC] text-[#3D0B37] relative">
                         <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/40 rounded-full blur-2xl"></div>
                         <div>
                             <button onClick={() => setPage('home')} className="flex items-center gap-2 text-dark/40 hover:text-dark transition-colors mb-12">
@@ -87,7 +87,7 @@ const RegisterPage = ({ setPage }) => {
                         </div>
                     </div>
 
-                    <div className="md:w-[65%] p-10 md:p-16 flex flex-col justify-center items-center text-center bg-white">
+                    <div className="md:w-[65%] p-6 sm:p-10 md:p-16 flex flex-col justify-center items-center text-center bg-white">
                         <div className="w-24 h-24 bg-[#F5F5DC] rounded-[2.5rem] flex items-center justify-center text-[#3D0B37] mb-8 shadow-xl shadow-black/5 animate-pulse">
                             <Mail size={40} className="stroke-[1.5]" />
                         </div>
@@ -130,8 +130,8 @@ const RegisterPage = ({ setPage }) => {
                 <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-[#3D0B37]/10 rounded-full blur-[100px]"></div>
             </div>
 
-            <div className="w-full max-w-5xl bg-white rounded-[4rem] border border-dark/10 shadow-2xl overflow-hidden relative z-10 flex flex-col md:flex-row min-h-[850px]">
-                <div className="md:w-[35%] p-12 md:p-16 flex flex-col justify-between bg-[#F5F5DC] text-[#3D0B37] relative">
+            <div className="w-full max-w-5xl bg-white rounded-[2rem] md:rounded-[4rem] border border-dark/10 shadow-2xl overflow-hidden relative z-10 flex flex-col md:flex-row h-auto md:min-h-[800px]">
+                <div className="md:w-[35%] p-6 sm:p-12 md:p-16 flex flex-col justify-between bg-[#F5F5DC] text-[#3D0B37] relative">
                     <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/40 rounded-full blur-2xl"></div>
                     <div>
                         <button onClick={() => setPage('home')} className="flex items-center gap-2 text-dark/40 hover:text-dark transition-colors mb-12">
@@ -145,7 +145,7 @@ const RegisterPage = ({ setPage }) => {
                     </div>
                 </div>
 
-                <div className="md:w-[65%] p-10 md:p-16 flex flex-col justify-center bg-white overflow-y-auto max-h-[90vh]">
+                <div className="md:w-[65%] p-6 sm:p-10 md:p-16 flex flex-col justify-center bg-white">
                     <form onSubmit={handleRegister} className="space-y-4">
                         {error && (
                             <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-4 rounded-2xl flex items-start gap-3 text-sm">

@@ -84,26 +84,18 @@ const Navbar = ({ setPage, currentPage, user }) => {
                         {user ? (
                             <button 
                                 onClick={() => setPage('dashboard')} 
-                                className="bg-accent text-white px-5 py-2.5 rounded-full text-xs md:text-sm font-bold flex items-center gap-2 shadow-lg shadow-accent/20 hover:scale-105 active:scale-95 transition-all"
+                                className="bg-primary text-accent px-5 py-2.5 rounded-full text-xs md:text-sm font-bold flex items-center gap-2 shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
                             >
                                 <LayoutDashboard size={16} />
-                                <span className="hidden sm:inline">Mon Compte</span>
+                                <span className="hidden sm:inline">Mon Dashboard</span>
                             </button>
                         ) : (
-                            <>
-                                <button 
-                                    onClick={() => setPage('login')} 
-                                    className="text-sm font-bold hover:text-accent transition-colors hidden md:block px-4 py-2"
-                                >
-                                    Connexion
-                                </button>
-                                <button 
-                                    onClick={() => setPage('login')} 
-                                    className="bg-[#F5F5DC] text-[#3D0B37] px-8 py-3 rounded-full text-sm font-black hover:scale-105 active:scale-95 transition-all shadow-xl shadow-black/10"
-                                >
-                                    Se connecter
-                                </button>
-                            </>
+                            <button 
+                                onClick={() => setPage('login')} 
+                                className="bg-[#F5F5DC] text-[#3D0B37] px-8 py-3 rounded-full text-sm font-black hover:scale-105 active:scale-95 transition-all shadow-xl shadow-black/10"
+                            >
+                                Se connecter
+                            </button>
                         )}
                         <button 
                             onClick={toggleSidebar} 

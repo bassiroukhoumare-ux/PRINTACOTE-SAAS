@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Store, ShoppingBag, X, Trash2, Loader2, DollarSign, Tag, Archive, Pencil } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
-const DashboardMarketplace = ({ printerData, onUpdate, autoOpenModal, setAutoOpenModal }) => {
+const DashboardMarketplace = ({ printerData, onUpdate, autoOpenModal, setAutoOpenModal, showToast, showConfirm }) => {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
@@ -179,18 +179,19 @@ const DashboardMarketplace = ({ printerData, onUpdate, autoOpenModal, setAutoOpe
         const { error } = result;
 
         if (!error) {
-            alert(editingProduct ? 'Produit modifié avec succès !' : 'Produit ajouté avec succès à la boutique !');
+            showToast(editingProduct ? 'Produit modifié avec succès !' : 'Produit ajouté avec succès !');
             handleCloseModal();
             fetchProducts();
             if (onUpdate) onUpdate();
         } else {
-            alert("Erreur lors de l'enregistrement : " + error.message);
+            showToast("Erreur lors de l'enregistrement : " + error.message, 'error');
         }
         setActionLoading(false);
     };
 
     const handleDeleteProduct = async (productId) => {
-        if (!window.confirm("Voulez-vous vraiment retirer ce produit de votre boutique ?")) return;
+        const confirmed = await showConfirm("Retirer le produit", "Voulez-vous vraiment retirer ce produit de votre boutique ?");
+        if (!confirmed) return;
 
         setActionLoading(true);
         const { error } = await supabase
@@ -199,11 +200,11 @@ const DashboardMarketplace = ({ printerData, onUpdate, autoOpenModal, setAutoOpe
             .eq('id', productId);
 
         if (!error) {
-            alert('Produit retiré !');
+            showToast('Produit retiré avec succès !');
             fetchProducts();
             if (onUpdate) onUpdate();
         } else {
-            alert("Erreur lors de la suppression : " + error.message);
+            showToast("Erreur lors de la suppression : " + error.message, 'error');
         }
         setActionLoading(false);
     };

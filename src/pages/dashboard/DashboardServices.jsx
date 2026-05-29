@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Wrench, X, Save, Loader2, CreditCard } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
-const DashboardServices = ({ printerData, onUpdate, autoOpenModal, setAutoOpenModal }) => {
+const DashboardServices = ({ printerData, onUpdate, autoOpenModal, setAutoOpenModal, showToast, showConfirm }) => {
     const [loading, setLoading] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [newService, setNewService] = useState({ name: '', description: '', price: '', quantity: '' });
@@ -25,6 +25,18 @@ const DashboardServices = ({ printerData, onUpdate, autoOpenModal, setAutoOpenMo
         };
         const updatedServices = [...(printerData.services || []), finalService];
         
+        if (printerData?.isMock) {
+            const updatedPrinter = { ...printerData, services: updatedServices };
+            localStorage.setItem(`mock_printer_${printerData.id}`, JSON.stringify(updatedPrinter));
+            onUpdate();
+            setIsModalOpen(false);
+            setNewService({ name: '', description: '', price: '', quantity: '' });
+            setCustomParams([]);
+            showToast("Service ajouté avec succès (Mode Démo) !");
+            setLoading(false);
+            return;
+        }
+
         const { error } = await supabase
             .from('printers')
             .update({ services: updatedServices })
@@ -35,16 +47,27 @@ const DashboardServices = ({ printerData, onUpdate, autoOpenModal, setAutoOpenMo
             setIsModalOpen(false);
             setNewService({ name: '', description: '', price: '', quantity: '' });
             setCustomParams([]);
+            showToast("Service ajouté avec succès !");
         } else {
-            alert("Erreur lors de l'ajout : " + error.message);
+            showToast("Erreur lors de l'ajout : " + error.message, 'error');
         }
         setLoading(false);
     };
 
     const removeService = async (index) => {
-        if (!window.confirm("Êtes-vous sûr de vouloir supprimer ce service ?")) return;
+        const confirmed = await showConfirm("Suppression de service", "Êtes-vous sûr de vouloir supprimer ce service ?");
+        if (!confirmed) return;
         
         const updatedServices = printerData.services.filter((_, i) => i !== index);
+
+        if (printerData?.isMock) {
+            const updatedPrinter = { ...printerData, services: updatedServices };
+            localStorage.setItem(`mock_printer_${printerData.id}`, JSON.stringify(updatedPrinter));
+            onUpdate();
+            showToast("Service supprimé avec succès (Mode Démo) !");
+            return;
+        }
+
         const { error } = await supabase
             .from('printers')
             .update({ services: updatedServices })
@@ -52,8 +75,9 @@ const DashboardServices = ({ printerData, onUpdate, autoOpenModal, setAutoOpenMo
         
         if (!error) {
             onUpdate();
+            showToast("Service supprimé avec succès !");
         } else {
-            alert("Erreur lors de la suppression : " + error.message);
+            showToast("Erreur lors de la suppression : " + error.message, 'error');
         }
     };
 

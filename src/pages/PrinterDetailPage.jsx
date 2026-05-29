@@ -8,6 +8,14 @@ const PrinterDetailPage = ({ id, setPage }) => {
     const [reviews, setReviews] = useState([]);
     const [newReview, setNewReview] = useState({ rating: 5, text: '' });
     const [activeImage, setActiveImage] = useState(null);
+    const [toast, setToast] = useState(null);
+
+    useEffect(() => {
+        if (toast) {
+            const timer = setTimeout(() => setToast(null), 4000);
+            return () => clearTimeout(timer);
+        }
+    }, [toast]);
 
     const getImageUrl = (item) => {
         if (!item) return '';
@@ -41,6 +49,12 @@ const PrinterDetailPage = ({ id, setPage }) => {
 
             if (!error && data) {
                 setPrinter(data);
+                
+                // Track profile view in the background
+                supabase.rpc('increment_printer_views', { printer_id: id }).catch(e => {
+                    console.warn("Could not increment views:", e);
+                });
+
                 let dbReviews = [];
                 if (data.reviews) {
                     if (typeof data.reviews === 'string') {
@@ -93,8 +107,9 @@ const PrinterDetailPage = ({ id, setPage }) => {
                 rating: averageRating
             });
             setNewReview({ rating: 5, text: '' });
+            setToast({ message: "Votre avis a été publié avec succès !", type: 'success' });
         } else {
-            alert("Erreur lors de la publication de l'avis : " + error.message);
+            setToast({ message: "Erreur lors de la publication de l'avis : " + error.message, type: 'error' });
         }
     };
 
@@ -117,6 +132,11 @@ const PrinterDetailPage = ({ id, setPage }) => {
 
     return (
         <div className="min-h-screen bg-background pb-20">
+            {toast && (
+                <div className={`fixed bottom-8 right-8 z-[500] px-6 py-4 rounded-2xl shadow-2xl text-white font-bold animate-in slide-in-from-bottom-4 ${toast.type === 'success' ? 'bg-green-600' : 'bg-red-600'}`}>
+                    {toast.message}
+                </div>
+            )}
             {/* Hero Profile */}
             <div className="h-[50vh] relative overflow-hidden">
                 <img 
@@ -145,7 +165,9 @@ const PrinterDetailPage = ({ id, setPage }) => {
                                       <h1 className="text-4xl md:text-5xl font-black text-primary tracking-tight leading-tight">{printer.name}</h1>
                                       <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 text-primary/60 font-bold text-sm">
                                           <div className="flex items-center gap-1.5"><MapPin size={18} /> {printer.city}, {printer.neighborhood || 'Quartier Pro'}</div>
-                                          <div className="flex items-center gap-1.5"><Star size={18} className="text-yellow-600" fill="currentColor" /> {reviews.length > 0 ? printer.rating : 0} ({reviews.length} avis)</div>
+                                          {reviews.length > 0 && (
+                                              <div className="flex items-center gap-1.5"><Star size={18} className="text-yellow-600" fill="currentColor" /> {printer.rating} ({reviews.length} {reviews.length > 1 ? 'avis' : 'avis'})</div>
+                                          )}
                                       </div>
                                       {/* Social Links */}
                                       <div className="flex justify-center sm:justify-start gap-3 pt-2">
@@ -177,7 +199,10 @@ const PrinterDetailPage = ({ id, setPage }) => {
                               </div>
                               <div className="flex flex-col sm:flex-row gap-4 mb-4">
                                   <button 
-                                      onClick={() => window.open(`https://wa.me/${printer.whatsapp || '221709465891'}`, '_blank')}
+                                      onClick={() => {
+                                          supabase.rpc('increment_printer_clicks', { printer_id: printer.id }).catch(err => console.warn(err));
+                                          window.open(`https://wa.me/${printer.whatsapp || '221709465891'}`, '_blank');
+                                      }}
                                       className="flex-1 sm:flex-none bg-[#25D366] text-white px-8 py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:scale-105 transition-transform shadow-xl"
                                   >
                                       <MessageCircle size={20} />
@@ -228,12 +253,12 @@ const PrinterDetailPage = ({ id, setPage }) => {
                                                      </div>
                                                  )}
                                              </div>
-                                             <div className="flex items-center justify-between pt-4 border-t border-primary/10 group-hover:border-white/10">
-                                                 <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest">
+                                             <div className="flex flex-col sm:flex-row sm:items-center justify-between pt-4 border-t border-primary/10 group-hover:border-white/10 gap-3">
+                                                 <div className="flex items-center gap-2 text-xs font-black uppercase tracking-widest shrink-0">
                                                      <CreditCard size={14} />
                                                      Tarif
                                                  </div>
-                                                 <div className="font-black text-sm">
+                                                 <div className="font-black text-sm text-left sm:text-right">
                                                      {service.price ? `à partir de ${service.price} FCFA ${service.quantity ? `/ ${service.quantity}` : ''}` : 'Sur devis'}
                                                  </div>
                                              </div>

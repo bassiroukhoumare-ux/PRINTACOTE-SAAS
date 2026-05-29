@@ -35,11 +35,11 @@ const Layout = ({ children, setPage, currentPage, user }) => {
                         <div className="col-span-1 md:col-span-2">
                             <img src="/logo.png" alt="Printacote" className="h-10 mb-8" />
                             <p className="text-[#3D0B37]/60 max-w-md text-lg leading-relaxed font-medium">
-                                La première plateforme SaaS de mise en relation entre les imprimeurs professionnels et les clients exigeants. Connectez-vous à l'expertise mondiale.
+                                La première plateforme de mise en relation entre les imprimeurs professionnels et les clients exigeants. Connectez-vous à l'expertise mondiale.
                             </p>
                         </div>
                         <div>
-                            <h4 className="text-sm font-black uppercase tracking-widest mb-8 text-accent">Navigation</h4>
+                            <h4 className="text-sm font-black uppercase tracking-widest mb-8 text-primary">Navigation</h4>
                             <ul className="space-y-4 font-bold text-sm">
                                 <li><button onClick={() => setPage('home')} className="hover:text-accent transition-colors">Accueil</button></li>
                                 <li><button onClick={() => setPage('printers')} className="hover:text-accent transition-colors">Imprimeurs</button></li>
@@ -48,7 +48,7 @@ const Layout = ({ children, setPage, currentPage, user }) => {
                             </ul>
                         </div>
                         <div>
-                            <h4 className="text-sm font-black uppercase tracking-widest mb-8 text-accent">Légal</h4>
+                            <h4 className="text-sm font-black uppercase tracking-widest mb-8 text-primary">Légal</h4>
                             <ul className="space-y-4 font-bold text-sm">
                                 <li><button onClick={() => setPage('terms')} className="hover:text-accent transition-colors">Conditions d'utilisation</button></li>
                                 <li><button onClick={() => setPage('privacy')} className="hover:text-accent transition-colors">Confidentialité</button></li>
@@ -69,11 +69,65 @@ const Layout = ({ children, setPage, currentPage, user }) => {
     );
 };
 
+const pageToPath = {
+    'home': '/accueil',
+    'printers': '/imprimerie',
+    'printer_detail': '/imprimerie-detail',
+    'news': '/actualites',
+    'marketplace': '/maquette_place',
+    'login': '/login',
+    'register': '/inscription',
+    'dashboard': '/dashboard',
+    'legal': '/legal',
+    'privacy': '/privacy',
+    'terms': '/terms'
+};
+
+const pathToPage = {
+    '/': 'home',
+    '/accueil': 'home',
+    '/imprimerie': 'printers',
+    '/imprimerie-detail': 'printer_detail',
+    '/actualites': 'news',
+    '/maquette_place': 'marketplace',
+    '/login': 'login',
+    '/inscription': 'register',
+    '/dashboard': 'dashboard',
+    '/legal': 'legal',
+    '/privacy': 'privacy',
+    '/terms': 'terms'
+};
+
 const App = () => {
-    const [page, setPage] = useState('home');
+    const getInitialPage = () => {
+        const path = window.location.pathname;
+        return pathToPage[path] || 'home';
+    };
+
+    const [page, setPage] = useState(getInitialPage);
     const [user, setUser] = useState(null);
     const [selectedPrinterId, setSelectedPrinterId] = useState(null);
     const [showSuccessToast, setShowSuccessToast] = useState(false);
+
+    // Sync state change to URL
+    useEffect(() => {
+        const currentPath = window.location.pathname;
+        const targetPath = pageToPath[page] || '/accueil';
+        if (currentPath !== targetPath) {
+            window.history.pushState(null, '', targetPath);
+        }
+    }, [page]);
+
+    // Handle browser back/forward buttons
+    useEffect(() => {
+        const handlePopState = () => {
+            const path = window.location.pathname;
+            const nextPage = pathToPage[path] || 'home';
+            setPage(nextPage);
+        };
+        window.addEventListener('popstate', handlePopState);
+        return () => window.removeEventListener('popstate', handlePopState);
+    }, []);
 
     useEffect(() => {
         if (showSuccessToast) {
@@ -121,7 +175,7 @@ const App = () => {
             {page === 'printer_detail' && <PrinterDetailPage id={selectedPrinterId} setPage={setPage} />}
             {page === 'news' && <NewsPage setPage={setPage} />}
             {page === 'marketplace' && <MaquettePlace setPage={setPage} />}
-            {page === 'login' && <LoginPage setPage={setPage} />}
+            {page === 'login' && <LoginPage setPage={setPage} setUser={setUser} />}
             {page === 'register' && <RegisterPage setPage={setPage} />}
             {page === 'dashboard' && <DashboardPage setPage={setPage} user={user} />}
             {page === 'legal' && <LegalNoticePage setPage={setPage} />}

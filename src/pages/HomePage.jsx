@@ -41,9 +41,9 @@ const HomePage = ({ setPage }) => {
                 
                 <div className="container mx-auto px-6 relative z-10">
                     <div className="flex flex-col items-center text-center mb-24">
-                        <h2 className="text-xs font-mono text-[#3D0B37] uppercase tracking-[0.4em] font-black mb-6 px-6 py-2 bg-[#F5F5DC] rounded-full inline-block">Pourquoi nous choisir ?</h2>
-                        <h3 className="text-4xl md:text-7xl font-black text-white tracking-tighter max-w-3xl leading-[1.1]">
-                            La plateforme qui connecte <br/><span className="italic font-serif text-[#F5F5DC]">le talent et la demande.</span>
+                        <h2 className="text-4xl md:text-6xl font-black text-[#F5F5DC] tracking-tighter max-w-3xl leading-[1.1] mb-6">Pourquoi nous choisir ?</h2>
+                        <h3 className="text-lg md:text-2xl font-medium text-white/80 max-w-2xl leading-relaxed">
+                            La plateforme qui connecte <span className="italic font-serif">le talent et la demande.</span>
                         </h3>
                     </div>
 
@@ -132,7 +132,7 @@ const HomePage = ({ setPage }) => {
                             <div className="absolute -inset-4 bg-primary/20 rounded-[4rem] blur-3xl opacity-0 group-hover:opacity-100 transition-opacity duration-700"></div>
                             <div className="relative bg-white/5 backdrop-blur-xl rounded-[3rem] p-4 border border-white/10 shadow-2xl overflow-hidden">
                                 <img 
-                                    src="https://images.unsplash.com/photo-1460925895917-afdab827c52f?q=80&w=2426&auto=format&fit=crop" 
+                                    src="/og-image.png" 
                                     alt="Dashboard Analytics" 
                                     className="rounded-[2rem] shadow-2xl transition-transform duration-700 group-hover:scale-[1.02]"
                                 />

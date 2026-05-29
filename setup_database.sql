@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS printers (
     last_name TEXT,
     views INTEGER DEFAULT 0,
     clicks INTEGER DEFAULT 0,
+    status TEXT DEFAULT 'Désactivé',
     services JSONB DEFAULT '[]'::jsonb,
     portfolio JSONB DEFAULT '[]'::jsonb,
     facebook TEXT,
@@ -108,7 +109,8 @@ BEGIN
     logo_url,
     cover_url,
     rating,
-    views
+    views,
+    status
   ) VALUES (
     new.id,
     COALESCE(new.raw_user_meta_data->>'business_name', 'Mon Imprimerie'),
@@ -120,7 +122,8 @@ BEGIN
     'https://ui-avatars.com/api/?name=' || replace(COALESCE(new.raw_user_meta_data->>'business_name', 'Mon Imprimerie'), ' ', '+') || '&background=random',
     'https://images.unsplash.com/photo-1562664347-4950157077a9?q=80&w=2500&auto=format&fit=crop',
     5.0,
-    0
+    0,
+    'Désactivé'
   );
   RETURN NEW;
 END;
@@ -131,4 +134,26 @@ DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
 CREATE TRIGGER on_auth_user_created
   AFTER INSERT ON auth.users
   FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+
+-- 7. View tracking RPC function bypassing RLS
+CREATE OR REPLACE FUNCTION public.increment_printer_views(printer_id UUID)
+RETURNS VOID AS $$
+BEGIN
+  UPDATE public.printers
+  SET views = COALESCE(views, 0) + 1
+  WHERE id = printer_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+-- 8. Clicks tracking RPC function bypassing RLS
+CREATE OR REPLACE FUNCTION public.increment_printer_clicks(printer_id UUID)
+RETURNS VOID AS $$
+BEGIN
+  UPDATE public.printers
+  SET clicks = COALESCE(clicks, 0) + 1
+  WHERE id = printer_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 

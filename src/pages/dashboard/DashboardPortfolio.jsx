@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Plus, Image as ImageIcon, X, Loader2, Eye } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
-const DashboardPortfolio = ({ printerData, onUpdate, autoOpenModal, setAutoOpenModal }) => {
+const DashboardPortfolio = ({ printerData, onUpdate, autoOpenModal, setAutoOpenModal, showToast, showConfirm }) => {
     const [uploading, setUploading] = useState(false);
     const fileInputRef = useRef(null);
     const [activeImage, setActiveImage] = useState(null);
@@ -32,6 +32,22 @@ const DashboardPortfolio = ({ printerData, onUpdate, autoOpenModal, setAutoOpenM
         if (!file) return;
 
         setUploading(true);
+
+        if (printerData?.isMock) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const base64String = reader.result;
+                const updatedPortfolio = [...(printerData.portfolio || []), { image_url: base64String }];
+                const updatedPrinter = { ...printerData, portfolio: updatedPortfolio };
+                localStorage.setItem(`mock_printer_${printerData.id}`, JSON.stringify(updatedPrinter));
+                onUpdate();
+                showToast('Réalisation ajoutée au portfolio (Mode Démo) !');
+                setUploading(false);
+            };
+            reader.readAsDataURL(file);
+            return;
+        }
+
         const fileExt = file.name.split('.').pop();
         const fileName = `${printerData.id}/portfolio_${Date.now()}.${fileExt}`;
 
@@ -57,7 +73,7 @@ const DashboardPortfolio = ({ printerData, onUpdate, autoOpenModal, setAutoOpenM
             if (updateError) throw updateError;
 
             onUpdate();
-            alert('Réalisation ajoutée au portfolio !');
+            showToast('Réalisation ajoutée au portfolio !');
         } catch (storageError) {
             console.warn("Storage upload failed, falling back to base64:", storageError.message);
             // Base64 Fallback
@@ -72,9 +88,9 @@ const DashboardPortfolio = ({ printerData, onUpdate, autoOpenModal, setAutoOpenM
 
                 if (!dbError) {
                     onUpdate();
-                    alert('Réalisation ajoutée au portfolio !');
+                    showToast('Réalisation ajoutée au portfolio !');
                 } else {
-                    alert("Erreur lors de l'ajout : " + dbError.message);
+                    showToast("Erreur lors de l'ajout : " + dbError.message, 'error');
                 }
             };
             reader.readAsDataURL(file);
@@ -84,9 +100,18 @@ const DashboardPortfolio = ({ printerData, onUpdate, autoOpenModal, setAutoOpenM
     };
 
     const removePortfolioItem = async (index) => {
-        if (!window.confirm("Voulez-vous vraiment supprimer cette réalisation ?")) return;
+        const confirmed = await showConfirm("Supprimer du portfolio", "Voulez-vous vraiment supprimer cette réalisation ?");
+        if (!confirmed) return;
 
         const updatedPortfolio = printerData.portfolio.filter((_, i) => i !== index);
+
+        if (printerData?.isMock) {
+            const updatedPrinter = { ...printerData, portfolio: updatedPortfolio };
+            localStorage.setItem(`mock_printer_${printerData.id}`, JSON.stringify(updatedPrinter));
+            onUpdate();
+            showToast("Réalisation supprimée du portfolio (Mode Démo) !");
+            return;
+        }
 
         const { error } = await supabase
             .from('printers')
@@ -95,8 +120,9 @@ const DashboardPortfolio = ({ printerData, onUpdate, autoOpenModal, setAutoOpenM
 
         if (!error) {
             onUpdate();
+            showToast("Réalisation supprimée du portfolio !");
         } else {
-            alert("Erreur lors de la suppression : " + error.message);
+            showToast("Erreur lors de la suppression : " + error.message, 'error');
         }
     };
 

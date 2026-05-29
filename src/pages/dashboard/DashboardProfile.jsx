@@ -1,12 +1,64 @@
 import React, { useState, useRef } from 'react';
-import { Camera, Save, Loader2, MapPin, Phone, Globe, Info } from 'lucide-react';
+import { Camera, Save, Loader2, MapPin, Phone, Globe, Info, Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
-const DashboardProfile = ({ printerData, onUpdate }) => {
+const DashboardProfile = ({ printerData, onUpdate, showToast }) => {
     const [loading, setLoading] = useState(false);
     const [uploadingImage, setUploadingImage] = useState(false);
     const logoInputRef = useRef(null);
     const coverInputRef = useRef(null);
+
+    // Password modification states
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmPassword, setConfirmPassword] = useState('');
+    const [passwordLoading, setPasswordLoading] = useState(false);
+
+    const getRemainingPasswordDays = () => {
+        const lastChange = localStorage.getItem('last_password_change_date');
+        if (!lastChange) return 0;
+        const lastChangeDate = new Date(lastChange);
+        const nextAllowed = new Date(lastChangeDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+        const diffTime = nextAllowed - new Date();
+        return Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)));
+    };
+
+    const remainingPassDays = getRemainingPasswordDays();
+    const isPasswordChangeLocked = remainingPassDays > 0;
+
+    const handlePasswordUpdate = async (e) => {
+        e.preventDefault();
+        if (isPasswordChangeLocked) {
+            showToast(`Vous ne pouvez modifier votre mot de passe qu'une fois par mois. Réessayez dans ${remainingPassDays} jour(s).`, 'error');
+            return;
+        }
+        if (newPassword !== confirmPassword) {
+            showToast('Les mots de passe ne correspondent pas.', 'error');
+            return;
+        }
+        if (newPassword.length < 6) {
+            showToast('Le mot de passe doit faire au moins 6 caractères.', 'error');
+            return;
+        }
+        
+        setPasswordLoading(true);
+        if (printerData?.isMock) {
+            showToast('Votre mot de passe a été modifié avec succès (Mode Démo) !');
+            setNewPassword('');
+            setConfirmPassword('');
+            localStorage.setItem('last_password_change_date', new Date().toISOString());
+        } else {
+            const { error } = await supabase.auth.updateUser({ password: newPassword });
+            if (!error) {
+                showToast('Votre mot de passe a été modifié avec succès !');
+                setNewPassword('');
+                setConfirmPassword('');
+                localStorage.setItem('last_password_change_date', new Date().toISOString());
+            } else {
+                showToast('Erreur lors de la modification : ' + error.message, 'error');
+            }
+        }
+        setPasswordLoading(false);
+    };
 
     const [formData, setFormData] = useState({
         name: printerData?.name || '',
@@ -46,6 +98,24 @@ const DashboardProfile = ({ printerData, onUpdate }) => {
         if (!file) return;
         
         setUploadingImage(true);
+
+        if (printerData?.isMock) {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const base64String = reader.result;
+                const updatedPrinter = {
+                    ...printerData,
+                    [type === 'logo' ? 'logo_url' : 'cover_url']: base64String
+                };
+                localStorage.setItem(`mock_printer_${printerData.id}`, JSON.stringify(updatedPrinter));
+                onUpdate();
+                showToast('Image mise à jour avec succès (Mode Démo) !');
+                setUploadingImage(false);
+            };
+            reader.readAsDataURL(file);
+            return;
+        }
+
         const fileExt = file.name.split('.').pop();
         const fileName = `${printerData.id}/${type}_${Date.now()}.${fileExt}`;
         
@@ -69,7 +139,7 @@ const DashboardProfile = ({ printerData, onUpdate }) => {
             if (updateError) throw updateError;
             
             onUpdate();
-            alert('Image mise à jour avec succès !');
+            showToast('Image mise à jour avec succès !');
         } catch (storageError) {
             console.warn("Storage upload failed, falling back to base64:", storageError.message);
             // Base64 Fallback
@@ -83,9 +153,9 @@ const DashboardProfile = ({ printerData, onUpdate }) => {
                 
                 if (!dbError) {
                     onUpdate();
-                    alert('Image mise à jour avec succès !');
+                    showToast('Image mise à jour avec succès !');
                 } else {
-                    alert('Erreur lors de la mise à jour : ' + dbError.message);
+                    showToast('Erreur lors de la mise à jour : ' + dbError.message, 'error');
                 }
             };
             reader.readAsDataURL(file);
@@ -104,13 +174,22 @@ const DashboardProfile = ({ printerData, onUpdate }) => {
         // Handle name edit constraint
         if (formData.name !== printerData.name) {
             if (!canEditName()) {
-                alert("Erreur : Le nom de l'enseigne ne peut être modifié qu'une fois par mois.");
+                showToast("Erreur : Le nom de l'enseigne ne peut être modifié qu'une fois par mois.", 'error');
                 setLoading(false);
                 return;
             }
             payload.name_last_modified_at = new Date().toISOString();
         }
         
+        if (printerData?.isMock) {
+            const updatedPrinter = { ...printerData, ...payload };
+            localStorage.setItem(`mock_printer_${printerData.id}`, JSON.stringify(updatedPrinter));
+            onUpdate();
+            showToast('Profil mis à jour avec succès (Mode Démo) !');
+            setLoading(false);
+            return;
+        }
+
         const { error } = await supabase
             .from('printers')
             .update(payload)
@@ -118,9 +197,9 @@ const DashboardProfile = ({ printerData, onUpdate }) => {
 
         if (!error) {
             onUpdate();
-            alert('Profil mis à jour avec succès !');
+            showToast('Profil mis à jour avec succès !');
         } else {
-            alert('Erreur lors de la mise à jour : ' + error.message);
+            showToast('Erreur lors de la mise à jour : ' + error.message, 'error');
         }
         setLoading(false);
     };
@@ -354,6 +433,58 @@ const DashboardProfile = ({ printerData, onUpdate }) => {
                         className="bg-primary text-white px-12 py-5 rounded-[2rem] font-black text-lg flex items-center gap-3 shadow-2xl shadow-primary/30 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50"
                     >
                         {loading ? <Loader2 className="animate-spin" /> : <><Save size={22} /> Enregistrer les modifications</>}
+                    </button>
+                </div>
+            </form>
+
+            {/* Security Section (Password Modification) */}
+            <form onSubmit={handlePasswordUpdate} className="mt-12 bg-white border border-dark/5 rounded-[3rem] p-10 space-y-8 shadow-xl shadow-dark/5">
+                <div className="flex items-center gap-3 mb-4">
+                    <Lock size={18} className="text-primary" />
+                    <h3 className="font-bold">Sécurité & Mot de passe</h3>
+                </div>
+
+                {isPasswordChangeLocked && (
+                    <div className="bg-amber-50 border border-amber-200 text-amber-800 p-6 rounded-2xl text-xs font-semibold leading-relaxed">
+                        ⚠️ Vous ne pouvez modifier votre mot de passe qu'une fois toutes les 30 secondes ou une fois par mois pour la sécurité de votre compte. 
+                        Prochaine modification autorisée dans <span className="font-black text-amber-950">{remainingPassDays} jours</span>.
+                    </div>
+                )}
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-dark/30 ml-2">Nouveau mot de passe</label>
+                        <input 
+                            type="password"
+                            required
+                            disabled={isPasswordChangeLocked}
+                            placeholder="Minimum 6 caractères"
+                            className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold text-sm disabled:opacity-50"
+                            value={newPassword}
+                            onChange={(e) => setNewPassword(e.target.value)}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-[10px] font-black uppercase tracking-widest text-dark/30 ml-2">Confirmer le nouveau mot de passe</label>
+                        <input 
+                            type="password"
+                            required
+                            disabled={isPasswordChangeLocked}
+                            placeholder="Ressaisir le mot de passe"
+                            className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold text-sm disabled:opacity-50"
+                            value={confirmPassword}
+                            onChange={(e) => setConfirmPassword(e.target.value)}
+                        />
+                    </div>
+                </div>
+
+                <div className="flex justify-end pt-4">
+                    <button 
+                        type="submit" 
+                        disabled={passwordLoading || isPasswordChangeLocked}
+                        className="bg-primary text-white px-8 py-4 rounded-2xl font-bold flex items-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-primary/20 disabled:opacity-50 text-sm"
+                    >
+                        {passwordLoading ? <Loader2 className="animate-spin" size={16} /> : <><Save size={16} /> Mettre à jour le mot de passe</>}
                     </button>
                 </div>
             </form>

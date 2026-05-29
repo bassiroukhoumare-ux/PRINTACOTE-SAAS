@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { ShoppingBag, Search, ShoppingCart, ArrowRight, MessageCircle, SlidersHorizontal, X, Globe, MapPin, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import AdBanner from '../components/AdBanner';
 
 const MaquettePlace = ({ setPage }) => {
     const [searchTerm, setSearchTerm] = useState('');
@@ -9,6 +10,7 @@ const MaquettePlace = ({ setPage }) => {
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
+    const [isSearchFocused, setIsSearchFocused] = useState(false);
 
     const categories = [
         "Tous",
@@ -29,12 +31,14 @@ const MaquettePlace = ({ setPage }) => {
         setLoading(true);
         const { data, error } = await supabase
             .from('products')
-            .select('*, printers(name, country, city, description, whatsapp)')
+            .select('*, printers(name, country, city, description, whatsapp, status)')
             .eq('status', 'En ligne');
 
         if (!error && data) {
-            const mapped = data.map(item => ({
+            const activeProducts = data.filter(item => !item.printers || !item.printers.status || item.printers.status === 'En ligne');
+            const mapped = activeProducts.map(item => ({
                 id: item.id,
+                printerId: item.printer_id,
                 title: item.name,
                 price: `${parseFloat(item.price).toLocaleString()} FCFA`,
                 category: item.options?.category || 'Encre',
@@ -62,6 +66,9 @@ const MaquettePlace = ({ setPage }) => {
     );
 
     const contactSeller = (product) => {
+        if (product.printerId) {
+            supabase.rpc('increment_printer_clicks', { printer_id: product.printerId }).catch(err => console.warn(err));
+        }
         const productUrl = `${window.location.origin}/?product=${product.id}`;
         const message = `Bonjour, je suis intéressé par le produit "${product.title}" au prix de ${product.promoPrice || product.price}. \nLien du produit : ${productUrl} \n\nEnvoyé depuis printacote.com`;
         const phone = product.whatsapp || '221709465891';
@@ -78,34 +85,37 @@ const MaquettePlace = ({ setPage }) => {
                 </div>
                 
                 <div className="container mx-auto max-w-4xl relative z-10">
-                    <h1 className="text-4xl md:text-7xl font-black text-[#F5F5DC] mb-8 tracking-tighter leading-tight">
+                    <h1 className="text-4xl md:text-7xl font-black text-[#F5F5DC] mb-0 tracking-tighter leading-tight">
                         Marketplace <br /><span className="italic font-serif">Pro.</span>
                     </h1>
-                    <p className="text-[#F5F5DC]/60 text-lg md:text-xl mb-12 max-w-2xl mx-auto font-medium">
-                        Équipez votre atelier avec les meilleurs consommables et machines certifiés.
-                    </p>
                 </div>
             </div>
 
             {/* Intelligent Filter System */}
-            <div className="container mx-auto px-6 -mt-8 relative z-30 max-w-3xl">
-                <div className="bg-white rounded-[2.5rem] p-3 shadow-2xl border border-dark/5 flex items-center gap-3">
-                    <div className="flex-1 relative group">
-                        <Search className="absolute left-4 sm:left-6 top-1/2 -translate-y-1/2 text-dark/30 group-focus-within:text-accent transition-colors" size={20} />
+            <div className={`container mx-auto px-6 -mt-8 relative z-30 transition-all duration-500 ease-out ${isSearchFocused || searchTerm ? 'max-w-2xl' : 'max-w-md'}`}>
+                <div className="bg-white rounded-full p-2 shadow-2xl border border-dark/5 flex items-center justify-between transition-all duration-500">
+                    <div className="flex-1 flex items-center relative group">
+                        <Search className="absolute left-4 text-dark/30 group-focus-within:text-accent transition-colors" size={18} />
                         <input 
                             type="text" 
                             placeholder="Rechercher un produit..."
-                            className="w-full bg-transparent pl-12 sm:pl-16 pr-4 sm:pr-8 py-4 sm:py-5 text-base sm:text-lg font-bold focus:outline-none"
+                            className="w-full bg-transparent pl-10 pr-4 py-2 sm:py-3 text-xs sm:text-sm font-bold focus:outline-none placeholder:text-dark/30 text-dark"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
+                            onFocus={() => setIsSearchFocused(true)}
+                            onBlur={(e) => {
+                                if (!e.target.value) {
+                                    setIsSearchFocused(false);
+                                }
+                            }}
                         />
                     </div>
                     <button 
                         onClick={() => setShowFilters(!showFilters)}
-                        className={`px-4 sm:px-8 py-4 sm:py-5 rounded-2xl font-black text-xs sm:text-sm uppercase tracking-widest flex items-center gap-2 sm:gap-3 transition-all
-                            ${showFilters ? 'bg-primary text-white shadow-xl' : 'bg-dark/5 text-dark hover:bg-dark/10'}`}
+                        className={`p-2.5 sm:px-5 sm:py-3 rounded-full font-black text-[10px] uppercase tracking-widest flex items-center gap-2 transition-all shrink-0
+                            ${showFilters ? 'bg-primary text-white shadow-md' : 'bg-dark/5 text-dark hover:bg-dark/10'}`}
                     >
-                        <SlidersHorizontal size={20} />
+                        <SlidersHorizontal size={14} />
                         <span className="hidden sm:inline">{showFilters ? 'Fermer' : 'Filtrer'}</span>
                     </button>
                 </div>
@@ -130,7 +140,12 @@ const MaquettePlace = ({ setPage }) => {
             </div>
 
             {/* Grid Area */}
-            <div className="container mx-auto px-6 py-20 relative z-10">
+            <div className="container mx-auto px-6 py-20 relative z-10 max-w-7xl">
+                {!loading && !selectedProduct && (
+                    <div className="mb-20">
+                        <AdBanner dark={true} />
+                    </div>
+                )}
                 {loading ? (
                     <div className="flex justify-center py-20">
                         <Loader2 className="animate-spin text-white" size={48} />
@@ -202,52 +217,52 @@ const MaquettePlace = ({ setPage }) => {
                         </div>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-10">
                         {filteredItems.map((item, i) => (
-                            <div key={i} onClick={() => setSelectedProduct(item)} className="group bg-white rounded-[3rem] overflow-hidden border border-primary/10 hover:shadow-2xl transition-all duration-500 cursor-pointer flex flex-col h-full">
+                            <div key={i} onClick={() => setSelectedProduct(item)} className="group bg-white rounded-[1.5rem] sm:rounded-[3rem] overflow-hidden border border-primary/10 hover:shadow-2xl transition-all duration-500 cursor-pointer flex flex-col h-full">
                                 <div className="relative aspect-[4/3] overflow-hidden">
                                     <img src={item.img} alt={item.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                                    <div className="absolute top-6 right-6 bg-primary text-accent px-4 py-2 rounded-2xl text-xs font-black shadow-xl">
+                                    <div className="absolute top-3 right-3 sm:top-6 sm:right-6 bg-primary text-accent px-2.5 py-1 sm:px-4 sm:py-2 rounded-xl sm:rounded-2xl text-[8px] sm:text-xs font-black shadow-xl">
                                         {item.category}
                                     </div>
-                                    <div className="absolute bottom-6 left-6 bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest text-dark flex items-center gap-1.5 shadow-xl">
-                                        <Globe size={12} className="text-accent" />
+                                    <div className="absolute bottom-3 left-3 sm:bottom-6 sm:left-6 bg-white/90 backdrop-blur-md px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl text-[7px] sm:text-[9px] font-black uppercase tracking-widest text-dark flex items-center gap-1 sm:gap-1.5 shadow-xl">
+                                        <Globe size={10} className="text-accent" />
                                         {item.country}
                                     </div>
                                     {item.discount && (
-                                        <div className="absolute top-6 left-6 bg-red-500 text-white px-3 py-1.5 rounded-xl text-xs font-black shadow-xl">
+                                        <div className="absolute top-3 left-3 sm:top-6 sm:left-6 bg-red-500 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl text-[8px] sm:text-xs font-black shadow-xl">
                                             -{item.discount}%
                                         </div>
                                     )}
                                 </div>
-                                <div className="p-6 md:p-10 flex flex-col flex-1">
-                                    <div className="flex flex-col sm:flex-row sm:justify-between items-start gap-2 sm:gap-4 mb-3">
-                                        <h3 className="text-xl font-black text-primary tracking-tight leading-tight group-hover:text-accent transition-colors w-full sm:max-w-[70%]">{item.title}</h3>
+                                <div className="p-3 sm:p-6 md:p-10 flex flex-col flex-1">
+                                    <div className="flex flex-col sm:flex-row sm:justify-between items-start gap-1 sm:gap-4 mb-2 sm:mb-3">
+                                        <h3 className="text-sm sm:text-xl font-black text-primary tracking-tight leading-tight group-hover:text-accent transition-colors w-full sm:max-w-[70%] truncate sm:whitespace-normal">{item.title}</h3>
                                         <div className="text-right shrink-0">
                                             {item.promoPrice ? (
                                                 <>
-                                                    <div className="text-primary font-black text-lg">{item.promoPrice}</div>
-                                                    <div className="text-xs text-dark/30 line-through font-bold">{item.price}</div>
+                                                    <div className="text-primary font-black text-xs sm:text-lg">{item.promoPrice}</div>
+                                                    <div className="text-[10px] sm:text-xs text-dark/30 line-through font-bold">{item.price}</div>
                                                 </>
                                             ) : (
-                                                <div className="text-primary font-black text-lg">{item.price}</div>
+                                                <div className="text-primary font-black text-xs sm:text-lg">{item.price}</div>
                                             )}
                                         </div>
                                     </div>
-                                    <div className="text-[10px] font-bold text-primary/40 mb-3">📍 {item.sellerName} ({item.city})</div>
-                                    <p className="text-primary/60 text-sm font-medium mb-8 line-clamp-2 flex-1">
+                                    <div className="text-[8px] sm:text-[10px] font-bold text-primary/40 mb-2 sm:mb-3 truncate">📍 {item.sellerName} ({item.city})</div>
+                                    <p className="text-primary/60 text-xs sm:text-sm font-medium mb-4 sm:mb-8 line-clamp-2 flex-1">
                                         {item.desc}
                                     </p>
-                                    <div className="flex flex-col gap-3 pt-6 border-t border-primary/5">
+                                    <div className="grid grid-cols-2 gap-1.5 sm:gap-3 pt-3 sm:pt-6 border-t border-primary/5">
                                         <button 
                                             onClick={(e) => { e.stopPropagation(); contactSeller(item); }}
-                                            className="w-full bg-[#F5F5DC] text-[#3D0B37] py-4 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:scale-105 transition-transform shadow-xl border border-[#3D0B37]/10"
+                                            className="w-full bg-[#F5F5DC] text-[#3D0B37] py-2 sm:py-4 rounded-lg sm:rounded-xl font-black text-[8px] sm:text-xs uppercase tracking-widest flex items-center justify-center gap-1.5 sm:gap-2 hover:scale-105 transition-transform shadow-xl border border-[#3D0B37]/10"
                                         >
-                                            <MessageCircle size={18} />
+                                            <MessageCircle size={12} className="sm:w-[18px] sm:h-[18px]" />
                                             WhatsApp
                                         </button>
                                         <button 
-                                            className="w-full bg-primary text-white py-4 rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-primary/90 transition-colors"
+                                            className="w-full bg-primary text-white py-2 sm:py-4 rounded-lg sm:rounded-xl font-black text-[8px] sm:text-xs uppercase tracking-widest flex items-center justify-center gap-1.5 sm:gap-2 hover:bg-primary/90 transition-colors"
                                         >
                                             Détails
                                         </button>
