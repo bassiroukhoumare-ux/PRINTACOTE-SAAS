@@ -139,11 +139,29 @@ const App = () => {
     }, [showSuccessToast]);
 
     useEffect(() => {
+        // Check for mock session first (OTP demo mode)
+        const mockSession = localStorage.getItem('mock_user_session');
+        if (mockSession) {
+            try {
+                const mockUser = JSON.parse(mockSession);
+                setUser(mockUser);
+            } catch (e) {
+                localStorage.removeItem('mock_user_session');
+            }
+        }
+
         supabase.auth.getSession().then(({ data: { session } }) => {
-            setUser(session?.user ?? null);
+            // Only set from Supabase if no mock session is active
+            if (!localStorage.getItem('mock_user_session')) {
+                setUser(session?.user ?? null);
+            }
         });
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+            // If a mock session exists, don't let Supabase override it
+            if (localStorage.getItem('mock_user_session')) {
+                return;
+            }
             setUser(session?.user ?? null);
             if (session?.user) {
                 const hash = window.location.hash;

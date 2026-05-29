@@ -258,7 +258,9 @@ const PrintersPage = ({ setPage, setSelectedPrinterId }) => {
                                             onClick={(e) => { 
                                                 e.stopPropagation(); 
                                                 supabase.rpc('increment_printer_clicks', { printer_id: p.id }).catch(err => console.warn(err));
-                                                window.open(`https://wa.me/${p.whatsapp || '221709465891'}`, '_blank'); 
+                                                const rawPhone = p.whatsapp || '221709465891';
+                                                const cleanPhone = rawPhone.replace(/[^0-9]/g, '');
+                                                window.open(`https://wa.me/${cleanPhone}`, '_blank'); 
                                             }}
                                             className="bg-[#F5F5DC] text-[#3D0B37] py-2 sm:py-4 rounded-lg sm:rounded-xl font-black text-[8px] sm:text-[10px] uppercase tracking-widest hover:scale-105 transition-transform flex items-center justify-center gap-1 sm:gap-2 border border-[#3D0B37]/10 shadow-lg"
                                         >

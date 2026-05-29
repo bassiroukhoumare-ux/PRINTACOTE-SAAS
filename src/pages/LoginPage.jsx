@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Mail, Lock, ArrowRight, ArrowLeft, Loader2, AlertCircle, CheckCircle2, ShieldAlert, MessageCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
-const SUPPORT_WHATSAPP = '221787103838'; // Modifier par votre numéro de support de marque
+const SUPPORT_WHATSAPP = '221709465891'; // Numéro de support officiel Printacoté
 
 const LoginPage = ({ setPage, setUser }) => {
     const [view, setView] = useState('login'); // 'login' | 'forgot' | 'verify'
@@ -142,11 +142,13 @@ const LoginPage = ({ setPage, setUser }) => {
         // Local Simulation Bypass check
         if (enteredCode === recoveryCode) {
             // Log in as mock user
-            setUser({
+            const mockUser = {
                 id: 'mock-uuid-printer-id',
                 email: email,
                 isMock: true
-            });
+            };
+            setUser(mockUser);
+            localStorage.setItem('mock_user_session', JSON.stringify(mockUser));
             localStorage.setItem('force_password_change', 'true');
             setPage('dashboard');
         } else {

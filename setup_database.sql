@@ -197,7 +197,7 @@ BEGIN
           </p>
           <div class="code-box">' || recovery_code || '</div>
           <p style="color: #666; line-height: 1.6; font-size: 13px; font-weight: bold;">
-            ⚠️ Une fois connecté à votre tableau de bord, nous vous prions de modifier immédiatement votre mot de passe depuis la section Sécurité de votre profil.
+            Une fois connecté à votre tableau de bord, nous vous prions de modifier immédiatement votre mot de passe depuis la section sécurité de votre profil.
           </p>
         </div>
         <div class="footer">

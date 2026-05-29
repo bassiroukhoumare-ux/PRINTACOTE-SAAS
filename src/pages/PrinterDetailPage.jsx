@@ -201,7 +201,9 @@ const PrinterDetailPage = ({ id, setPage }) => {
                                   <button 
                                       onClick={() => {
                                           supabase.rpc('increment_printer_clicks', { printer_id: printer.id }).catch(err => console.warn(err));
-                                          window.open(`https://wa.me/${printer.whatsapp || '221709465891'}`, '_blank');
+                                          const rawPhone = printer.whatsapp || '221709465891';
+                                          const cleanPhone = rawPhone.replace(/[^0-9]/g, '');
+                                          window.open(`https://wa.me/${cleanPhone}`, '_blank');
                                       }}
                                       className="flex-1 sm:flex-none bg-[#25D366] text-white px-8 py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:scale-105 transition-transform shadow-xl"
                                   >

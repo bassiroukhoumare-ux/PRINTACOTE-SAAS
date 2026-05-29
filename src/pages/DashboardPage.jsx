@@ -285,6 +285,9 @@ const DashboardPage = ({ setPage, user }) => {
     const handleLogout = async () => {
         const confirmed = await showConfirm("Déconnexion", "Êtes-vous sûr de vouloir vous déconnecter ?");
         if (confirmed) {
+            // Always clean mock session data
+            localStorage.removeItem('mock_user_session');
+            localStorage.removeItem('force_password_change');
             if (user?.isMock) {
                 setPage('home');
                 window.location.reload();
