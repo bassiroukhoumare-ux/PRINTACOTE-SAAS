@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { Mail, Lock, ArrowRight, ArrowLeft, Loader2, AlertCircle, CheckCircle2, ShieldAlert } from 'lucide-react';
+import { Mail, Lock, ArrowRight, ArrowLeft, Loader2, AlertCircle, CheckCircle2, ShieldAlert, MessageCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+
+const SUPPORT_WHATSAPP = '221787103838'; // Modifier par votre numéro de support de marque
 
 const LoginPage = ({ setPage, setUser }) => {
     const [view, setView] = useState('login'); // 'login' | 'forgot' | 'verify'
@@ -14,6 +16,8 @@ const LoginPage = ({ setPage, setUser }) => {
     const [recoveryCode, setRecoveryCode] = useState('');
     const [enteredCode, setEnteredCode] = useState('');
     const [demoMode, setDemoMode] = useState(false);
+    const [codeTimestamp, setCodeTimestamp] = useState(null);
+    const [limitReached, setLimitReached] = useState(false);
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -39,6 +43,23 @@ const LoginPage = ({ setPage, setUser }) => {
         setError('');
         setSuccessMessage('');
 
+        // Limit Check: Max 2 requests per 30 days per email address
+        const thirtyDaysMs = 30 * 24 * 60 * 60 * 1000;
+        const localRequestsKey = `recovery_requests_${email}`;
+        const storedRequests = localStorage.getItem(localRequestsKey);
+        let requests = storedRequests ? JSON.parse(storedRequests) : [];
+        
+        const now = Date.now();
+        // Filter out requests older than 30 days
+        requests = requests.filter(ts => now - ts < thirtyDaysMs);
+        
+        if (requests.length >= 2) {
+            setError("Limite de sécurité atteinte : Vous ne pouvez générer que 2 codes de récupération par mois pour cette adresse email.");
+            setLimitReached(true);
+            setLoading(false);
+            return;
+        }
+
         // Generate a 6-digit verification code
         const code = Math.floor(100000 + Math.random() * 900000).toString();
 
@@ -63,10 +84,20 @@ const LoginPage = ({ setPage, setUser }) => {
             setSuccessMessage(`Un e-mail de récupération contenant votre code de vérification à 6 chiffres a été envoyé à l'adresse ${email}.`);
             setRecoveryCode(code);
             setDemoMode(false);
+            setCodeTimestamp(now);
+            
+            // Track the request
+            requests.push(now);
+            localStorage.setItem(localRequestsKey, JSON.stringify(requests));
         } else {
             setSuccessMessage(`[DÉMO FALLBACK] La fonction SQL d'envoi n'est pas installée sur Supabase. Votre code de récupération est :`);
             setRecoveryCode(code);
             setDemoMode(true);
+            setCodeTimestamp(now);
+            
+            // Still register in demo to let them test the limit rule
+            requests.push(now);
+            localStorage.setItem(localRequestsKey, JSON.stringify(requests));
         }
 
         setView('verify');
@@ -77,6 +108,13 @@ const LoginPage = ({ setPage, setUser }) => {
         e.preventDefault();
         setLoading(true);
         setError('');
+
+        // Expiration check: Code is only valid for 60 seconds
+        if (codeTimestamp && Date.now() - codeTimestamp > 60000) {
+            setError("Ce code de récupération a expiré (limite de 60 secondes). Veuillez en générer un nouveau.");
+            setLoading(false);
+            return;
+        }
 
         // Try standard Supabase OTP verification first in case SMTP/OTP is functional
         let supabaseSuccess = false;
@@ -112,7 +150,7 @@ const LoginPage = ({ setPage, setUser }) => {
             localStorage.setItem('force_password_change', 'true');
             setPage('dashboard');
         } else {
-            setError("Le code de vérification est incorrect ou a expiré. Veuillez vérifier le code de démonstration.");
+            setError("Le code de vérification est incorrect ou a expiré.");
         }
         setLoading(false);
     };
@@ -225,30 +263,52 @@ const LoginPage = ({ setPage, setUser }) => {
 
                     {/* VIEW 2: Forgot Password */}
                     {view === 'forgot' && (
-                        <form onSubmit={handleForgotPassword} className="space-y-6">
-                            <div className="space-y-2">
-                                <label className="text-xs font-black uppercase tracking-widest text-dark/30 ml-2">Saisir votre adresse e-mail</label>
-                                <div className="relative group">
-                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-dark/20 group-focus-within:text-primary transition-colors" size={18} />
-                                    <input 
-                                        type="email" 
-                                        required
-                                        placeholder="nom@votreimprimerie.com"
-                                        className="w-full bg-dark/5 border border-transparent rounded-2xl pl-12 pr-6 py-4 focus:outline-none focus:bg-white focus:border-primary/30 transition-all font-bold"
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
-                                    />
+                        limitReached ? (
+                            <div className="space-y-6 text-center animate-in fade-in duration-500">
+                                <div className="bg-red-500/10 border border-red-500/20 text-red-600 p-6 rounded-[2rem] flex flex-col gap-2 text-xs font-semibold leading-relaxed">
+                                    <ShieldAlert size={28} className="text-red-500 mx-auto mb-2 animate-bounce" />
+                                    <span className="font-black uppercase tracking-wider text-[10px]">Sécurité : Limite de demande atteinte</span>
+                                    <p>Vous avez généré plus de 2 codes de récupération au cours des 30 derniers jours pour cette adresse e-mail. Pour des raisons de sécurité, les demandes automatiques sont bloquées.</p>
                                 </div>
+                                <p className="text-dark/40 text-sm font-semibold">
+                                    Veuillez contacter le support administratif de Printacoté pour réinitialiser manuellement vos accès de connexion.
+                                </p>
+                                <button 
+                                    type="button" 
+                                    onClick={() => {
+                                        window.open(`https://wa.me/${SUPPORT_WHATSAPP}?text=Bonjour%20Support%20Printacoté,%20j'ai%20atteint%20la%20limite%20de%20récupération%20de%20mot%20de%20passe%20pour%20mon%20adresse%20email%20:%20${email}`, '_blank');
+                                    }}
+                                    className="w-full bg-[#25D366] text-white py-5 rounded-2xl font-black text-lg shadow-xl shadow-green-500/15 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
+                                >
+                                    <MessageCircle size={20} /> Contacter le Support sur WhatsApp
+                                </button>
                             </div>
+                        ) : (
+                            <form onSubmit={handleForgotPassword} className="space-y-6">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black uppercase tracking-widest text-dark/30 ml-2">Saisir votre adresse e-mail</label>
+                                    <div className="relative group">
+                                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-dark/20 group-focus-within:text-primary transition-colors" size={18} />
+                                        <input 
+                                            type="email" 
+                                            required
+                                            placeholder="nom@votreimprimerie.com"
+                                            className="w-full bg-dark/5 border border-transparent rounded-2xl pl-12 pr-6 py-4 focus:outline-none focus:bg-white focus:border-primary/30 transition-all font-bold"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
 
-                            <button 
-                                type="submit" 
-                                disabled={loading}
-                                className="w-full bg-[#F5F5DC] text-[#3D0B37] py-5 rounded-2xl font-black text-lg shadow-xl shadow-black/10 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
-                            >
-                                {loading ? <Loader2 className="animate-spin" /> : <>Générer le code <ArrowRight size={20} /></>}
-                            </button>
-                        </form>
+                                <button 
+                                    type="submit" 
+                                    disabled={loading}
+                                    className="w-full bg-[#F5F5DC] text-[#3D0B37] py-5 rounded-2xl font-black text-lg shadow-xl shadow-black/10 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
+                                >
+                                    {loading ? <Loader2 className="animate-spin" /> : <>Générer le code <ArrowRight size={20} /></>}
+                                </button>
+                            </form>
+                        )
                     )}
 
                     {/* VIEW 3: Verify Code & Demo Recovery Banner */}
