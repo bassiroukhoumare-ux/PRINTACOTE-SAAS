@@ -217,65 +217,62 @@ const MaquettePlace = ({ setPage }) => {
                         </div>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-10">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4 md:gap-5">
                         {filteredItems.map((item, i) => (
-                            <div key={i} onClick={() => setSelectedProduct(item)} className="group bg-white rounded-[1.5rem] sm:rounded-[3rem] overflow-hidden border border-primary/10 hover:shadow-2xl transition-all duration-500 cursor-pointer flex flex-col h-full">
-                                <div className="relative aspect-[4/3] overflow-hidden">
+                            <div key={i} onClick={() => setSelectedProduct(item)} className="group bg-white rounded-[1rem] sm:rounded-[1.5rem] overflow-hidden border border-primary/10 hover:shadow-2xl transition-all duration-500 cursor-pointer flex flex-col h-full">
+                                <div className="relative aspect-square overflow-hidden">
                                     <img src={item.img} alt={item.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
-                                    <div className="absolute top-3 right-3 sm:top-6 sm:right-6 bg-primary text-accent px-2.5 py-1 sm:px-4 sm:py-2 rounded-xl sm:rounded-2xl text-[8px] sm:text-xs font-black shadow-xl">
+                                    <div className="absolute top-2 right-2 sm:top-3 sm:right-3 bg-primary text-accent px-2 py-0.5 sm:px-2.5 sm:py-1 rounded-lg text-[7px] sm:text-[9px] font-black shadow-lg">
                                         {item.category}
                                     </div>
-                                    <div className="absolute bottom-3 left-3 sm:bottom-6 sm:left-6 bg-white/90 backdrop-blur-md px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl text-[7px] sm:text-[9px] font-black uppercase tracking-widest text-dark flex items-center gap-1 sm:gap-1.5 shadow-xl">
-                                        <Globe size={10} className="text-accent" />
+                                    <div className="absolute bottom-2 left-2 sm:bottom-3 sm:left-3 bg-white/90 backdrop-blur-md px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md sm:rounded-lg text-[6px] sm:text-[8px] font-black uppercase tracking-widest text-dark flex items-center gap-1 shadow-lg">
+                                        <Globe size={8} className="text-accent sm:w-[10px] sm:h-[10px]" />
                                         {item.country}
                                     </div>
                                     {item.discount && (
-                                        <div className="absolute top-3 left-3 sm:top-6 sm:left-6 bg-red-500 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl text-[8px] sm:text-xs font-black shadow-xl">
+                                        <div className="absolute top-2 left-2 sm:top-3 sm:left-3 bg-red-500 text-white px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md sm:rounded-lg text-[7px] sm:text-[9px] font-black shadow-lg">
                                             -{item.discount}%
                                         </div>
                                     )}
                                 </div>
-                                <div className="p-3 sm:p-6 md:p-10 flex flex-col flex-1">
-                                    <div className="flex flex-col sm:flex-row sm:justify-between items-start gap-1 sm:gap-4 mb-2 sm:mb-3">
-                                        <h3 className="text-sm sm:text-xl font-black text-primary tracking-tight leading-tight group-hover:text-accent transition-colors w-full sm:max-w-[70%] truncate sm:whitespace-normal">{item.title}</h3>
-                                        <div className="text-right shrink-0">
+                                <div className="p-2.5 sm:p-4 flex flex-col flex-1">
+                                    <h3 className="text-[11px] sm:text-sm font-black text-primary tracking-tight leading-tight group-hover:text-accent transition-colors truncate mb-1">{item.title}</h3>
+                                    <div className="text-[7px] sm:text-[9px] font-bold text-primary/40 mb-1.5 truncate">📍 {item.sellerName}</div>
+                                    <div className="mt-auto">
+                                        <div className="flex items-baseline gap-1.5 mb-2 sm:mb-3">
                                             {item.promoPrice ? (
                                                 <>
-                                                    <div className="text-primary font-black text-xs sm:text-lg">{item.promoPrice}</div>
-                                                    <div className="text-[10px] sm:text-xs text-dark/30 line-through font-bold">{item.price}</div>
+                                                    <div className="text-primary font-black text-[11px] sm:text-sm">{item.promoPrice}</div>
+                                                    <div className="text-[8px] sm:text-[10px] text-dark/30 line-through font-bold">{item.price}</div>
                                                 </>
                                             ) : (
-                                                <div className="text-primary font-black text-xs sm:text-lg">{item.price}</div>
+                                                <div className="text-primary font-black text-[11px] sm:text-sm">{item.price}</div>
                                             )}
                                         </div>
-                                    </div>
-                                    <div className="text-[8px] sm:text-[10px] font-bold text-primary/40 mb-2 sm:mb-3 truncate">📍 {item.sellerName} ({item.city})</div>
-                                    <p className="text-primary/60 text-xs sm:text-sm font-medium mb-4 sm:mb-8 line-clamp-2 flex-1">
-                                        {item.desc}
-                                    </p>
-                                    <div className="grid grid-cols-2 gap-1.5 sm:gap-3 pt-3 sm:pt-6 border-t border-primary/5">
-                                        <button 
-                                            onClick={(e) => { e.stopPropagation(); contactSeller(item); }}
-                                            className="w-full bg-[#F5F5DC] text-[#3D0B37] py-2 sm:py-4 rounded-lg sm:rounded-xl font-black text-[8px] sm:text-xs uppercase tracking-widest flex items-center justify-center gap-1.5 sm:gap-2 hover:scale-105 transition-transform shadow-xl border border-[#3D0B37]/10"
-                                        >
-                                            <MessageCircle size={12} className="sm:w-[18px] sm:h-[18px]" />
-                                            WhatsApp
-                                        </button>
-                                        <button 
-                                            className="w-full bg-primary text-white py-2 sm:py-4 rounded-lg sm:rounded-xl font-black text-[8px] sm:text-xs uppercase tracking-widest flex items-center justify-center gap-1.5 sm:gap-2 hover:bg-primary/90 transition-colors"
-                                        >
-                                            Détails
-                                        </button>
+                                        <div className="grid grid-cols-2 gap-1 sm:gap-2 pt-2 sm:pt-3 border-t border-primary/5">
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); contactSeller(item); }}
+                                                className="w-full bg-[#F5F5DC] text-[#3D0B37] py-1.5 sm:py-2.5 rounded-md sm:rounded-lg font-black text-[7px] sm:text-[9px] uppercase tracking-wider flex items-center justify-center gap-1 hover:scale-105 transition-transform border border-[#3D0B37]/10"
+                                            >
+                                                <MessageCircle size={10} className="sm:w-[12px] sm:h-[12px]" />
+                                                WhatsApp
+                                            </button>
+                                            <button 
+                                                className="w-full bg-primary text-white py-1.5 sm:py-2.5 rounded-md sm:rounded-lg font-black text-[7px] sm:text-[9px] uppercase tracking-wider flex items-center justify-center gap-1 hover:bg-primary/90 transition-colors"
+                                            >
+                                                Détails
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         ))}
                         
                         {filteredItems.length === 0 && (
-                            <div className="col-span-full py-32 text-center bg-white/5 border-2 border-dashed border-white/10 rounded-[3rem]">
-                                <ShoppingBag size={48} className="mx-auto text-white/10 mb-6" />
-                                <h3 className="text-xl font-bold text-white/60 mb-2">Aucun produit trouvé</h3>
-                                <p className="text-white/40">Essayez d'ajuster vos filtres pour voir plus de consommables.</p>
+                            <div className="col-span-full py-20 text-center bg-white/5 border-2 border-dashed border-white/10 rounded-[2rem]">
+                                <ShoppingBag size={36} className="mx-auto text-white/10 mb-4" />
+                                <h3 className="text-lg font-bold text-white/60 mb-2">Aucun produit trouvé</h3>
+                                <p className="text-white/40 text-sm">Essayez d'ajuster vos filtres pour voir plus de consommables.</p>
                             </div>
                         )}
                     </div>
