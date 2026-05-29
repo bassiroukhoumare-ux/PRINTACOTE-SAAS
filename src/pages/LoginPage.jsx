@@ -13,6 +13,7 @@ const LoginPage = ({ setPage, setUser }) => {
     // OTP / Recovery simulation states
     const [recoveryCode, setRecoveryCode] = useState('');
     const [enteredCode, setEnteredCode] = useState('');
+    const [demoMode, setDemoMode] = useState(false);
 
     const handleLogin = async (e) => {
         e.preventDefault();
@@ -38,23 +39,36 @@ const LoginPage = ({ setPage, setUser }) => {
         setError('');
         setSuccessMessage('');
 
-        // Generate a 6-digit verification code for simulation
+        // Generate a 6-digit verification code
         const code = Math.floor(100000 + Math.random() * 900000).toString();
-        setRecoveryCode(code);
 
+        let emailSent = false;
         try {
-            // Attempt standard Supabase OTP / password reset
-            await supabase.auth.signInWithOtp({ 
-                email,
-                options: {
-                    shouldCreateUser: false,
-                }
+            // Call Supabase stored procedure / RPC to send custom HTML recovery email via Resend
+            const { error: rpcError } = await supabase.rpc('send_recovery_email', {
+                email_to: email,
+                recovery_code: code
             });
+            
+            if (!rpcError) {
+                emailSent = true;
+            } else {
+                console.warn("RPC recovery email failed, using screen fallback:", rpcError.message);
+            }
         } catch (err) {
-            console.warn("Supabase OTP initiation warning (local fallback will be used):", err.message);
+            console.warn("RPC recovery email call error:", err.message);
         }
 
-        setSuccessMessage(`Un code de récupération temporaire a été généré pour ${email}.`);
+        if (emailSent) {
+            setSuccessMessage(`Un e-mail de récupération contenant votre code de vérification à 6 chiffres a été envoyé à l'adresse ${email}.`);
+            setRecoveryCode(code);
+            setDemoMode(false);
+        } else {
+            setSuccessMessage(`[DÉMO FALLBACK] La fonction SQL d'envoi n'est pas installée sur Supabase. Votre code de récupération est :`);
+            setRecoveryCode(code);
+            setDemoMode(true);
+        }
+
         setView('verify');
         setLoading(false);
     };
@@ -248,7 +262,7 @@ const LoginPage = ({ setPage, setUser }) => {
                             )}
 
                             {/* Demo Recovery Display Banner */}
-                            {recoveryCode && (
+                            {demoMode && recoveryCode && (
                                 <div className="bg-amber-50 border-2 border-dashed border-amber-200 p-6 rounded-[2rem] flex flex-col gap-2 text-xs text-amber-800 font-medium leading-relaxed animate-pulse">
                                     <div className="flex items-center gap-2">
                                         <ShieldAlert size={16} className="text-amber-600" />

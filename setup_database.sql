@@ -157,3 +157,72 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+
+-- 9. Recovery email stored procedure using Resend API key
+CREATE OR REPLACE FUNCTION public.send_recovery_email(email_to TEXT, recovery_code TEXT)
+RETURNS VOID AS $$
+DECLARE
+  v_resend_api_key TEXT := 're_XeoRktvs_PsxnNiL6TgGc3Wz89BET2rY8'; 
+  v_sender_email TEXT := 'notifications@printacote.com';
+  v_email_body TEXT;
+BEGIN
+  -- Build HTML email in French with Midnight Luxe colors and logo
+  v_email_body := '
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: ''Inter'', sans-serif; background-color: #FAF8F5; color: #1E1E26; margin: 0; padding: 40px 20px; }
+        .card { max-width: 500px; margin: 0 auto; background: #ffffff; border-radius: 24px; border: 1px solid rgba(61, 11, 55, 0.08); overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.02); }
+        .header { background-color: #3D0B37; padding: 40px 20px; text-align: center; color: #F5F5DC; }
+        .logo { width: 60px; height: 60px; border-radius: 50%; border: 3px solid #F5F5DC; margin-bottom: 12px; background-color: #3D0B37; object-fit: cover; display: inline-block; }
+        .header h1 { font-family: Georgia, serif; font-size: 24px; font-style: italic; margin: 0; font-weight: normal; }
+        .content { padding: 40px 30px; text-align: center; }
+        .code-box { background: #3D0B37; color: #FAF8F5; font-size: 32px; font-weight: 900; letter-spacing: 6px; padding: 20px; border-radius: 16px; margin: 30px 0; display: inline-block; font-family: monospace; }
+        .footer { padding: 20px; text-align: center; font-size: 11px; color: rgba(0,0,0,0.3); border-top: 1px solid rgba(0,0,0,0.05); }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div class="header">
+          <img src="https://printacote.com/logo-p.png" class="logo" alt="Printacoté" />
+          <h1>Printacoté</h1>
+        </div>
+        <div class="content">
+          <h2 style="color: #3D0B37; margin: 0 0 16px 0; font-weight: 800; font-size: 20px;">Récupération de votre compte</h2>
+          <p style="color: #666; line-height: 1.6; font-size: 14px;">
+            Bonjour,<br>
+            Vous avez demandé la récupération de votre compte professionnel Printacoté. Voici votre code de vérification à usage unique :
+          </p>
+          <div class="code-box">' || recovery_code || '</div>
+          <p style="color: #666; line-height: 1.6; font-size: 13px; font-weight: bold;">
+            ⚠️ Une fois connecté à votre tableau de bord, nous vous prions de modifier immédiatement votre mot de passe depuis la section Sécurité de votre profil.
+          </p>
+        </div>
+        <div class="footer">
+          Si vous n''êtes pas à l''origine de cette demande, vous pouvez ignorer cet e-mail en toute sécurité.<br>
+          © 2026 Printacoté. Tous droits réservés.
+        </div>
+      </div>
+    </body>
+    </html>
+  ';
+
+  -- Call Resend API via pg_net
+  PERFORM net.http_post(
+    url := 'https://api.resend.com/emails',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || v_resend_api_key
+    ),
+    body := jsonb_build_object(
+      'from', v_sender_email,
+      'to', email_to,
+      'subject', '🔑 [Printacoté] Votre code de récupération temporaire',
+      'html', v_email_body
+    )
+  );
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
