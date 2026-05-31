@@ -33,13 +33,24 @@ Deno.serve(async (req) => {
 
   if (!MONEROO_SECRET_KEY) return json({ error: "Configuration Moneroo manquante" }, 500);
 
-  // 1. Authentifier l'utilisateur via son JWT.
+  // 1. Authentifier l'utilisateur via son JWT (décodage direct car l'API Gateway valide la signature via verify_jwt = true).
   const authHeader = req.headers.get("Authorization") || "";
-  const authedClient = createClient(SUPABASE_URL, ANON_KEY, {
-    global: { headers: { Authorization: authHeader } },
-  });
-  const { data: { user }, error: authErr } = await authedClient.auth.getUser();
-  if (authErr || !user) return json({ error: "Non authentifié" }, 401);
+  const token = authHeader.replace(/^Bearer\s+/i, "");
+  
+  let user: { id: string; email: string } | null = null;
+  try {
+    const parts = token.split('.');
+    if (parts.length === 3) {
+      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+      if (payload && payload.sub) {
+        user = { id: payload.sub, email: payload.email };
+      }
+    }
+  } catch (err) {
+    console.error("Erreur de décodage JWT:", err);
+  }
+
+  if (!user) return json({ error: "Non authentifié" }, 401);
 
   // 2. Valider la formule + lire le prix CÔTÉ SERVEUR.
   let plan: string;
