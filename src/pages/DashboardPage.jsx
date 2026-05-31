@@ -176,27 +176,6 @@ const DashboardPage = ({ setPage, user }) => {
         }
     }, [user]);
 
-    // Retour depuis la page de paiement Moneroo (?payment=return).
-    // Le webhook active l'abonnement côté serveur ; on rafraîchit les données
-    // plusieurs fois pour récupérer la mise à jour, puis on nettoie l'URL.
-    useEffect(() => {
-        if (!user) return;
-        const params = new URLSearchParams(window.location.search);
-        if (params.get('payment') !== 'return') return;
-
-        setActiveTab('billing');
-        showToast("Vérification de votre paiement en cours…", 'success');
-        window.history.replaceState(null, '', '/dashboard');
-
-        let attempts = 0;
-        const poll = setInterval(async () => {
-            attempts += 1;
-            await fetchPrinterData();
-            if (attempts >= 5) clearInterval(poll);
-        }, 3000);
-        return () => clearInterval(poll);
-    }, [user]);
-
     const fetchPrinterData = async () => {
         if (!printerData) setLoading(true);
 
@@ -472,7 +451,6 @@ const DashboardPage = ({ setPage, user }) => {
         { id: 'services', label: 'Mes Services', icon: Wrench },
         { id: 'portfolio', label: 'Portfolio', icon: ImageIcon },
         { id: 'marketplace', label: 'Ma Boutique', icon: Store },
-        { id: 'billing', label: 'Facturation', icon: CreditCard },
         { id: 'support', label: 'Contact Support', icon: MessageCircle },
     ];
 
@@ -480,48 +458,6 @@ const DashboardPage = ({ setPage, user }) => {
         return (
             <div className="min-h-screen bg-background flex items-center justify-center">
                 <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-            </div>
-        );
-    }
-
-    // État d'abonnement (essai / actif / expiré)
-    const sub = getSubscriptionState(printerData);
-
-    // Paywall : essai terminé ET aucun abonnement actif → accès bloqué.
-    if (printerData && !sub.hasAccess) {
-        return (
-            <div className="min-h-screen bg-[#0F0F13] flex flex-col text-[#FAF8F5] font-sans selection:bg-[#C9A84C] selection:text-[#0F0F13]">
-                <div className="noise-overlay opacity-5 pointer-events-none"></div>
-
-                <header className="px-8 py-6 border-b border-white/10 flex justify-between items-center bg-[#0F0F13]/85 backdrop-blur-xl sticky top-0 z-50">
-                    <img src="/logo.png" alt="Logo" className="h-10 w-auto brightness-200" />
-                    <button
-                        onClick={handleLogout}
-                        className="px-6 py-3 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl hover:bg-red-500/20 active:scale-95 transition-all font-black text-xs uppercase tracking-wider flex items-center gap-2"
-                    >
-                        <LogOut size={16} />
-                        Déconnexion
-                    </button>
-                </header>
-
-                <main className="flex-1 flex items-center justify-center p-6 md:p-12 relative z-10">
-                    <div className="max-w-5xl w-full space-y-10">
-                        <div className="text-center max-w-2xl mx-auto">
-                            <span className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/10 text-red-300 border border-red-500/20 text-[11px] font-black uppercase tracking-widest mb-6">
-                                <Clock size={14} /> Votre essai gratuit est terminé
-                            </span>
-                            <h1 className="text-4xl md:text-6xl font-black tracking-tight leading-tight">
-                                Réactivez votre <span className="italic font-serif text-[#C9A84C]">vitrine.</span>
-                            </h1>
-                            <p className="text-[#FAF8F5]/60 text-base md:text-lg leading-relaxed font-medium mt-5">
-                                Votre profil est actuellement masqué de l'annuaire. Choisissez une
-                                formule pour réactiver instantanément votre boutique et votre visibilité.
-                            </p>
-                        </div>
-
-                        <SubscriptionPanel printerData={printerData} user={user} showToast={showToast} dark />
-                    </div>
-                </main>
             </div>
         );
     }
@@ -843,31 +779,6 @@ const DashboardPage = ({ setPage, user }) => {
             {/* Main Content Area */}
             <main className="flex-1 lg:p-12 p-6 pb-32 pt-24 lg:pt-12 overflow-y-auto">
                 <div className="max-w-6xl mx-auto">
-                    {/* Bannière essai gratuit */}
-                    {sub.isTrial && (
-                        <button
-                            onClick={() => setActiveTab('billing')}
-                            className="w-full mb-8 group flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-primary text-white rounded-[1.75rem] px-7 py-5 shadow-2xl shadow-primary/20 hover:scale-[1.01] active:scale-[0.99] transition-all text-left"
-                        >
-                            <div className="flex items-center gap-4">
-                                <div className="w-11 h-11 rounded-2xl bg-[#C9A84C]/20 text-[#C9A84C] flex items-center justify-center shrink-0">
-                                    <Clock size={22} />
-                                </div>
-                                <div>
-                                    <p className="font-black text-sm">
-                                        Essai gratuit — {sub.daysLeft} jour{sub.daysLeft > 1 ? 's' : ''} restant{sub.daysLeft > 1 ? 's' : ''}
-                                    </p>
-                                    <p className="text-white/60 text-xs font-medium mt-0.5">
-                                        Souscrivez avant la fin pour ne pas perdre votre visibilité.
-                                    </p>
-                                </div>
-                            </div>
-                            <span className="bg-[#C9A84C] text-[#0F0F13] px-6 py-3 rounded-xl font-black text-[11px] uppercase tracking-widest flex items-center gap-2 shrink-0">
-                                <Crown size={15} /> Voir les formules
-                            </span>
-                        </button>
-                    )}
-
                     {/* Header */}
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-16">
                         <div>
@@ -1138,44 +1049,6 @@ const DashboardPage = ({ setPage, user }) => {
                                         )}
                                     </button>
                                 </form>
-                            </div>
-                        )}
-                        {activeTab === 'billing' && (
-                            <div className="space-y-8 animate-in fade-in duration-500">
-                                {/* Statut courant de l'abonnement */}
-                                <div className={`rounded-[2rem] p-8 border flex flex-col sm:flex-row sm:items-center justify-between gap-6
-                                    ${sub.status === 'active'
-                                        ? 'bg-green-500/5 border-green-500/20'
-                                        : sub.status === 'trial'
-                                            ? 'bg-primary/5 border-primary/15'
-                                            : 'bg-red-500/5 border-red-500/20'}`}>
-                                    <div className="flex items-center gap-4">
-                                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center shrink-0
-                                            ${sub.status === 'active' ? 'bg-green-500/15 text-green-600' : sub.status === 'trial' ? 'bg-primary/10 text-primary' : 'bg-red-500/15 text-red-500'}`}>
-                                            {sub.status === 'active' ? <Crown size={26} /> : <Clock size={26} />}
-                                        </div>
-                                        <div>
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-dark/40">Votre abonnement</span>
-                                            <h3 className="text-xl font-black text-dark mt-0.5">
-                                                {sub.status === 'active' && 'Abonnement actif'}
-                                                {sub.status === 'trial' && 'Période d\'essai'}
-                                                {sub.status === 'expired' && 'Abonnement expiré'}
-                                            </h3>
-                                            {sub.endsAt && (
-                                                <p className="text-xs font-bold text-dark/50 mt-0.5">
-                                                    {sub.hasAccess
-                                                        ? `Expire le ${sub.endsAt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })} (${sub.daysLeft} j restants)`
-                                                        : `Terminé le ${sub.endsAt.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}`}
-                                                </p>
-                                            )}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Grille des formules */}
-                                <div className="bg-white border border-dark/5 rounded-[3rem] p-8 md:p-12 shadow-2xl">
-                                    <SubscriptionPanel printerData={printerData} user={user} showToast={showToast} />
-                                </div>
                             </div>
                         )}
                     </div>
