@@ -1378,13 +1378,19 @@ const AdminPage = ({ setPage }) => {
                                                                     </div>
                                                                 </td>
                                                                 <td className="p-6">
-                                                                    <p className="font-semibold text-xs text-white/90">{p.email}</p>
+                                                                    <p className="font-semibold text-xs text-white/90 truncate max-w-[200px]">{p.email || <span className="text-white/30 italic">Email non renseigné</span>}</p>
                                                                     {p.whatsapp && (
-                                                                        <p className="text-xs text-[#C9A84C] font-mono mt-1">WA: +{p.whatsapp}</p>
+                                                                        <a href={`https://wa.me/${(p.whatsapp || '').replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-xs text-[#C9A84C] font-mono mt-1 inline-block hover:underline">WA: +{p.whatsapp}</a>
+                                                                    )}
+                                                                    {p.phone && (
+                                                                        <a href={`tel:${p.phone}`} className="text-xs text-white/50 font-mono mt-0.5 block hover:text-white/80">Tél: {p.phone}</a>
+                                                                    )}
+                                                                    {!p.whatsapp && !p.phone && (
+                                                                        <p className="text-[10px] text-white/25 italic mt-1">Aucun contact renseigné</p>
                                                                     )}
                                                                 </td>
                                                                 <td className="p-6 text-xs font-bold text-white/70">
-                                                                    {p.city ? `${p.city}, ${p.country}` : 'Non défini'}
+                                                                    {[p.city, p.country].filter(Boolean).join(', ') || <span className="text-white/30 italic font-medium">Non défini</span>}
                                                                 </td>
                                                                 <td className="p-6 text-xs text-white/55 font-mono space-y-0.5">
                                                                     <p>{p.views || 0} vues</p>
@@ -1470,7 +1476,19 @@ const AdminPage = ({ setPage }) => {
                                                                             </span>
                                                                         )}
                                                                 </div>
-                                                                <p className="text-xs text-white/50 mt-2 leading-relaxed font-medium">{s.description}</p>
+                                                                {s.description && <p className="text-xs text-white/50 mt-2 leading-relaxed font-medium">{s.description}</p>}
+                                                                {s.quantity && (
+                                                                    <p className="text-[10px] text-white/40 mt-2 font-bold uppercase tracking-wider">Quantité / délai : <span className="text-white/70">{s.quantity}</span></p>
+                                                                )}
+                                                                {Array.isArray(s.parameters) && s.parameters.length > 0 && (
+                                                                    <div className="flex flex-wrap gap-1.5 mt-3">
+                                                                        {s.parameters.map((param, pi) => (
+                                                                            <span key={pi} className="text-[9px] font-bold bg-white/5 border border-white/10 text-white/60 px-2 py-1 rounded-lg">
+                                                                                {param.label} : <span className="text-[#C9A84C]">{param.value}</span>
+                                                                            </span>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                             <div className="flex justify-between items-center pt-4 border-t border-white/5">
                                                                 <div className="flex items-center gap-2.5 min-w-0">
@@ -1580,9 +1598,32 @@ const AdminPage = ({ setPage }) => {
                                                                         <Clock size={10} /> Réactivation le {formatDate(p.suspended_until)}
                                                                     </p>
                                                                 )}
+                                                                {p.description && (
+                                                                    <p className="text-[11px] text-white/45 mt-2 leading-relaxed line-clamp-2">{p.description}</p>
+                                                                )}
+                                                                <div className="flex flex-wrap gap-1.5 mt-3">
+                                                                    {p.options?.category && (
+                                                                        <span className="text-[9px] font-bold bg-white/5 border border-white/10 text-white/60 px-2 py-1 rounded-lg">{p.options.category}</span>
+                                                                    )}
+                                                                    {p.options?.quantity && (
+                                                                        <span className="text-[9px] font-bold bg-white/5 border border-white/10 text-white/60 px-2 py-1 rounded-lg">{p.options.quantity}</span>
+                                                                    )}
+                                                                    {p.options?.format && p.options.format !== 'Standard' && (
+                                                                        <span className="text-[9px] font-bold bg-white/5 border border-white/10 text-white/60 px-2 py-1 rounded-lg">{p.options.format}</span>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                             <div className="flex justify-between items-center pt-4 border-t border-white/5">
-                                                                <span className="text-sm font-black text-[#C9A84C]">{Number(p.price).toLocaleString()} FCFA</span>
+                                                                <div className="flex flex-col">
+                                                                    {p.promo_price ? (
+                                                                        <>
+                                                                            <span className="text-sm font-black text-[#C9A84C]">{Number(p.promo_price).toLocaleString()} FCFA</span>
+                                                                            <span className="text-[10px] font-bold text-white/30 line-through">{Number(p.price).toLocaleString()} FCFA{p.discount ? ` · -${p.discount}%` : ''}</span>
+                                                                        </>
+                                                                    ) : (
+                                                                        <span className="text-sm font-black text-[#C9A84C]">{Number(p.price).toLocaleString()} FCFA</span>
+                                                                    )}
+                                                                </div>
                                                                 <div className="flex gap-2 flex-wrap justify-end">
                                                                     <button
                                                                         onClick={() => handleToggleSponsorProduct(p)}
