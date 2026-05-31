@@ -1,0 +1,17 @@
+# Configuration Supabase CLI.
+# Remplace project_id par la référence de ton projet (Settings > General).
+project_id = "printacote-saas"
+
+# Désactivé pour le dev local : le conteneur "vector" est incompatible avec
+# Colima (montage du docker.sock non supporté). Inutile pour servir les fonctions.
+[analytics]
+enabled = false
+
+# Le checkout exige un utilisateur connecté → JWT vérifié.
+[functions.moneroo-checkout]
+verify_jwt = true
+
+# Moneroo appelle le webhook sans token utilisateur → pas de vérification JWT.
+# La sécurité repose sur la signature HMAC X-Moneroo-Signature.
+[functions.moneroo-webhook]
+verify_jwt = false
