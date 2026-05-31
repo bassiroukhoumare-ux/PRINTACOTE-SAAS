@@ -25,10 +25,23 @@ const SubscriptionPanel = ({ printerData, user, showToast, dark = false }) => {
             window.location.href = data.checkoutUrl;
         } catch (err) {
             console.error(err);
-            showToast?.(
-                err.message || "Impossible de lancer le paiement. Réessayez plus tard.",
-                'error'
-            );
+            let errMsg = "Impossible de lancer le paiement. Réessayez plus tard.";
+            if (err.context) {
+                try {
+                    const body = await err.context.json();
+                    if (body && body.error) {
+                        errMsg = body.error;
+                    }
+                } catch (_) {
+                    try {
+                        const text = await err.context.text();
+                        if (text) errMsg = text;
+                    } catch (_) {}
+                }
+            } else if (err.message) {
+                errMsg = err.message;
+            }
+            showToast?.(errMsg, 'error');
             setLoadingPlan(null);
         }
     };
