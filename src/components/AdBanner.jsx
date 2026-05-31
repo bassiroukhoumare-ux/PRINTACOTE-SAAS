@@ -1,9 +1,52 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Phone, ArrowRight, MessageCircle, X, Clock, Zap, Info, Image as ImageIcon, Video, Palette } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 const AdBanner = ({ dark = false }) => {
     const [showTariffs, setShowTariffs] = useState(false);
     const [showInfo, setShowInfo] = useState(false);
+    const [customBanner, setCustomBanner] = useState(null);
+
+    useEffect(() => {
+        const fetchBanner = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('system_settings')
+                    .select('*')
+                    .eq('key', 'publicity_banner')
+                    .maybeSingle();
+                if (!error && data && data.value && data.value.is_active && data.value.image_url) {
+                    setCustomBanner(data.value);
+                }
+            } catch (err) {
+                console.error("Error fetching publicity banner:", err);
+            }
+        };
+        fetchBanner();
+    }, []);
+
+    if (customBanner) {
+        return (
+            <a 
+                href={customBanner.link_url || '#'} 
+                target={customBanner.link_url ? "_blank" : undefined}
+                rel="noopener noreferrer"
+                className="w-full max-w-[1000px] aspect-[16/6] md:aspect-[16/4] mx-auto border rounded-[2rem] sm:rounded-[3rem] overflow-hidden block relative group shadow-xl hover:scale-[1.01] transition-transform duration-500"
+                style={{ borderColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(61,11,55,0.1)' }}
+            >
+                <img 
+                    src={customBanner.image_url} 
+                    alt="Publicité Partenaire" 
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent flex items-end p-6 sm:p-8">
+                    <span className="text-[8px] sm:text-[9px] font-black text-white bg-black/40 backdrop-blur-md border border-white/10 px-3 py-1 rounded-full uppercase tracking-widest">
+                        Sponsorisé
+                    </span>
+                </div>
+            </a>
+        );
+    }
 
     const tariffs = [
         { duration: 15, price: "10 000 FCFA" },

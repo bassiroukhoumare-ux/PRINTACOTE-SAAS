@@ -247,3 +247,30 @@ BEGIN
     RETURN FOUND;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 14. Table des paramètres système (pour la bannière de publicité)
+CREATE TABLE IF NOT EXISTS public.system_settings (
+    key          TEXT PRIMARY KEY,
+    value        JSONB NOT NULL,
+    updated_at   TIMESTAMPTZ DEFAULT now()
+);
+
+-- RLS sur system_settings
+ALTER TABLE public.system_settings ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS "Anyone can read system settings" ON public.system_settings;
+CREATE POLICY "Anyone can read system settings" ON public.system_settings
+    FOR SELECT USING (true);
+
+-- RPC : Mettre à jour un paramètre système (contourne RLS)
+CREATE OR REPLACE FUNCTION public.admin_set_setting(p_key TEXT, p_value JSONB)
+RETURNS BOOLEAN AS $$
+BEGIN
+    INSERT INTO public.system_settings (key, value, updated_at)
+    VALUES (p_key, p_value, now())
+    ON CONFLICT (key) DO UPDATE
+    SET value = EXCLUDED.value,
+        updated_at = now();
+    RETURN true;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
