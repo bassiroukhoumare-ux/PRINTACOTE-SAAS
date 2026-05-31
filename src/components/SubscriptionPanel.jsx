@@ -130,8 +130,8 @@ const SubscriptionPanel = ({ printerData, user, showToast, dark = false }) => {
             </div>
 
             <div className={`flex items-center justify-center gap-2 text-xs font-bold ${dark ? 'text-white/40' : 'text-dark/40'}`}>
-                <ShieldCheck size={16} />
-                Paiement sécurisé via Moneroo — Mobile Money (Wave, Orange Money…) & carte bancaire.
+                <img src="https://paytech.sn/assets/srcs/img/logo_paytech.png" className="h-4 w-auto grayscale opacity-50" alt="PayTech" />
+                Paiement sécurisé via PayTech — Mobile Money (Wave, Orange Money…) & carte bancaire.
             </div>
 
             {sub.planId && sub.status === 'active' && (
