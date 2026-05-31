@@ -211,31 +211,33 @@ const DashboardOverview = ({ printerData, setActiveTab }) => {
                     </div>
 
                     {/* Chart simulation */}
-                    <div className="md:col-span-2 flex flex-col justify-between gap-6">
-                        <div className="flex items-end justify-between h-28 px-4 pt-4 border-b border-dark/5 relative">
-                            {/* Horizontal guide lines */}
-                            <div className="absolute top-0 left-0 right-0 border-t border-dashed border-dark/5"></div>
-                            <div className="absolute top-1/2 left-0 right-0 border-t border-dashed border-dark/5"></div>
-                            
-                            {/* Bars */}
-                            {chartBars.map((bar, i) => (
-                                <div key={i} className="flex flex-col items-center gap-2 flex-1 group">
-                                    <div className="relative w-full flex justify-center items-end h-20">
-                                        {/* Tooltip */}
-                                        <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity bg-dark text-white text-[9px] font-bold px-2 py-1 rounded-md pointer-events-none whitespace-nowrap z-20 shadow-xl">
-                                            {bar.value} clic{bar.value > 1 ? 's' : ''}
+                    <div className="md:col-span-2 flex flex-col justify-between gap-6 overflow-hidden">
+                        <div className="overflow-x-auto pb-2 custom-scrollbar">
+                            <div className="flex items-end justify-between h-28 px-4 pt-4 border-b border-dark/5 relative min-w-[340px] sm:min-w-0">
+                                {/* Horizontal guide lines */}
+                                <div className="absolute top-0 left-0 right-0 border-t border-dashed border-dark/5"></div>
+                                <div className="absolute top-1/2 left-0 right-0 border-t border-dashed border-dark/5"></div>
+                                
+                                {/* Bars */}
+                                {chartBars.map((bar, i) => (
+                                    <div key={i} className="flex flex-col items-center gap-2 flex-1 group">
+                                        <div className="relative w-full flex justify-center items-end h-20">
+                                            {/* Tooltip */}
+                                            <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity bg-dark text-white text-[9px] font-bold px-2 py-1 rounded-md pointer-events-none whitespace-nowrap z-20 shadow-xl">
+                                                {bar.value} clic{bar.value > 1 ? 's' : ''}
+                                            </div>
+                                            {/* Bar fill */}
+                                            <div 
+                                                style={{ height: `${bar.percentage}%` }}
+                                                className="w-4 sm:w-8 bg-[#25D366] rounded-t-lg transition-all duration-700 hover:bg-[#128C7E] shadow-lg shadow-[#25D366]/15"
+                                            ></div>
                                         </div>
-                                        {/* Bar fill */}
-                                        <div 
-                                            style={{ height: `${bar.percentage}%` }}
-                                            className="w-4 sm:w-8 bg-[#25D366] rounded-t-lg transition-all duration-700 hover:bg-[#128C7E] shadow-lg shadow-[#25D366]/15"
-                                        ></div>
+                                        <span className="text-[8px] sm:text-[10px] font-mono font-bold text-dark/40 uppercase tracking-widest truncate max-w-full">
+                                            {bar.label}
+                                        </span>
                                     </div>
-                                    <span className="text-[8px] sm:text-[10px] font-mono font-bold text-dark/40 uppercase tracking-widest truncate max-w-full">
-                                        {bar.label}
-                                    </span>
-                                </div>
-                            ))}
+                                ))}
+                            </div>
                         </div>
                         <div className="flex justify-between items-center text-[10px] sm:text-xs font-bold text-dark/45 uppercase tracking-wider">
                             <span>Taux de conversion : {((periodStats.clicks / Math.max(1, periodStats.views)) * 100).toFixed(1)}%</span>

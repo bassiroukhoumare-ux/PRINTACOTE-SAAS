@@ -17,9 +17,24 @@ const AdBanner = ({ dark = false }) => {
                     .maybeSingle();
                 if (!error && data && data.value && data.value.is_active && data.value.image_url) {
                     setCustomBanner(data.value);
+                } else {
+                    const localBanner = localStorage.getItem('publicity_banner');
+                    if (localBanner) {
+                        const parsed = JSON.parse(localBanner);
+                        if (parsed.is_active && parsed.image_url) {
+                            setCustomBanner(parsed);
+                        }
+                    }
                 }
             } catch (err) {
                 console.error("Error fetching publicity banner:", err);
+                const localBanner = localStorage.getItem('publicity_banner');
+                if (localBanner) {
+                    const parsed = JSON.parse(localBanner);
+                    if (parsed.is_active && parsed.image_url) {
+                        setCustomBanner(parsed);
+                    }
+                }
             }
         };
         fetchBanner();
@@ -27,24 +42,85 @@ const AdBanner = ({ dark = false }) => {
 
     if (customBanner) {
         return (
-            <a 
-                href={customBanner.link_url || '#'} 
-                target={customBanner.link_url ? "_blank" : undefined}
-                rel="noopener noreferrer"
+            <div 
                 className="w-full max-w-[1000px] min-h-[250px] md:h-[250px] mx-auto border rounded-[2rem] sm:rounded-[3rem] overflow-hidden block relative group shadow-xl hover:scale-[1.01] transition-transform duration-500"
                 style={{ borderColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(61,11,55,0.1)' }}
             >
-                <img 
-                    src={customBanner.image_url} 
-                    alt="Publicité Partenaire" 
-                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent flex items-end p-6 sm:p-8">
-                    <span className="text-[8px] sm:text-[9px] font-black text-white bg-black/40 backdrop-blur-md border border-white/10 px-3 py-1 rounded-full uppercase tracking-widest relative z-10">
-                        Sponsorisé
-                    </span>
-                </div>
-            </a>
+                {/* Main click redirect layer */}
+                <a 
+                    href={customBanner.link_url || '#'} 
+                    target={customBanner.link_url ? "_blank" : undefined}
+                    rel="noopener noreferrer"
+                    className="absolute inset-0 z-0 block w-full h-full"
+                >
+                    <img 
+                        src={customBanner.image_url} 
+                        alt="Publicité Partenaire" 
+                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent flex items-end p-6 sm:p-8">
+                        <span className="text-[8px] sm:text-[9px] font-black text-white bg-black/40 backdrop-blur-md border border-white/10 px-3 py-1 rounded-full uppercase tracking-widest relative z-10">
+                            Sponsorisé
+                        </span>
+                    </div>
+                </a>
+
+                {/* Floating Social Links Layer */}
+                {(customBanner.facebook_url || customBanner.instagram_url || customBanner.tiktok_url) && (
+                    <div 
+                        className="absolute top-4 right-4 z-20 flex gap-2"
+                        onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                        }}
+                    >
+                        {customBanner.facebook_url && (
+                            <a 
+                                href={customBanner.facebook_url} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-[#C9A84C] hover:text-[#0F0F13] flex items-center justify-center transition-all hover:scale-110 active:scale-95 shadow-lg"
+                                title="Facebook"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                                    <path d="M9 8h-3v4h3v12h5v-12h3.642l.358-4h-4v-1.667c0-.955.192-1.333 1.115-1.333h2.885v-5h-3.808c-3.596 0-5.192 1.583-5.192 4.615v3.385z"/>
+                                </svg>
+                            </a>
+                        )}
+                        {customBanner.instagram_url && (
+                            <a 
+                                href={customBanner.instagram_url} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-[#C9A84C] hover:text-[#0F0F13] flex items-center justify-center transition-all hover:scale-110 active:scale-95 shadow-lg"
+                                title="Instagram"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <svg className="w-4 h-4 stroke-current stroke-2 fill-none" viewBox="0 0 24 24" strokeLinecap="round" strokeLinejoin="round">
+                                    <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+                                    <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/>
+                                    <line x1="17.5" y1="6.5" x2="17.51" y2="6.5"/>
+                                </svg>
+                            </a>
+                        )}
+                        {customBanner.tiktok_url && (
+                            <a 
+                                href={customBanner.tiktok_url} 
+                                target="_blank" 
+                                rel="noopener noreferrer" 
+                                className="w-10 h-10 rounded-full bg-black/60 backdrop-blur-md border border-white/10 text-white hover:bg-[#C9A84C] hover:text-[#0F0F13] flex items-center justify-center transition-all hover:scale-110 active:scale-95 shadow-lg"
+                                title="TikTok"
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <svg className="w-4 h-4 fill-current" viewBox="0 0 24 24">
+                                    <path d="M12.53.02C13.84 0 15.14.01 16.44 0c.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.17-2.89-.6-4.09-1.51-.12-.09-.23-.2-.35-.3-.02 2.37.01 4.74-.01 7.11-.1 1.94-.78 3.87-2.12 5.25-1.55 1.61-3.9 2.52-6.13 2.41-2.22-.04-4.52-1.03-5.74-2.88-1.5-2.2-1.39-5.46.36-7.51 1.34-1.62 3.48-2.52 5.56-2.4v3.98c-1.12-.09-2.31.28-3.04 1.17-.79.94-.78 2.45-.04 3.41.74 1 2.06 1.41 3.23 1.16 1.07-.18 2.01-1.04 2.22-2.12.1-.47.1-.96.1-1.44V.02z"/>
+                                </svg>
+                            </a>
+                        )}
+                    </div>
+                )}
+            </div>
         );
     }
 

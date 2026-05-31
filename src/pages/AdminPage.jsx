@@ -39,7 +39,14 @@ const AdminPage = ({ setPage }) => {
     const [selectedBulkPrinters, setSelectedBulkPrinters] = useState([]);
     
     // Publicity Banner States
-    const [bannerSettings, setBannerSettings] = useState({ image_url: '', link_url: '', is_active: false });
+    const [bannerSettings, setBannerSettings] = useState({ 
+        image_url: '', 
+        link_url: '', 
+        is_active: false,
+        facebook_url: '',
+        instagram_url: '',
+        tiktok_url: ''
+    });
     const [bannerUploading, setBannerUploading] = useState(false);
     const [overviewFilter, setOverviewFilter] = useState('all');
 
@@ -92,15 +99,24 @@ const AdminPage = ({ setPage }) => {
             if (activeTab === 'overview') {
                 const { data, error } = await supabase.rpc('admin_get_global_stats');
                 if (error) {
-                    console.warn("RPC admin_get_global_stats failed, falling back to mock overview data:", error.message);
-                    setStats({
-                        totalPrinters: 8,
-                        totalServices: 24,
-                        totalPortfolio: 16,
-                        totalProducts: 5,
-                        totalViews: 3120,
-                        totalClicks: 740
-                    });
+                    console.warn("RPC admin_get_global_stats failed, falling back to direct table queries:", error.message);
+                    
+                    const [printersRes, productsRes] = await Promise.all([
+                        supabase.from('printers').select('id, services, portfolio, views, clicks'),
+                        supabase.from('products').select('id', { count: 'exact', head: true })
+                    ]);
+                    
+                    const printersList = printersRes.data || [];
+                    
+                    const calculatedStats = {
+                        totalPrinters: printersList.length,
+                        totalServices: printersList.reduce((acc, p) => acc + (p.services?.length || 0), 0),
+                        totalPortfolio: printersList.reduce((acc, p) => acc + (p.portfolio?.length || 0), 0),
+                        totalProducts: productsRes.count || 0,
+                        totalViews: printersList.reduce((acc, p) => acc + (p.views || 0), 0),
+                        totalClicks: printersList.reduce((acc, p) => acc + (p.clicks || 0), 0)
+                    };
+                    setStats(calculatedStats);
                 } else {
                     setStats(data || {
                         totalPrinters: 0,
@@ -114,104 +130,60 @@ const AdminPage = ({ setPage }) => {
             } else if (activeTab === 'printers' || activeTab === 'services' || activeTab === 'portfolio') {
                 const { data, error } = await supabase.rpc('admin_get_printers_list');
                 if (error) {
-                    console.warn("RPC admin_get_printers_list failed, falling back to mock printers:");
-                    const mockPrinters = [
-                        {
-                            id: 'mock-1',
-                            name: 'Imprimerie Elite Dakar',
-                            first_name: 'Amadou',
-                            last_name: 'Sall',
-                            city: 'Dakar',
-                            country: 'Sénégal',
-                            whatsapp: '221775551122',
-                            phone: '221338882233',
-                            status: 'En ligne',
-                            views: 1240,
-                            clicks: 340,
-                            logo_url: 'https://ui-avatars.com/api/?name=Imprimerie+Elite+Dakar&background=random',
-                            cover_url: 'https://images.unsplash.com/photo-1504270997636-07ddfbd48945?q=80&w=1000',
-                            rating: 4.9,
-                            email: 'contact@elitedakar.sn',
-                            services: [
-                                { name: 'Impression Offset', price: '25000', description: 'Impression de flyers et brochures en grande quantité.' },
-                                { name: 'Impression Numérique', price: '5000', description: 'Impression express de documents A4/A3.' },
-                                { name: 'Grand Format', price: '15000', description: 'Impression sur bâches publicitaires.' }
-                            ],
-                            portfolio: [
-                                { image_url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000', url: 'https://images.unsplash.com/photo-1618005182384-a83a8bd57fbe?q=80&w=1000' },
-                                { image_url: 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?q=80&w=1000', url: 'https://images.unsplash.com/photo-1541701494587-cb58502866ab?q=80&w=1000' }
-                            ],
-                            created_at: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString()
-                        },
-                        {
-                            id: 'mock-2',
-                            name: 'Luxe Print Abidjan',
-                            first_name: 'Koffi',
-                            last_name: 'Konan',
-                            city: 'Abidjan',
-                            country: 'Côte d\'Ivoire',
-                            whatsapp: '2250707112233',
-                            phone: '2252722112233',
-                            status: 'En ligne',
-                            views: 890,
-                            clicks: 210,
-                            logo_url: 'https://ui-avatars.com/api/?name=Luxe+Print+Abidjan&background=random',
-                            cover_url: 'https://images.unsplash.com/photo-1626785774573-4b799315345d?q=80&w=1000',
-                            rating: 4.7,
-                            email: 'info@luxeprint.ci',
-                            services: [
-                                { name: 'Packaging Personnalisé', price: '45000', description: 'Conception de boîtes et emballages cartonnés.' }
-                            ],
-                            portfolio: [
-                                { image_url: 'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?q=80&w=1000', url: 'https://images.unsplash.com/photo-1526304640581-d334cdbbf45e?q=80&w=1000' }
-                            ],
-                            created_at: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-                        }
-                    ];
-                    setPrinters(mockPrinters);
+                    console.warn("RPC admin_get_printers_list failed, falling back to direct table query:", error.message);
+                    const { data: tableData, error: tableError } = await supabase
+                        .from('printers')
+                        .select('*')
+                        .order('created_at', { ascending: false });
+                    
+                    if (tableError) {
+                        console.error("Error fetching printers table directly:", tableError.message);
+                        setPrinters([]);
+                    } else {
+                        setPrinters(tableData || []);
+                    }
                 } else {
                     setPrinters(data || []);
                 }
             } else if (activeTab === 'marketplace') {
                 const { data, error } = await supabase
                     .from('products')
-                    .select('*, printers(name)');
+                    .select('*, printers(name)')
+                    .order('created_at', { ascending: false });
                 if (error) {
-                    console.warn("Fetch products failed, falling back to mock products:");
-                    setProducts([
-                        {
-                            id: 'prod-1',
-                            name: 'Traceur HP DesignJet T650',
-                            price: 950000,
-                            description: 'Imprimante grand format de précision, idéale pour bureaux d\'études et architectes.',
-                            status: 'En ligne',
-                            images: ['https://images.unsplash.com/photo-1612815154858-60aa4c59eaa6?q=80&w=1000'],
-                            printers: { name: 'Imprimerie Elite Dakar' }
-                        }
-                    ]);
+                    console.warn("Fetch products failed, setting empty:", error.message);
+                    setProducts([]);
                 } else {
                     setProducts(data || []);
                 }
             } else if (activeTab === 'support') {
                 const { data, error } = await supabase.rpc('admin_get_messages');
                 if (error) {
-                    console.warn("RPC admin_get_messages failed, falling back to mock messages:");
-                    const mockMessages = [
-                        {
-                            id: 'msg-1',
-                            created_at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
-                            printer_id: 'mock-1',
-                            printer_name: 'Imprimerie Elite Dakar',
-                            printer_logo: 'https://ui-avatars.com/api/?name=Imprimerie+Elite+Dakar&background=random',
-                            subject: 'Problème affichage',
-                            content: 'Bonjour, je ne parviens pas à télécharger mes réalisations portfolio. Est-ce un bug de taille ?',
-                            is_read: false,
-                            direction: 'printer_to_admin'
+                    console.warn("RPC admin_get_messages failed, falling back to direct table query:", error.message);
+                    const { data: tableData, error: tableError } = await supabase
+                        .from('admin_messages')
+                        .select('*, printers(name, logo_url)')
+                        .order('created_at', { ascending: false });
+                    
+                    if (tableError) {
+                        console.error("Error fetching messages table directly:", tableError.message);
+                        setMessages([]);
+                    } else {
+                        const mappedMessages = tableData?.map(msg => ({
+                            id: msg.id,
+                            created_at: msg.created_at,
+                            printer_id: msg.printer_id,
+                            printer_name: msg.printers?.name || 'Imprimerie',
+                            printer_logo: msg.printers?.logo_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(msg.printers?.name || 'Imprimerie')}&background=random`,
+                            subject: msg.subject,
+                            content: msg.content,
+                            is_read: msg.is_read,
+                            direction: msg.direction
+                        })) || [];
+                        setMessages(mappedMessages);
+                        if (mappedMessages.length > 0 && !selectedPrinterId) {
+                            setSelectedPrinterId(mappedMessages[0].printer_id);
                         }
-                    ];
-                    setMessages(mockMessages);
-                    if (!selectedPrinterId) {
-                        setSelectedPrinterId('mock-1');
                     }
                 } else {
                     setMessages(data || []);
@@ -225,14 +197,36 @@ const AdminPage = ({ setPage }) => {
                     .select('*')
                     .eq('key', 'publicity_banner')
                     .maybeSingle();
-                if (!error && data) {
-                    setBannerSettings(data.value);
+                if (!error && data && data.value) {
+                    setBannerSettings({
+                        image_url: data.value.image_url || '',
+                        link_url: data.value.link_url || '',
+                        is_active: data.value.is_active || false,
+                        facebook_url: data.value.facebook_url || '',
+                        instagram_url: data.value.instagram_url || '',
+                        tiktok_url: data.value.tiktok_url || ''
+                    });
                 } else {
                     const localBanner = localStorage.getItem('publicity_banner');
                     if (localBanner) {
-                        setBannerSettings(JSON.parse(localBanner));
+                        const parsed = JSON.parse(localBanner);
+                        setBannerSettings({
+                            image_url: parsed.image_url || '',
+                            link_url: parsed.link_url || '',
+                            is_active: parsed.is_active || false,
+                            facebook_url: parsed.facebook_url || '',
+                            instagram_url: parsed.instagram_url || '',
+                            tiktok_url: parsed.tiktok_url || ''
+                        });
                     } else {
-                        setBannerSettings({ image_url: '', link_url: '', is_active: false });
+                        setBannerSettings({ 
+                            image_url: '', 
+                            link_url: '', 
+                            is_active: false,
+                            facebook_url: '',
+                            instagram_url: '',
+                            tiktok_url: ''
+                        });
                     }
                 }
             }
@@ -253,10 +247,18 @@ const AdminPage = ({ setPage }) => {
                 p_printer_id: printerId,
                 p_status: newStatus
             });
-            if (error) throw error;
+            if (error) {
+                console.warn("RPC admin_toggle_printer_status failed, falling back to direct table update:", error.message);
+                const { error: tableError } = await supabase
+                    .from('printers')
+                    .update({ status: newStatus })
+                    .eq('id', printerId);
+                if (tableError) throw tableError;
+            }
             showToast(`Visibilité de la boutique mise à jour en : ${newStatus}`, "success");
             fetchAdminData();
         } catch (err) {
+            console.error("Error toggling status:", err);
             showToast("Impossible de changer le statut", "error");
         }
     };
@@ -265,10 +267,18 @@ const AdminPage = ({ setPage }) => {
         if (!confirm("Voulez-vous vraiment supprimer définitivement cet imprimeur et toutes ses données associées ?")) return;
         try {
             const { error } = await supabase.rpc('admin_delete_printer', { p_printer_id: printerId });
-            if (error) throw error;
+            if (error) {
+                console.warn("RPC admin_delete_printer failed, falling back to direct delete:", error.message);
+                const { error: tableError } = await supabase
+                    .from('printers')
+                    .delete()
+                    .eq('id', printerId);
+                if (tableError) throw tableError;
+            }
             showToast("Imprimeur supprimé avec succès.", "success");
             fetchAdminData();
         } catch (err) {
+            console.error("Error deleting printer:", err);
             showToast("Erreur lors de la suppression de l'imprimeur", "error");
         }
     };
@@ -281,10 +291,18 @@ const AdminPage = ({ setPage }) => {
                 p_printer_id: printerId,
                 p_services: updatedServices
             });
-            if (error) throw error;
+            if (error) {
+                console.warn("RPC admin_update_printer_services failed, falling back to direct update:", error.message);
+                const { error: tableError } = await supabase
+                    .from('printers')
+                    .update({ services: updatedServices })
+                    .eq('id', printerId);
+                if (tableError) throw tableError;
+            }
             showToast("Service supprimé.", "success");
             fetchAdminData();
         } catch (err) {
+            console.error("Error deleting service:", err);
             showToast("Erreur lors de la suppression du service", "error");
         }
     };
@@ -297,10 +315,18 @@ const AdminPage = ({ setPage }) => {
                 p_printer_id: printerId,
                 p_portfolio: updatedPortfolio
             });
-            if (error) throw error;
+            if (error) {
+                console.warn("RPC admin_update_printer_portfolio failed, falling back to direct update:", error.message);
+                const { error: tableError } = await supabase
+                    .from('printers')
+                    .update({ portfolio: updatedPortfolio })
+                    .eq('id', printerId);
+                if (tableError) throw tableError;
+            }
             showToast("Réalisation retirée du portfolio.", "success");
             fetchAdminData();
         } catch (err) {
+            console.error("Error deleting portfolio item:", err);
             showToast("Erreur lors de la suppression de l'image", "error");
         }
     };
@@ -309,10 +335,18 @@ const AdminPage = ({ setPage }) => {
         if (!confirm("Voulez-vous supprimer ce produit de la marketplace ?")) return;
         try {
             const { error } = await supabase.rpc('admin_delete_product', { p_product_id: productId });
-            if (error) throw error;
+            if (error) {
+                console.warn("RPC admin_delete_product failed, falling back to direct delete:", error.message);
+                const { error: tableError } = await supabase
+                    .from('products')
+                    .delete()
+                    .eq('id', productId);
+                if (tableError) throw tableError;
+            }
             showToast("Produit supprimé de la marketplace.", "success");
             fetchAdminData();
         } catch (err) {
+            console.error("Error deleting product:", err);
             showToast("Erreur lors de la suppression du produit", "error");
         }
     };
@@ -328,11 +362,24 @@ const AdminPage = ({ setPage }) => {
                 p_subject: "Réponse Support",
                 p_content: replyContent
             });
-            if (error) throw error;
+            if (error) {
+                console.warn("RPC admin_send_message failed, falling back to direct insert:", error.message);
+                const { error: tableError } = await supabase
+                    .from('admin_messages')
+                    .insert({
+                        printer_id: selectedPrinterId,
+                        subject: "Réponse Support",
+                        content: replyContent,
+                        direction: 'admin_to_printer',
+                        is_read: false
+                    });
+                if (tableError) throw tableError;
+            }
             setReplyContent('');
             showToast("Message envoyé avec succès", "success");
             fetchAdminData();
         } catch (err) {
+            console.error("Error sending message:", err);
             showToast("Erreur lors de l'envoi du message", "error");
         }
     };
@@ -349,23 +396,49 @@ const AdminPage = ({ setPage }) => {
                 p_subject: bulkSubject,
                 p_content: bulkContent
             });
-            if (error) throw error;
-            showToast(`${data} message(s) envoyé(s) avec succès.`, "success");
+            if (error) {
+                console.warn("RPC admin_send_message_bulk failed, falling back to direct bulk insert:", error.message);
+                const inserts = selectedBulkPrinters.map(pid => ({
+                    printer_id: pid,
+                    subject: bulkSubject,
+                    content: bulkContent,
+                    direction: 'admin_to_printer',
+                    is_read: false
+                }));
+                const { error: tableError } = await supabase
+                    .from('admin_messages')
+                    .insert(inserts);
+                if (tableError) throw tableError;
+            } else {
+                showToast(`${data} message(s) envoyé(s) avec succès.`, "success");
+            }
             setBulkSubject('');
             setBulkContent('');
             setSelectedBulkPrinters([]);
             setShowBulkModal(false);
             fetchAdminData();
         } catch (err) {
+            console.error("Error sending bulk message:", err);
             showToast("Erreur lors de la diffusion du message", "error");
         }
     };
 
     const markAsRead = async (printerId) => {
         try {
-            await supabase.rpc('admin_mark_messages_read', { p_printer_id: printerId });
+            const { error } = await supabase.rpc('admin_mark_messages_read', { p_printer_id: printerId });
+            if (error) {
+                console.warn("RPC admin_mark_messages_read failed, falling back to update:", error.message);
+                const { error: tableError } = await supabase
+                    .from('admin_messages')
+                    .update({ is_read: true })
+                    .eq('printer_id', printerId)
+                    .eq('direction', 'printer_to_admin');
+                if (tableError) throw tableError;
+            }
             fetchAdminData();
-        } catch (e) {}
+        } catch (e) {
+            console.error("Error marking messages as read:", e);
+        }
     };
 
     const handleSaveBannerSettings = async (e) => {
@@ -379,7 +452,13 @@ const AdminPage = ({ setPage }) => {
                 p_key: 'publicity_banner',
                 p_value: bannerSettings
             });
-            if (error) throw error;
+            if (error) {
+                console.warn("RPC admin_set_setting failed, falling back to direct upsert:", error.message);
+                const { error: tableError } = await supabase
+                    .from('system_settings')
+                    .upsert({ key: 'publicity_banner', value: bannerSettings });
+                if (tableError) throw tableError;
+            }
             showToast("Bannière publicitaire mise à jour avec succès !", "success");
         } catch (err) {
             console.error("Error saving banner settings:", err);
@@ -927,27 +1006,29 @@ const AdminPage = ({ setPage }) => {
                                                         </div>
                                                     </div>
 
-                                                    <div className="md:col-span-2 flex flex-col justify-between gap-6">
-                                                        <div className="flex items-end justify-between h-28 px-4 pt-4 border-b border-white/5 relative">
-                                                            <div className="absolute top-0 left-0 right-0 border-t border-dashed border-white/5"></div>
-                                                            <div className="absolute top-1/2 left-0 right-0 border-t border-dashed border-white/5"></div>
-                                                            
-                                                            {chartBars.map((bar, i) => (
-                                                                <div key={i} className="flex flex-col items-center gap-2 flex-1 group">
-                                                                    <div className="relative w-full flex justify-center items-end h-20">
-                                                                        <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity bg-[#0A0A0E] text-white text-[9px] font-bold px-2 py-1 rounded-md pointer-events-none whitespace-nowrap z-20 shadow-xl border border-white/10">
-                                                                            {bar.value.toLocaleString()} vue{bar.value > 1 ? 's' : ''}
+                                                    <div className="md:col-span-2 flex flex-col justify-between gap-6 overflow-hidden">
+                                                        <div className="overflow-x-auto pb-2 custom-scrollbar">
+                                                            <div className="flex items-end justify-between h-28 px-4 pt-4 border-b border-white/5 relative min-w-[340px] sm:min-w-0">
+                                                                <div className="absolute top-0 left-0 right-0 border-t border-dashed border-white/5"></div>
+                                                                <div className="absolute top-1/2 left-0 right-0 border-t border-dashed border-white/5"></div>
+                                                                
+                                                                {chartBars.map((bar, i) => (
+                                                                    <div key={i} className="flex flex-col items-center gap-2 flex-1 group">
+                                                                        <div className="relative w-full flex justify-center items-end h-20">
+                                                                            <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity bg-[#0A0A0E] text-white text-[9px] font-bold px-2 py-1 rounded-md pointer-events-none whitespace-nowrap z-20 shadow-xl border border-white/10">
+                                                                                {bar.value.toLocaleString()} vue{bar.value > 1 ? 's' : ''}
+                                                                            </div>
+                                                                            <div 
+                                                                                style={{ height: `${bar.percentage}%` }}
+                                                                                className="w-4 sm:w-8 bg-[#C9A84C] rounded-t-lg transition-all duration-700 hover:bg-[#A9882C] shadow-lg shadow-[#C9A84C]/15"
+                                                                            ></div>
                                                                         </div>
-                                                                        <div 
-                                                                            style={{ height: `${bar.percentage}%` }}
-                                                                            className="w-4 sm:w-8 bg-[#C9A84C] rounded-t-lg transition-all duration-700 hover:bg-[#A9882C] shadow-lg shadow-[#C9A84C]/15"
-                                                                        ></div>
+                                                                        <span className="text-[8px] sm:text-[10px] font-mono font-bold text-white/40 uppercase tracking-widest truncate max-w-full">
+                                                                            {bar.label}
+                                                                        </span>
                                                                     </div>
-                                                                    <span className="text-[8px] sm:text-[10px] font-mono font-bold text-white/40 uppercase tracking-widest truncate max-w-full">
-                                                                        {bar.label}
-                                                                    </span>
-                                                                </div>
-                                                            ))}
+                                                                ))}
+                                                            </div>
                                                         </div>
                                                         <div className="flex justify-between items-center text-[10px] font-bold text-white/45 uppercase tracking-wider">
                                                             <span>Taux de conversion : {((periodStats.clicks / Math.max(1, periodStats.views)) * 100).toFixed(1)}%</span>
@@ -1342,6 +1423,40 @@ const AdminPage = ({ setPage }) => {
                                                 onChange={(e) => setBannerSettings(prev => ({ ...prev, link_url: e.target.value }))}
                                                 className="w-full bg-white/5 border border-white/5 focus:border-[#C9A84C]/40 text-sm font-bold text-white rounded-2xl px-6 py-4 focus:outline-none transition-colors"
                                             />
+                                        </div>
+
+                                        {/* Social Links Inputs */}
+                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-2">Lien Facebook (Facultatif)</label>
+                                                <input 
+                                                    type="url"
+                                                    placeholder="https://facebook.com/..."
+                                                    value={bannerSettings.facebook_url || ''}
+                                                    onChange={(e) => setBannerSettings(prev => ({ ...prev, facebook_url: e.target.value }))}
+                                                    className="w-full bg-white/5 border border-white/5 focus:border-[#C9A84C]/40 text-sm font-bold text-white rounded-2xl px-6 py-4 focus:outline-none transition-colors"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-[#C9A84C] ml-2">Lien Instagram (Facultatif)</label>
+                                                <input 
+                                                    type="url"
+                                                    placeholder="https://instagram.com/..."
+                                                    value={bannerSettings.instagram_url || ''}
+                                                    onChange={(e) => setBannerSettings(prev => ({ ...prev, instagram_url: e.target.value }))}
+                                                    className="w-full bg-white/5 border border-white/5 focus:border-[#C9A84C]/40 text-sm font-bold text-white rounded-2xl px-6 py-4 focus:outline-none transition-colors"
+                                                />
+                                            </div>
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-2">Lien TikTok (Facultatif)</label>
+                                                <input 
+                                                    type="url"
+                                                    placeholder="https://tiktok.com/@..."
+                                                    value={bannerSettings.tiktok_url || ''}
+                                                    onChange={(e) => setBannerSettings(prev => ({ ...prev, tiktok_url: e.target.value }))}
+                                                    className="w-full bg-white/5 border border-white/5 focus:border-[#C9A84C]/40 text-sm font-bold text-white rounded-2xl px-6 py-4 focus:outline-none transition-colors"
+                                                />
+                                            </div>
                                         </div>
 
                                         {/* Image Upload Area */}
