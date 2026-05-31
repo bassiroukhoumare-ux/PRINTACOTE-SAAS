@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ShoppingBag, Search, ShoppingCart, ArrowRight, MessageCircle, SlidersHorizontal, X, Globe, MapPin, Loader2 } from 'lucide-react';
+import { ShoppingBag, Search, ShoppingCart, ArrowRight, MessageCircle, SlidersHorizontal, X, Globe, MapPin, Loader2, Sparkles } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import AdBanner from '../components/AdBanner';
 
@@ -29,6 +29,9 @@ const MaquettePlace = ({ setPage }) => {
 
     const fetchProducts = async () => {
         setLoading(true);
+        // Réactive les produits dont la suspension temporaire a expiré avant
+        // de charger la liste publique (mécanique réelle, idempotente).
+        await supabase.rpc('reactivate_expired_products').catch(() => {});
         const { data, error } = await supabase
             .from('products')
             .select('*, printers(name, country, city, description, whatsapp, status)')
@@ -50,7 +53,8 @@ const MaquettePlace = ({ setPage }) => {
                 sellerDesc: item.printers?.description || "Atelier d'impression professionnel certifié.",
                 whatsapp: item.printers?.whatsapp || '221709465891',
                 promoPrice: item.promo_price ? `${parseFloat(item.promo_price).toLocaleString()} FCFA` : null,
-                discount: item.discount
+                discount: item.discount,
+                isFeatured: item.options?.is_featured || false
             }));
             setItems(mapped);
         } else {
@@ -229,11 +233,19 @@ const MaquettePlace = ({ setPage }) => {
                                         <Globe size={8} className="text-accent sm:w-[10px] sm:h-[10px]" />
                                         {item.country}
                                     </div>
-                                    {item.discount && (
-                                        <div className="absolute top-2 left-2 sm:top-3 sm:left-3 bg-red-500 text-white px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md sm:rounded-lg text-[7px] sm:text-[9px] font-black shadow-lg">
-                                            -{item.discount}%
-                                        </div>
-                                    )}
+                                    <div className="absolute top-2 left-2 sm:top-3 sm:left-3 flex flex-col gap-1 z-10">
+                                        {item.discount && (
+                                            <div className="bg-red-500 text-white px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md sm:rounded-lg text-[7px] sm:text-[9px] font-black shadow-lg self-start">
+                                                -{item.discount}%
+                                            </div>
+                                        )}
+                                        {item.isFeatured && (
+                                            <div className="bg-gradient-to-r from-[#C9A84C] to-[#E6C675] text-[#0F0F13] px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md sm:rounded-lg text-[7px] sm:text-[9px] font-black shadow-lg flex items-center gap-0.5 self-start">
+                                                <Sparkles size={8} className="animate-pulse" />
+                                                <span>Sponsorisé</span>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
                                 <div className="p-2.5 sm:p-4 flex flex-col flex-1">
                                     <h3 className="text-[11px] sm:text-sm font-black text-primary tracking-tight leading-tight group-hover:text-accent transition-colors truncate mb-1">{item.title}</h3>

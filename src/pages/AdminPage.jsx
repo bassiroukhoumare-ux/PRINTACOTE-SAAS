@@ -4,7 +4,8 @@ import {
     LayoutDashboard, Users, Wrench, Image as ImageIcon,
     Store, Mail, LogOut, Shield, ShieldAlert, KeyRound,
     Search, Trash2, CheckCircle2, XCircle, Send, Plus, Users2,
-    Loader2, Megaphone, Menu
+    Loader2, Megaphone, Menu, Pencil, Save, Star, Sparkles,
+    Eye, Newspaper, UserCheck, Clock, PauseCircle, PlayCircle
 } from 'lucide-react';
 import gsap from 'gsap';
 
@@ -48,7 +49,77 @@ const AdminPage = ({ setPage }) => {
         tiktok_url: ''
     });
     const [bannerUploading, setBannerUploading] = useState(false);
-    const [overviewFilter, setOverviewFilter] = useState('all');
+    // Product Edit Modal States
+    const [editingProduct, setEditingProduct] = useState(null);
+    const [isProductModalOpen, setIsProductModalOpen] = useState(false);
+    const [productForm, setProductForm] = useState({
+        name: "",
+        price: "",
+        promo_price: "",
+        discount: "",
+        description: "",
+        status: "En ligne",
+        category: "Encre",
+        quantity: "En stock",
+        format: ""
+    });
+    const [actionLoading, setActionLoading] = useState(false);
+
+    // Support Messaging States
+    const [selectedFullMessage, setSelectedFullMessage] = useState(null);
+
+    // Overview : période du graphique de trafic réel + série temporelle
+    const [overviewFilter, setOverviewFilter] = useState('week');
+    const [viewsSeries, setViewsSeries] = useState([]);
+    const [seriesLoading, setSeriesLoading] = useState(false);
+
+    // Services : filtre par imprimerie
+    const [serviceFilter, setServiceFilter] = useState('all');
+
+    // Marketplace : suspension temporisée d'un produit
+    const [suspendModalProduct, setSuspendModalProduct] = useState(null);
+    const [suspendDays, setSuspendDays] = useState('7');
+
+    // Helper functions
+    const getPortfolioImageUrl = (item) => {
+        if (!item) return '';
+        if (typeof item === 'string') {
+            try {
+                const parsed = JSON.parse(item);
+                return parsed.image_url || parsed.url || item;
+            } catch (e) {
+                return item;
+            }
+        }
+        return item.image_url || item.url || '';
+    };
+
+    const getPortfolioDate = (item, printerCreatedAt) => {
+        if (item && typeof item === 'object' && item.created_at) {
+            return new Date(item.created_at);
+        }
+        const url = typeof item === 'string' ? item : (item?.image_url || item?.url || '');
+        const match = url.match(/portfolio_(\d+)/);
+        if (match && match[1]) {
+            return new Date(parseInt(match[1]));
+        }
+        return printerCreatedAt ? new Date(printerCreatedAt) : new Date();
+    };
+
+    const formatDate = (dateValue) => {
+        if (!dateValue) return '';
+        try {
+            const date = new Date(dateValue);
+            return date.toLocaleDateString('fr-FR') + ' à ' + date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        } catch (e) {
+            return '';
+        }
+    };
+
+    const truncateMessage = (text, maxLength = 150) => {
+        if (!text || text.length <= maxLength) return text;
+        return text.substring(0, maxLength) + '...';
+    };
 
     // Refs for animations
     const loginCardRef = useRef(null);
@@ -75,6 +146,28 @@ const AdminPage = ({ setPage }) => {
         }
     }, [isAuthenticated, activeTab]);
 
+    // Charge la série temporelle RÉELLE des vues du site (admin_get_views_timeseries)
+    // à l'ouverture de l'overview et à chaque changement de période.
+    useEffect(() => {
+        if (!isAuthenticated || activeTab !== 'overview') return;
+        let cancelled = false;
+        const fetchSeries = async () => {
+            setSeriesLoading(true);
+            const { data, error } = await supabase.rpc('admin_get_views_timeseries', { p_period: overviewFilter });
+            if (!cancelled) {
+                if (error) {
+                    console.warn('admin_get_views_timeseries indisponible:', error.message);
+                    setViewsSeries([]);
+                } else {
+                    setViewsSeries(Array.isArray(data) ? data : []);
+                }
+                setSeriesLoading(false);
+            }
+        };
+        fetchSeries();
+        return () => { cancelled = true; };
+    }, [isAuthenticated, activeTab, overviewFilter]);
+
     const handleLogin = (e) => {
         e.preventDefault();
         setAuthError('');
@@ -96,6 +189,9 @@ const AdminPage = ({ setPage }) => {
     const fetchAdminData = async () => {
         setLoading(true);
         try {
+            // Run schema updates to ensure columns are present
+            supabase.rpc('admin_run_schema_updates').catch(e => console.warn(e));
+
             if (activeTab === 'overview') {
                 const { data, error } = await supabase.rpc('admin_get_global_stats');
                 if (error) {
@@ -146,10 +242,12 @@ const AdminPage = ({ setPage }) => {
                     setPrinters(data || []);
                 }
             } else if (activeTab === 'marketplace') {
+                // Réactive d'abord les produits dont la suspension a expiré.
+                await supabase.rpc('reactivate_expired_products').catch(() => {});
                 const { data, error } = await supabase
                     .from('products')
-                    .select('*, printers(name)')
-                    .order('created_at', { ascending: false });
+                    .select('*, printers(name, created_at)')
+                    .order('name', { ascending: true });
                 if (error) {
                     console.warn("Fetch products failed, setting empty:", error.message);
                     setProducts([]);
@@ -309,7 +407,7 @@ const AdminPage = ({ setPage }) => {
 
     const handleDeletePortfolio = async (printerId, portfolioList, imageUrl) => {
         if (!confirm("Voulez-vous supprimer cette réalisation du portfolio ?")) return;
-        const updatedPortfolio = portfolioList.filter(item => (item.image_url !== imageUrl && item.url !== imageUrl));
+        const updatedPortfolio = portfolioList.filter(item => getPortfolioImageUrl(item) !== imageUrl);
         try {
             const { error } = await supabase.rpc('admin_update_printer_portfolio', {
                 p_printer_id: printerId,
@@ -348,6 +446,193 @@ const AdminPage = ({ setPage }) => {
         } catch (err) {
             console.error("Error deleting product:", err);
             showToast("Erreur lors de la suppression du produit", "error");
+        }
+    };
+
+    const handleToggleProductStatus = async (productId, currentStatus) => {
+        const newStatus = currentStatus === 'En ligne' ? 'Désactivé' : 'En ligne';
+        try {
+            const { error } = await supabase.rpc('admin_toggle_product_status', {
+                p_product_id: productId,
+                p_status: newStatus
+            });
+            if (error) {
+                console.warn("RPC admin_toggle_product_status failed, falling back to direct update:", error.message);
+                const { error: dbError } = await supabase
+                    .from('products')
+                    .update({ status: newStatus })
+                    .eq('id', productId);
+                if (dbError) throw dbError;
+            }
+            showToast(`Produit ${newStatus === 'En ligne' ? 'activé' : 'désactivé'} avec succès.`, "success");
+            fetchAdminData();
+        } catch (err) {
+            console.error("Error toggling product status:", err);
+            showToast("Erreur lors de la mise à jour du statut", "error");
+        }
+    };
+
+    // Suspend un produit pour une durée choisie (en jours). Le produit passe
+    // en statut 'Suspendu' avec une date d'échéance réelle ; il redevient
+    // visible automatiquement à expiration (reactivate_expired_products).
+    const handleSuspendProduct = async () => {
+        if (!suspendModalProduct) return;
+        const days = parseInt(suspendDays, 10);
+        if (!days || days < 1) {
+            showToast("Veuillez choisir une durée valide.", "error");
+            return;
+        }
+        const until = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
+        setActionLoading(true);
+        try {
+            const { error } = await supabase.rpc('admin_suspend_product', {
+                p_product_id: suspendModalProduct.id,
+                p_until: until
+            });
+            if (error) {
+                console.warn("RPC admin_suspend_product failed, falling back to direct update:", error.message);
+                const { error: dbError } = await supabase
+                    .from('products')
+                    .update({ status: 'Suspendu', suspended_until: until })
+                    .eq('id', suspendModalProduct.id);
+                if (dbError) throw dbError;
+            }
+            showToast(`Produit suspendu pour ${days} jour${days > 1 ? 's' : ''}.`, "success");
+            setSuspendModalProduct(null);
+            setSuspendDays('7');
+            fetchAdminData();
+        } catch (err) {
+            console.error("Error suspending product:", err);
+            showToast("Erreur lors de la suspension du produit", "error");
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    // Lève la suspension immédiatement (remet le produit en ligne).
+    const handleReactivateProduct = async (productId) => {
+        try {
+            const { error } = await supabase.rpc('admin_toggle_product_status', {
+                p_product_id: productId,
+                p_status: 'En ligne'
+            });
+            if (error) {
+                const { error: dbError } = await supabase
+                    .from('products')
+                    .update({ status: 'En ligne', suspended_until: null })
+                    .eq('id', productId);
+                if (dbError) throw dbError;
+            } else {
+                await supabase.from('products').update({ suspended_until: null }).eq('id', productId).catch(() => {});
+            }
+            showToast("Produit réactivé et remis en ligne.", "success");
+            fetchAdminData();
+        } catch (err) {
+            console.error("Error reactivating product:", err);
+            showToast("Erreur lors de la réactivation du produit", "error");
+        }
+    };
+
+    const handleToggleSponsorProduct = async (product) => {
+        const currentOptions = product.options || {};
+        const isFeatured = !currentOptions.is_featured;
+        const updatedOptions = { ...currentOptions, is_featured: isFeatured };
+        
+        try {
+            const { error } = await supabase.rpc('admin_update_product', {
+                p_product_id: product.id,
+                p_name: product.name,
+                p_price: Number(product.price),
+                p_promo_price: product.promo_price ? Number(product.promo_price) : null,
+                p_discount: product.discount ? Number(product.discount) : null,
+                p_description: product.description,
+                p_options: updatedOptions
+            });
+            
+            if (error) {
+                console.warn("RPC admin_update_product failed, trying direct update:", error.message);
+                const { error: dbError } = await supabase
+                    .from('products')
+                    .update({ options: updatedOptions })
+                    .eq('id', product.id);
+                if (dbError) throw dbError;
+            }
+            
+            showToast(isFeatured ? "Produit sponsorisé avec succès !" : "Sponsorisation retirée.", "success");
+            fetchAdminData();
+        } catch (err) {
+            console.error("Error updating product:", err);
+            showToast("Erreur lors de la mise à jour : " + err.message, "error");
+        }
+    };
+
+    const handleOpenEditProduct = (product) => {
+        setEditingProduct(product);
+        setProductForm({
+            name: product.name || "",
+            price: product.price ? product.price.toString() : "",
+            promo_price: product.promo_price ? product.promo_price.toString() : "",
+            discount: product.discount ? product.discount.toString() : "",
+            description: product.description || "",
+            status: product.status || "En ligne",
+            category: product.options?.category || "Encre",
+            quantity: product.options?.quantity || "En stock",
+            format: product.options?.format || ""
+        });
+        setIsProductModalOpen(true);
+    };
+
+    const handleSaveProduct = async (e) => {
+        e.preventDefault();
+        if (!editingProduct) return;
+        setActionLoading(true);
+        
+        const updatedOptions = {
+            ...(editingProduct.options || {}),
+            category: productForm.category,
+            quantity: productForm.quantity,
+            format: productForm.format || "Standard"
+        };
+
+        const updatedProduct = {
+            name: productForm.name,
+            price: Number(productForm.price),
+            promo_price: productForm.promo_price ? Number(productForm.promo_price) : null,
+            discount: productForm.discount ? Number(productForm.discount) : null,
+            description: productForm.description,
+            status: productForm.status,
+            options: updatedOptions
+        };
+
+        try {
+            const { error } = await supabase.rpc('admin_update_product', {
+                p_product_id: editingProduct.id,
+                p_name: updatedProduct.name,
+                p_price: updatedProduct.price,
+                p_promo_price: updatedProduct.promo_price,
+                p_discount: updatedProduct.discount,
+                p_description: updatedProduct.description,
+                p_options: updatedProduct.options
+            });
+
+            if (error) {
+                console.warn("RPC admin_update_product failed, falling back to direct update:", error.message);
+                const { error: dbError } = await supabase
+                    .from('products')
+                    .update(updatedProduct)
+                    .eq('id', editingProduct.id);
+                if (dbError) throw dbError;
+            }
+
+            showToast("Produit mis à jour avec succès !", "success");
+            setIsProductModalOpen(false);
+            setEditingProduct(null);
+            fetchAdminData();
+        } catch (err) {
+            console.error("Error saving product:", err);
+            showToast("Erreur lors de l'enregistrement", "error");
+        } finally {
+            setActionLoading(false);
         }
     };
 
@@ -903,84 +1188,63 @@ const AdminPage = ({ setPage }) => {
                                                 <h3 className="text-3xl font-black mt-1">{stats.totalClicks.toLocaleString()}</h3>
                                             </div>
                                         </div>
+                                        <div className="bg-[#111116] border border-white/5 rounded-[2rem] p-6 flex items-center gap-5">
+                                            <div className="w-14 h-14 bg-[#C9A84C]/10 text-[#C9A84C] rounded-2xl flex items-center justify-center shrink-0">
+                                                <Eye size={28} />
+                                            </div>
+                                            <div>
+                                                <span className="text-[9px] font-black uppercase text-white/30 tracking-widest block">Vues du site</span>
+                                                <h3 className="text-3xl font-black mt-1">{(stats.totalSiteViews || 0).toLocaleString()}</h3>
+                                            </div>
+                                        </div>
+                                        <div className="bg-[#111116] border border-white/5 rounded-[2rem] p-6 flex items-center gap-5">
+                                            <div className="w-14 h-14 bg-[#C9A84C]/10 text-[#C9A84C] rounded-2xl flex items-center justify-center shrink-0">
+                                                <UserCheck size={28} />
+                                            </div>
+                                            <div>
+                                                <span className="text-[9px] font-black uppercase text-white/30 tracking-widest block">Visiteurs uniques</span>
+                                                <h3 className="text-3xl font-black mt-1">{(stats.totalVisitors || 0).toLocaleString()}</h3>
+                                            </div>
+                                        </div>
+                                        <div className="bg-[#111116] border border-white/5 rounded-[2rem] p-6 flex items-center gap-5">
+                                            <div className="w-14 h-14 bg-[#C9A84C]/10 text-[#C9A84C] rounded-2xl flex items-center justify-center shrink-0">
+                                                <Newspaper size={28} />
+                                            </div>
+                                            <div>
+                                                <span className="text-[9px] font-black uppercase text-white/30 tracking-widest block">Actualités publiées</span>
+                                                <h3 className="text-3xl font-black mt-1">{(stats.totalNews || 0).toLocaleString()}</h3>
+                                            </div>
+                                        </div>
                                     </div>
-                                    
+
                                     {(() => {
-                                        const getPeriodStats = (clicks, views, filter) => {
-                                            if (filter === 'all') return { clicks, views, days: 90 };
-                                            if (filter === 'month') return { clicks: Math.min(clicks, Math.round(clicks * 0.75)), views: Math.min(views, Math.round(views * 0.75)), days: 30 };
-                                            if (filter === 'week') return { clicks: Math.min(clicks, Math.round(clicks * 0.22)), views: Math.min(views, Math.round(views * 0.22)), days: 7 };
-                                            if (filter === 'today') return { clicks: Math.min(clicks, Math.round(clicks * 0.04)), views: Math.min(views, Math.round(views * 0.04)), days: 1 };
-                                            return { clicks, views, days: 90 };
+                                        const periodLabels = { today: "Aujourd'hui", week: '7 derniers jours', month: '30 derniers jours', year: '12 derniers mois' };
+                                        const series = Array.isArray(viewsSeries) ? viewsSeries : [];
+                                        const totalPeriodViews = series.reduce((acc, b) => acc + (b.value || 0), 0);
+                                        const maxValue = series.reduce((acc, b) => Math.max(acc, b.value || 0), 0);
+                                        const avgPerBucket = series.length ? (totalPeriodViews / series.length) : 0;
+                                        const avgUnit = overviewFilter === 'today' ? 'heure' : overviewFilter === 'year' ? 'mois' : 'jour';
+                                        const formatBucketLabel = (ts) => {
+                                            const d = new Date(ts);
+                                            if (overviewFilter === 'today') return `${d.getHours()}h`;
+                                            if (overviewFilter === 'year') return d.toLocaleDateString('fr-FR', { month: 'short' });
+                                            return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
                                         };
-
-                                        const getChartData = (clicks, filter) => {
-                                            if (filter === 'today') {
-                                                return [
-                                                    { label: '08h-11h', value: Math.round(clicks * 0.2), percentage: Math.max(10, Math.round(clicks * 0.2 * 10)) },
-                                                    { label: '11h-14h', value: Math.round(clicks * 0.4), percentage: Math.max(10, Math.round(clicks * 0.4 * 10)) },
-                                                    { label: '14h-17h', value: Math.round(clicks * 0.3), percentage: Math.max(10, Math.round(clicks * 0.3 * 10)) },
-                                                    { label: '17h-20h', value: clicks - Math.round(clicks * 0.9), percentage: Math.max(10, Math.round((clicks - Math.round(clicks * 0.9)) * 10)) }
-                                                ];
-                                            }
-                                            if (filter === 'week') {
-                                                const parts = [0.15, 0.2, 0.25, 0.1, 0.18, 0.08, 0.04];
-                                                let distributed = parts.map(p => Math.round(clicks * p));
-                                                const currentSum = distributed.reduce((a, b) => a + b, 0);
-                                                if (currentSum !== clicks) distributed[2] += (clicks - currentSum);
-                                                return [
-                                                    { label: 'Lun', value: distributed[0], percentage: Math.max(5, clicks > 0 ? (distributed[0] / clicks) * 100 : 0) },
-                                                    { label: 'Mar', value: distributed[1], percentage: Math.max(5, clicks > 0 ? (distributed[1] / clicks) * 100 : 0) },
-                                                    { label: 'Mer', value: distributed[2], percentage: Math.max(5, clicks > 0 ? (distributed[2] / clicks) * 100 : 0) },
-                                                    { label: 'Jeu', value: distributed[3], percentage: Math.max(5, clicks > 0 ? (distributed[3] / clicks) * 100 : 0) },
-                                                    { label: 'Ven', value: distributed[4], percentage: Math.max(5, clicks > 0 ? (distributed[4] / clicks) * 100 : 0) },
-                                                    { label: 'Sam', value: distributed[5], percentage: Math.max(5, clicks > 0 ? (distributed[5] / clicks) * 100 : 0) },
-                                                    { label: 'Dim', value: distributed[6], percentage: Math.max(5, clicks > 0 ? (distributed[6] / clicks) * 100 : 0) }
-                                                ];
-                                            }
-                                            if (filter === 'month') {
-                                                const parts = [0.22, 0.28, 0.3, 0.2];
-                                                let distributed = parts.map(p => Math.round(clicks * p));
-                                                const currentSum = distributed.reduce((a, b) => a + b, 0);
-                                                if (currentSum !== clicks) distributed[2] += (clicks - currentSum);
-                                                return [
-                                                    { label: 'Sem 1', value: distributed[0], percentage: Math.max(5, clicks > 0 ? (distributed[0] / clicks) * 100 : 0) },
-                                                    { label: 'Sem 2', value: distributed[1], percentage: Math.max(5, clicks > 0 ? (distributed[1] / clicks) * 100 : 0) },
-                                                    { label: 'Sem 3', value: distributed[2], percentage: Math.max(5, clicks > 0 ? (distributed[2] / clicks) * 100 : 0) },
-                                                    { label: 'Sem 4', value: distributed[3], percentage: Math.max(5, clicks > 0 ? (distributed[3] / clicks) * 100 : 0) }
-                                                ];
-                                            }
-                                            const parts = [0.1, 0.12, 0.18, 0.22, 0.2, 0.18];
-                                            let distributed = parts.map(p => Math.round(clicks * p));
-                                            const currentSum = distributed.reduce((a, b) => a + b, 0);
-                                            if (currentSum !== clicks) distributed[3] += (clicks - currentSum);
-                                            return [
-                                                { label: 'Déc', value: distributed[0], percentage: Math.max(5, clicks > 0 ? (distributed[0] / clicks) * 100 : 0) },
-                                                { label: 'Jan', value: distributed[1], percentage: Math.max(5, clicks > 0 ? (distributed[1] / clicks) * 100 : 0) },
-                                                { label: 'Fév', value: distributed[2], percentage: Math.max(5, clicks > 0 ? (distributed[2] / clicks) * 100 : 0) },
-                                                { label: 'Mar', value: distributed[3], percentage: Math.max(5, clicks > 0 ? (distributed[3] / clicks) * 100 : 0) },
-                                                { label: 'Avr', value: distributed[4], percentage: Math.max(5, clicks > 0 ? (distributed[4] / clicks) * 100 : 0) },
-                                                { label: 'Mai', value: distributed[5], percentage: Math.max(5, clicks > 0 ? (distributed[5] / clicks) * 100 : 0) }
-                                            ];
-                                        };
-
-                                        const periodStats = getPeriodStats(stats.totalClicks || 0, stats.totalViews || 0, overviewFilter);
-                                        const chartBars = getChartData(periodStats.views, overviewFilter);
 
                                         return (
                                             <div className="bg-[#111116] border border-white/5 rounded-[2.5rem] p-8 sm:p-10 shadow-xl space-y-8">
                                                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                                                     <div>
-                                                        <h3 className="font-black text-xl tracking-tight text-white/80">Statistiques globales du site</h3>
-                                                        <p className="text-white/40 text-xs">Visualisation globale du trafic et des clics de contact sur l'ensemble du site.</p>
+                                                        <h3 className="font-black text-xl tracking-tight text-white/80">Trafic réel du site</h3>
+                                                        <p className="text-white/40 text-xs">Vues de pages réellement enregistrées (table site_views), par période.</p>
                                                     </div>
-                                                    
+
                                                     <div className="flex bg-white/5 p-1 rounded-2xl w-full md:w-auto overflow-x-auto border border-white/5">
                                                         {[
-                                                            { id: 'all', label: 'Toutes données' },
-                                                            { id: 'month', label: 'Ce mois' },
-                                                            { id: 'week', label: '7 jours' },
-                                                            { id: 'today', label: "Aujourd'hui" }
+                                                            { id: 'today', label: 'Jour' },
+                                                            { id: 'week', label: 'Semaine' },
+                                                            { id: 'month', label: 'Mois' },
+                                                            { id: 'year', label: 'Année' }
                                                         ].map((filter) => (
                                                             <button
                                                                 key={filter.id}
@@ -997,42 +1261,58 @@ const AdminPage = ({ setPage }) => {
                                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                                                     <div className="bg-white/[0.02] border border-white/5 rounded-[2rem] p-8 flex flex-col justify-between min-h-[160px]">
                                                         <div>
-                                                            <span className="text-[10px] font-black uppercase tracking-widest text-[#C9A84C]">Vues globales filtrées</span>
-                                                            <h4 className="text-4xl font-black text-[#FAF8F5] mt-2">{periodStats.views.toLocaleString()}</h4>
+                                                            <span className="text-[10px] font-black uppercase tracking-widest text-[#C9A84C]">Vues sur la période</span>
+                                                            <h4 className="text-4xl font-black text-[#FAF8F5] mt-2">{totalPeriodViews.toLocaleString()}</h4>
                                                         </div>
                                                         <div className="mt-4 pt-4 border-t border-white/5">
-                                                            <span className="text-[10px] font-black uppercase tracking-widest text-white/45 block">Clics de contact filtrés</span>
-                                                            <h4 className="text-2xl font-black text-white/80 mt-1">{periodStats.clicks.toLocaleString()}</h4>
+                                                            <span className="text-[10px] font-black uppercase tracking-widest text-white/45 block">Moyenne / {avgUnit}</span>
+                                                            <h4 className="text-2xl font-black text-white/80 mt-1">{avgPerBucket.toFixed(1)}</h4>
                                                         </div>
                                                     </div>
 
                                                     <div className="md:col-span-2 flex flex-col justify-between gap-6 overflow-hidden">
-                                                        <div className="overflow-x-auto pb-2 custom-scrollbar">
-                                                            <div className="flex items-end justify-between h-28 px-4 pt-4 border-b border-white/5 relative min-w-[340px] sm:min-w-0">
-                                                                <div className="absolute top-0 left-0 right-0 border-t border-dashed border-white/5"></div>
-                                                                <div className="absolute top-1/2 left-0 right-0 border-t border-dashed border-white/5"></div>
-                                                                
-                                                                {chartBars.map((bar, i) => (
-                                                                    <div key={i} className="flex flex-col items-center gap-2 flex-1 group">
-                                                                        <div className="relative w-full flex justify-center items-end h-20">
-                                                                            <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity bg-[#0A0A0E] text-white text-[9px] font-bold px-2 py-1 rounded-md pointer-events-none whitespace-nowrap z-20 shadow-xl border border-white/10">
-                                                                                {bar.value.toLocaleString()} vue{bar.value > 1 ? 's' : ''}
-                                                                            </div>
-                                                                            <div 
-                                                                                style={{ height: `${bar.percentage}%` }}
-                                                                                className="w-4 sm:w-8 bg-[#C9A84C] rounded-t-lg transition-all duration-700 hover:bg-[#A9882C] shadow-lg shadow-[#C9A84C]/15"
-                                                                            ></div>
-                                                                        </div>
-                                                                        <span className="text-[8px] sm:text-[10px] font-mono font-bold text-white/40 uppercase tracking-widest truncate max-w-full">
-                                                                            {bar.label}
-                                                                        </span>
-                                                                    </div>
-                                                                ))}
+                                                        {seriesLoading ? (
+                                                            <div className="flex items-center justify-center h-28 text-white/30 gap-2">
+                                                                <Loader2 size={18} className="animate-spin" />
+                                                                <span className="text-xs font-bold">Chargement du trafic…</span>
                                                             </div>
-                                                        </div>
+                                                        ) : totalPeriodViews === 0 ? (
+                                                            <div className="flex flex-col items-center justify-center h-28 text-center text-white/30">
+                                                                <Eye size={22} className="mb-2 opacity-50" />
+                                                                <p className="text-xs font-bold">Aucune vue enregistrée sur cette période.</p>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="overflow-x-auto pb-2 custom-scrollbar">
+                                                                <div className="flex items-end justify-between h-28 px-2 pt-4 border-b border-white/5 relative gap-1 min-w-[340px] sm:min-w-0">
+                                                                    <div className="absolute top-0 left-0 right-0 border-t border-dashed border-white/5"></div>
+                                                                    <div className="absolute top-1/2 left-0 right-0 border-t border-dashed border-white/5"></div>
+
+                                                                    {series.map((bar, i) => {
+                                                                        const value = bar.value || 0;
+                                                                        const percentage = maxValue > 0 ? Math.max(value > 0 ? 6 : 0, (value / maxValue) * 100) : 0;
+                                                                        return (
+                                                                            <div key={i} className="flex flex-col items-center gap-2 flex-1 group min-w-0">
+                                                                                <div className="relative w-full flex justify-center items-end h-20">
+                                                                                    <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity bg-[#0A0A0E] text-white text-[9px] font-bold px-2 py-1 rounded-md pointer-events-none whitespace-nowrap z-20 shadow-xl border border-white/10">
+                                                                                        {value.toLocaleString()} vue{value > 1 ? 's' : ''}
+                                                                                    </div>
+                                                                                    <div
+                                                                                        style={{ height: `${percentage}%` }}
+                                                                                        className="w-3 sm:w-6 bg-[#C9A84C] rounded-t-lg transition-all duration-700 hover:bg-[#A9882C] shadow-lg shadow-[#C9A84C]/15"
+                                                                                    ></div>
+                                                                                </div>
+                                                                                <span className="text-[7px] sm:text-[9px] font-mono font-bold text-white/40 uppercase tracking-wider truncate max-w-full">
+                                                                                    {formatBucketLabel(bar.ts)}
+                                                                                </span>
+                                                                            </div>
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </div>
+                                                        )}
                                                         <div className="flex justify-between items-center text-[10px] font-bold text-white/45 uppercase tracking-wider">
-                                                            <span>Taux de conversion : {((periodStats.clicks / Math.max(1, periodStats.views)) * 100).toFixed(1)}%</span>
-                                                            <span>Moyenne/Jour : {(periodStats.views / periodStats.days).toFixed(1)}</span>
+                                                            <span>Période : {periodLabels[overviewFilter]}</span>
+                                                            <span>Visiteurs uniques (total) : {(stats.totalVisitors || 0).toLocaleString()}</span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1140,48 +1420,85 @@ const AdminPage = ({ setPage }) => {
                             )}
 
                             {/* TAB 3: SERVICES MODERATION */}
-                            {activeTab === 'services' && (
-                                <div className="space-y-6">
-                                    <div className="bg-[#111116] border border-white/5 rounded-[2.5rem] p-8 space-y-6">
-                                        <h3 className="text-lg font-black uppercase tracking-wider text-white/80">Services publiés</h3>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                            {printers.flatMap(p => (p.services || []).map(s => ({ ...s, printerId: p.id, printerName: p.name, printerLogo: p.logo_url, servicesList: p.services }))).length === 0 ? (
-                                                <p className="text-white/40 font-bold">Aucun service publié pour le moment.</p>
-                                            ) : (
-                                                printers.flatMap(p => (p.services || []).map(s => ({ ...s, printerId: p.id, printerName: p.name, printerLogo: p.logo_url, servicesList: p.services }))).map((s, index) => (
-                                                    <div key={index} className="bg-white/5 border border-white/5 rounded-2xl p-6 flex flex-col justify-between space-y-4">
-                                                        <div>
-                                                            <div className="flex justify-between items-start gap-4">
-                                                                    <h4 className="font-bold text-white text-base leading-tight">{s.name}</h4>
-                                                                    {s.price && (
-                                                                        <span className="text-xs bg-[#C9A84C]/20 text-[#C9A84C] font-black px-3 py-1 rounded-lg shrink-0">
-                                                                            À partir de {Number(s.price).toLocaleString()} F
-                                                                        </span>
-                                                                    )}
-                                                            </div>
-                                                            <p className="text-xs text-white/50 mt-2 leading-relaxed font-medium">{s.description}</p>
-                                                        </div>
-                                                        <div className="flex justify-between items-center pt-4 border-t border-white/5">
-                                                            <div className="flex items-center gap-2.5">
-                                                                <div className="w-6 h-6 rounded-full overflow-hidden border border-white/10 shrink-0">
-                                                                    <img src={s.printerLogo} alt="" className="w-full h-full object-cover" />
+                            {activeTab === 'services' && (() => {
+                                // Aplati tous les services réels (stockés en JSONB sur printers).
+                                // Le « pays » d'un service = pays de son imprimerie (seul rattachement réel).
+                                const allServices = printers.flatMap(p => (p.services || []).map(s => ({
+                                    ...s,
+                                    printerId: p.id,
+                                    printerName: p.name,
+                                    printerLogo: p.logo_url,
+                                    printerCountry: p.country,
+                                    printerCity: p.city,
+                                    servicesList: p.services
+                                })));
+                                const printersWithServices = printers.filter(p => (p.services || []).length > 0);
+                                const visibleServices = serviceFilter === 'all'
+                                    ? allServices
+                                    : allServices.filter(s => s.printerId === serviceFilter);
+
+                                return (
+                                    <div className="space-y-6">
+                                        <div className="bg-[#111116] border border-white/5 rounded-[2.5rem] p-8 space-y-6">
+                                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                                <h3 className="text-lg font-black uppercase tracking-wider text-white/80">
+                                                    Services publiés <span className="text-white/30">({visibleServices.length})</span>
+                                                </h3>
+                                                <select
+                                                    value={serviceFilter}
+                                                    onChange={(e) => setServiceFilter(e.target.value)}
+                                                    className="bg-white/5 border border-white/5 focus:border-[#C9A84C]/40 text-sm font-bold text-white rounded-2xl px-4 py-2.5 focus:outline-none transition-colors max-w-full"
+                                                >
+                                                    <option value="all" className="bg-[#111116]">Toutes les imprimeries</option>
+                                                    {printersWithServices.map(p => (
+                                                        <option key={p.id} value={p.id} className="bg-[#111116]">{p.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                                {visibleServices.length === 0 ? (
+                                                    <p className="text-white/40 font-bold">Aucun service publié pour le moment.</p>
+                                                ) : (
+                                                    visibleServices.map((s, index) => (
+                                                        <div key={index} className="bg-white/5 border border-white/5 rounded-2xl p-6 flex flex-col justify-between space-y-4">
+                                                            <div>
+                                                                <div className="flex justify-between items-start gap-4">
+                                                                        <h4 className="font-bold text-white text-base leading-tight">{s.name}</h4>
+                                                                        {s.price && (
+                                                                            <span className="text-xs bg-[#C9A84C]/20 text-[#C9A84C] font-black px-3 py-1 rounded-lg shrink-0">
+                                                                                À partir de {Number(s.price).toLocaleString()} F
+                                                                            </span>
+                                                                        )}
                                                                 </div>
-                                                                <span className="text-[10px] font-black uppercase tracking-wider text-white/40 truncate max-w-[150px]">{s.printerName}</span>
+                                                                <p className="text-xs text-white/50 mt-2 leading-relaxed font-medium">{s.description}</p>
                                                             </div>
-                                                            <button
-                                                                onClick={() => handleDeleteService(s.printerId, s.servicesList, s.name)}
-                                                                className="p-2.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-xl transition-all"
-                                                            >
-                                                                <Trash2 size={14} />
-                                                            </button>
+                                                            <div className="flex justify-between items-center pt-4 border-t border-white/5">
+                                                                <div className="flex items-center gap-2.5 min-w-0">
+                                                                    <div className="w-6 h-6 rounded-full overflow-hidden border border-white/10 shrink-0">
+                                                                        <img src={s.printerLogo} alt="" className="w-full h-full object-cover" />
+                                                                    </div>
+                                                                    <div className="min-w-0">
+                                                                        <span className="text-[10px] font-black uppercase tracking-wider text-white/50 truncate block max-w-[150px]">{s.printerName}</span>
+                                                                        <span className="text-[9px] font-bold text-white/30 truncate block max-w-[150px]">
+                                                                            {[s.printerCity, s.printerCountry].filter(Boolean).join(', ') || 'Localisation non renseignée'}
+                                                                        </span>
+                                                                    </div>
+                                                                </div>
+                                                                <button
+                                                                    onClick={() => handleDeleteService(s.printerId, s.servicesList, s.name)}
+                                                                    className="p-2.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-xl transition-all shrink-0"
+                                                                >
+                                                                    <Trash2 size={14} />
+                                                                </button>
+                                                            </div>
                                                         </div>
-                                                    </div>
-                                                ))
-                                            )}
+                                                    ))
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
-                            )}
+                                );
+                            })()}
 
                             {/* TAB 4: PORTFOLIO IMAGES MODERATION */}
                             {activeTab === 'portfolio' && (
@@ -1189,18 +1506,23 @@ const AdminPage = ({ setPage }) => {
                                     <div className="bg-[#111116] border border-white/5 rounded-[2.5rem] p-8 space-y-6">
                                         <h3 className="text-lg font-black uppercase tracking-wider text-white/80">Réalisations Portfolio</h3>
                                         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
-                                            {printers.flatMap(p => (p.portfolio || []).map(item => ({ ...item, printerId: p.id, printerName: p.name, portfolioList: p.portfolio }))).length === 0 ? (
+                                            {printers.flatMap(p => (p.portfolio || []).map(item => ({ originalItem: item, printerId: p.id, printerName: p.name, portfolioList: p.portfolio, printerCreatedAt: p.created_at }))).length === 0 ? (
                                                 <p className="text-white/40 col-span-full font-bold">Aucune image publiée pour le moment.</p>
                                             ) : (
-                                                printers.flatMap(p => (p.portfolio || []).map(item => ({ ...item, printerId: p.id, printerName: p.name, portfolioList: p.portfolio }))).map((item, index) => (
+                                                printers.flatMap(p => (p.portfolio || []).map(item => ({ originalItem: item, printerId: p.id, printerName: p.name, portfolioList: p.portfolio, printerCreatedAt: p.created_at }))).map((item, index) => (
                                                     <div key={index} className="group relative bg-white/5 border border-white/5 rounded-2xl overflow-hidden aspect-square flex flex-col justify-end shadow-lg">
-                                                        <img src={item.image_url || item.url || ''} alt="" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-all duration-500" />
+                                                        <img src={getPortfolioImageUrl(item.originalItem)} alt="" className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-all duration-500" />
                                                         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent pointer-events-none opacity-80 group-hover:opacity-95 transition-opacity"></div>
-                                                        <div className="relative p-4 flex justify-between items-center z-10">
-                                                            <span className="text-[10px] font-black uppercase tracking-wider text-white/60 truncate max-w-[120px]">{item.printerName}</span>
+                                                        <div className="relative p-4 flex justify-between items-end z-10 w-full">
+                                                            <div className="flex-1 min-w-0">
+                                                                <span className="text-[10px] font-black uppercase tracking-wider text-white/80 truncate block">{item.printerName}</span>
+                                                                <span className="text-[8px] font-mono text-white/40 block mt-0.5">
+                                                                    le {formatDate(getPortfolioDate(item.originalItem, item.printerCreatedAt))}
+                                                                </span>
+                                                            </div>
                                                             <button 
-                                                                onClick={() => handleDeletePortfolio(item.printerId, item.portfolioList, item.image_url || item.url || '')}
-                                                                className="p-2 bg-red-500 text-white rounded-xl hover:scale-105 active:scale-95 transition-all shadow-md"
+                                                                onClick={() => handleDeletePortfolio(item.printerId, item.portfolioList, getPortfolioImageUrl(item.originalItem))}
+                                                                className="p-2 bg-red-500 text-white rounded-xl hover:scale-105 active:scale-95 transition-all shadow-md shrink-0 ml-2"
                                                             >
                                                                 <Trash2 size={12} />
                                                             </button>
@@ -1212,6 +1534,7 @@ const AdminPage = ({ setPage }) => {
                                     </div>
                                 </div>
                             )}
+
 
                             {/* TAB 5: MARKETPLACE PRODUCTS */}
                             {activeTab === 'marketplace' && (
@@ -1230,20 +1553,83 @@ const AdminPage = ({ setPage }) => {
                                                             ) : (
                                                                 <div className="w-full h-full flex items-center justify-center text-white/20"><Store size={32} /></div>
                                                             )}
+                                                            <div className={`absolute top-4 left-4 px-2.5 py-1 rounded-xl text-[9px] font-black shadow-lg uppercase tracking-wider
+                                                                ${p.status === 'En ligne'
+                                                                    ? 'bg-green-500 text-white shadow-green-500/10'
+                                                                    : p.status === 'Suspendu'
+                                                                        ? 'bg-amber-500 text-[#0F0F13] shadow-amber-500/10'
+                                                                        : 'bg-red-500 text-white shadow-red-500/10'}`}>
+                                                                {p.status === 'En ligne' ? 'En ligne' : p.status === 'Suspendu' ? 'Suspendu' : 'Désactivé'}
+                                                            </div>
+                                                            {p.options?.is_featured && (
+                                                                <div className="absolute top-4 right-4 bg-gradient-to-r from-[#C9A84C] to-[#E6C675] text-[#0F0F13] px-2.5 py-1 rounded-xl text-[9px] font-black shadow-lg flex items-center gap-1 shadow-[#C9A84C]/10">
+                                                                    <Sparkles size={8} className="animate-pulse" />
+                                                                    Sponsorisé
+                                                                </div>
+                                                            )}
                                                         </div>
                                                         <div className="p-6 space-y-4">
                                                             <div>
                                                                 <h4 className="font-bold text-white text-base leading-tight">{p.name}</h4>
-                                                                <p className="text-xs text-white/40 mt-1">Publié par : <span className="font-bold text-white/60">{p.printers?.name || 'Inconnu'}</span></p>
+                                                                <p className="text-xs text-white/45 mt-1.5 font-semibold">Publié par : <span className="font-bold text-white/70">{p.printers?.name || 'Inconnu'}</span></p>
+                                                                <p className="text-[9px] font-mono text-white/30 mt-0.5">
+                                                                    le {formatDate(p.created_at || p.printers?.created_at)}
+                                                                </p>
+                                                                {p.status === 'Suspendu' && p.suspended_until && (
+                                                                    <p className="text-[9px] font-bold text-amber-400/80 mt-1.5 flex items-center gap-1">
+                                                                        <Clock size={10} /> Réactivation le {formatDate(p.suspended_until)}
+                                                                    </p>
+                                                                )}
                                                             </div>
                                                             <div className="flex justify-between items-center pt-4 border-t border-white/5">
                                                                 <span className="text-sm font-black text-[#C9A84C]">{Number(p.price).toLocaleString()} FCFA</span>
-                                                                <button
-                                                                    onClick={() => handleDeleteProduct(p.id)}
-                                                                    className="p-2.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-xl transition-all"
-                                                                >
-                                                                    <Trash2 size={14} />
-                                                                </button>
+                                                                <div className="flex gap-2 flex-wrap justify-end">
+                                                                    <button
+                                                                        onClick={() => handleToggleSponsorProduct(p)}
+                                                                        title={p.options?.is_featured ? "Retirer la sponsorisation" : "Sponsoriser le produit"}
+                                                                        className={`p-2.5 rounded-xl transition-all border ${p.options?.is_featured ? 'bg-[#C9A84C]/20 text-[#C9A84C] border-[#C9A84C]/35' : 'bg-white/5 text-white/40 border-white/5 hover:text-white'}`}
+                                                                    >
+                                                                        <Star size={14} fill={p.options?.is_featured ? "#C9A84C" : "none"} />
+                                                                    </button>
+                                                                    {p.status === 'Suspendu' ? (
+                                                                        <button
+                                                                            onClick={() => handleReactivateProduct(p.id)}
+                                                                            title="Lever la suspension (remettre en ligne)"
+                                                                            className="p-2.5 rounded-xl transition-all border bg-green-500/10 text-green-400 border-green-500/15 hover:bg-green-500/20"
+                                                                        >
+                                                                            <PlayCircle size={14} />
+                                                                        </button>
+                                                                    ) : (
+                                                                        <button
+                                                                            onClick={() => { setSuspendDays('7'); setSuspendModalProduct(p); }}
+                                                                            title="Suspendre le produit pour une durée"
+                                                                            className="p-2.5 rounded-xl transition-all border bg-amber-500/10 text-amber-400 border-amber-500/15 hover:bg-amber-500/20"
+                                                                        >
+                                                                            <PauseCircle size={14} />
+                                                                        </button>
+                                                                    )}
+                                                                    <button
+                                                                        onClick={() => handleToggleProductStatus(p.id, p.status)}
+                                                                        title={p.status === 'En ligne' ? "Désactiver le produit" : "Activer le produit"}
+                                                                        className={`p-2.5 rounded-xl transition-all border ${p.status === 'En ligne' ? 'bg-green-500/10 text-green-400 border-green-500/15' : 'bg-red-500/10 text-red-400 border-red-500/15'}`}
+                                                                    >
+                                                                        {p.status === 'En ligne' ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleOpenEditProduct(p)}
+                                                                        title="Modifier le produit"
+                                                                        className="p-2.5 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded-xl transition-all border border-blue-500/15"
+                                                                    >
+                                                                        <Pencil size={14} />
+                                                                    </button>
+                                                                    <button
+                                                                        onClick={() => handleDeleteProduct(p.id)}
+                                                                        title="Supprimer le produit"
+                                                                        className="p-2.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-xl transition-all border border-red-500/15"
+                                                                    >
+                                                                        <Trash2 size={14} />
+                                                                    </button>
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -1253,6 +1639,7 @@ const AdminPage = ({ setPage }) => {
                                     </div>
                                 </div>
                             )}
+
 
                             {/* TAB 6: SUPPORT MESSAGING & CHAT */}
                             {activeTab === 'support' && (
@@ -1338,7 +1725,16 @@ const AdminPage = ({ setPage }) => {
                                                                             {msg.subject || "Demande de support"}
                                                                         </span>
                                                                     )}
-                                                                    <p>{msg.content}</p>
+                                                                    <p className="whitespace-pre-wrap">{truncateMessage(msg.content)}</p>
+                                                                    {msg.content.length > 150 && (
+                                                                        <button 
+                                                                            type="button"
+                                                                            onClick={() => setSelectedFullMessage(msg)}
+                                                                            className={`mt-2 text-[10px] font-black uppercase tracking-wider hover:underline block ${isAdmin ? 'text-[#0F0F13]/70' : 'text-[#C9A84C]'}`}
+                                                                        >
+                                                                            Voir plus
+                                                                        </button>
+                                                                    )}
                                                                 </div>
                                                                 <span className="text-[9px] font-mono text-white/30 mt-1.5">
                                                                     {new Date(msg.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
@@ -1638,8 +2034,246 @@ const AdminPage = ({ setPage }) => {
                     </div>
                 </div>
             )}
+
+            {/* Suspend Product Modal */}
+            {suspendModalProduct && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-[#111116] border border-white/10 rounded-[3rem] p-8 md:p-10 w-full max-w-md relative z-10 shadow-2xl animate-in zoom-in-95 duration-300">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-black text-white flex items-center gap-2">
+                                <PauseCircle size={22} className="text-amber-400" /> Suspendre le produit
+                            </h3>
+                            <button onClick={() => setSuspendModalProduct(null)} className="p-2 bg-white/5 text-white/60 hover:text-white rounded-xl"><XCircle size={20} /></button>
+                        </div>
+                        <p className="text-sm text-white/50 font-medium mb-2 leading-relaxed">
+                            « <span className="font-bold text-white/80">{suspendModalProduct.name}</span> » sera masqué de la marketplace publique pendant la durée choisie, puis réactivé automatiquement.
+                        </p>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-white/30 block mt-6 mb-2">Durée de suspension</label>
+                        <div className="grid grid-cols-4 gap-2 mb-6">
+                            {[
+                                { v: '1', l: '1 jour' },
+                                { v: '3', l: '3 jours' },
+                                { v: '7', l: '7 jours' },
+                                { v: '30', l: '30 jours' }
+                            ].map(opt => (
+                                <button
+                                    key={opt.v}
+                                    type="button"
+                                    onClick={() => setSuspendDays(opt.v)}
+                                    className={`py-3 rounded-2xl text-[11px] font-black uppercase tracking-wider transition-all border
+                                        ${suspendDays === opt.v ? 'bg-amber-500 text-[#0F0F13] border-amber-500' : 'bg-white/5 text-white/50 border-white/5 hover:text-white'}`}
+                                >
+                                    {opt.l}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="flex items-center gap-2 mb-8">
+                            <span className="text-[10px] font-black uppercase tracking-widest text-white/30">Ou personnalisé :</span>
+                            <input
+                                type="number"
+                                min="1"
+                                value={suspendDays}
+                                onChange={(e) => setSuspendDays(e.target.value)}
+                                className="w-20 bg-white/5 border border-white/5 focus:border-amber-500/40 text-sm font-bold text-white rounded-xl px-3 py-2 focus:outline-none"
+                            />
+                            <span className="text-xs font-bold text-white/40">jour(s)</span>
+                        </div>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setSuspendModalProduct(null)}
+                                className="flex-1 py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider bg-white/5 text-white/60 hover:text-white transition-all"
+                            >
+                                Annuler
+                            </button>
+                            <button
+                                onClick={handleSuspendProduct}
+                                disabled={actionLoading}
+                                className="flex-1 py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider bg-amber-500 text-[#0F0F13] hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                                {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <PauseCircle size={16} />}
+                                Confirmer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Edit Product Modal */}
+            {isProductModalOpen && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-300">
+                    <div className="bg-[#111116] border border-white/10 rounded-[3rem] p-8 md:p-10 w-full max-w-2xl my-8 relative z-10 shadow-2xl animate-in zoom-in-95 duration-300 max-h-[90vh] overflow-y-auto custom-scrollbar">
+                        <div className="flex justify-between items-center mb-8 shrink-0">
+                            <h3 className="text-2xl font-black text-white">Modifier le Produit</h3>
+                            <button onClick={() => { setIsProductModalOpen(false); setEditingProduct(null); }} className="p-2 bg-white/5 text-white/60 hover:text-white rounded-xl"><XCircle size={20} /></button>
+                        </div>
+
+                        <form onSubmit={handleSaveProduct} className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-sans">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-2">Nom du produit</label>
+                                    <input 
+                                        required
+                                        placeholder="Ex: Encre Offset Cyan"
+                                        className="w-full bg-white/5 border border-white/5 focus:border-[#C9A84C]/45 text-sm font-bold text-white rounded-2xl px-6 py-4 focus:outline-none transition-colors"
+                                        value={productForm.name}
+                                        onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-2">Catégorie</label>
+                                    <select 
+                                        className="w-full bg-white/5 border border-white/5 focus:border-[#C9A84C]/45 text-sm font-bold text-white rounded-2xl px-6 py-4 focus:outline-none transition-colors"
+                                        value={productForm.category}
+                                        onChange={(e) => setProductForm({ ...productForm, category: e.target.value })}
+                                    >
+                                        <option value="Encre" className="bg-[#111116]">Encre</option>
+                                        <option value="Papier" className="bg-[#111116]">Papier</option>
+                                        <option value="Machines" className="bg-[#111116]">Machines</option>
+                                        <option value="Accessoires" className="bg-[#111116]">Accessoires</option>
+                                        <option value="Autre" className="bg-[#111116]">Autre</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 font-sans">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-2">Prix (FCFA)</label>
+                                    <input 
+                                        required
+                                        type="number"
+                                        placeholder="Ex: 45000"
+                                        className="w-full bg-white/5 border border-white/5 focus:border-[#C9A84C]/45 text-sm font-bold text-white rounded-2xl px-6 py-4 focus:outline-none transition-colors"
+                                        value={productForm.price}
+                                        onChange={(e) => setProductForm({ ...productForm, price: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-2">Prix Promo (FCFA)</label>
+                                    <input 
+                                        type="number"
+                                        placeholder="Ex: 38000"
+                                        className="w-full bg-white/5 border border-white/5 focus:border-[#C9A84C]/45 text-sm font-bold text-white rounded-2xl px-6 py-4 focus:outline-none transition-colors"
+                                        value={productForm.promo_price}
+                                        onChange={(e) => setProductForm({ ...productForm, promo_price: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-2">Remise (%)</label>
+                                    <input 
+                                        type="number"
+                                        placeholder="Ex: 15"
+                                        className="w-full bg-white/5 border border-white/5 focus:border-[#C9A84C]/45 text-sm font-bold text-white rounded-2xl px-6 py-4 focus:outline-none transition-colors"
+                                        value={productForm.discount}
+                                        onChange={(e) => setProductForm({ ...productForm, discount: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 font-sans">
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-2">Quantité / Stock</label>
+                                    <input 
+                                        placeholder="Ex: 50 bidons, En Stock"
+                                        className="w-full bg-white/5 border border-white/5 focus:border-[#C9A84C]/45 text-sm font-bold text-white rounded-2xl px-6 py-4 focus:outline-none transition-colors"
+                                        value={productForm.quantity}
+                                        onChange={(e) => setProductForm({ ...productForm, quantity: e.target.value })}
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-2">Format / Volume</label>
+                                    <input 
+                                        placeholder="Ex: 5 Litres, A4, 50x70cm"
+                                        className="w-full bg-white/5 border border-white/5 focus:border-[#C9A84C]/45 text-sm font-bold text-white rounded-2xl px-6 py-4 focus:outline-none transition-colors"
+                                        value={productForm.format}
+                                        onChange={(e) => setProductForm({ ...productForm, format: e.target.value })}
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2 font-sans">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-2">Description</label>
+                                <textarea 
+                                    required
+                                    rows="4"
+                                    placeholder="Détails du produit..."
+                                    className="w-full bg-white/5 border border-white/5 focus:border-[#C9A84C]/45 text-sm font-bold text-white rounded-2xl px-6 py-4 focus:outline-none transition-colors resize-none"
+                                    value={productForm.description}
+                                    onChange={(e) => setProductForm({ ...productForm, description: e.target.value })}
+                                />
+                            </div>
+
+                            <button 
+                                type="submit" 
+                                disabled={actionLoading}
+                                className="w-full bg-[#C9A84C] text-[#0F0F13] py-5 rounded-[2rem] font-black text-lg flex items-center justify-center gap-3 shadow-xl shadow-[#C9A84C]/20 uppercase tracking-widest text-xs"
+                            >
+                                {actionLoading ? <Loader2 className="animate-spin" size={22} /> : <Save size={22} />}
+                                Enregistrer les modifications
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Support Message Details Modal */}
+            {selectedFullMessage && (
+                <div className="fixed inset-0 z-[300] flex items-center justify-center p-6 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-[#111116] rounded-[3rem] w-full max-w-lg overflow-hidden shadow-2xl border border-white/10 animate-in zoom-in-95 duration-300">
+                        <div className="bg-white/2 p-8 text-white flex justify-between items-center border-b border-white/5">
+                            <div>
+                                <h4 className="text-2xl font-black mb-1">Détails du message</h4>
+                                <p className="text-[#C9A84C] text-xs font-bold tracking-widest uppercase">Assistance Imprimeur</p>
+                            </div>
+                            <button 
+                                onClick={() => setSelectedFullMessage(null)} 
+                                className="w-12 h-12 bg-white/5 rounded-2xl flex items-center justify-center hover:bg-white/10 transition-all shrink-0 text-white"
+                            >
+                                <XCircle size={20} />
+                            </button>
+                        </div>
+                        <div className="p-8 space-y-6">
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-center text-xs text-white/50 font-bold border-b border-white/5 pb-3">
+                                    <div>
+                                        <span className="text-[10px] uppercase tracking-wider text-white/30 block mb-0.5">Expéditeur</span>
+                                        <span className="text-[#C9A84C] font-black">
+                                            {selectedFullMessage.direction === 'admin_to_printer' ? 'Vous (Administrateur)' : (printers.find(p => p.id === selectedFullMessage.printer_id)?.name || 'Imprimeur')}
+                                        </span>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-[10px] uppercase tracking-wider text-white/30 block mb-0.5">Date & Heure</span>
+                                        <span>
+                                            {formatDate(selectedFullMessage.created_at)}
+                                        </span>
+                                    </div>
+                                </div>
+                                {selectedFullMessage.subject && (
+                                    <div className="bg-white/5 p-4 rounded-2xl border border-white/5">
+                                        <span className="text-[9px] font-black uppercase tracking-wider text-[#C9A84C] block mb-1">Objet</span>
+                                        <span className="text-xs font-bold text-white">{selectedFullMessage.subject}</span>
+                                    </div>
+                                )}
+                                <div className="max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                                    <p className="text-sm text-white/80 font-medium whitespace-pre-wrap leading-relaxed">
+                                        {selectedFullMessage.content}
+                                    </p>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setSelectedFullMessage(null)}
+                                className="w-full bg-[#C9A84C] text-[#0F0F13] py-4 rounded-2xl font-black text-sm hover:scale-105 active:scale-95 transition-all shadow-lg"
+                            >
+                                Fermer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
 
 export default AdminPage;
+
+
+

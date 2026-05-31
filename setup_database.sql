@@ -64,7 +64,8 @@ CREATE TABLE IF NOT EXISTS products (
     description TEXT,
     status TEXT DEFAULT 'En ligne',
     images TEXT[], -- Array of image URLs
-    options JSONB -- Advanced options like quantity, quality, etc.
+    options JSONB, -- Advanced options like quantity, quality, etc.
+    created_at TIMESTAMPTZ DEFAULT now()
 );
 
 -- 5. Set up Row Level Security (RLS)

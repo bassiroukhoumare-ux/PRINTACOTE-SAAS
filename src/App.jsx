@@ -141,6 +141,26 @@ const App = () => {
         }
     }, [showSuccessToast]);
 
+    // Suivi réel du trafic : enregistre chaque vue de page publique dans
+    // site_views (table horodatée). On ignore la console d'administration
+    // pour ne pas gonfler les statistiques. L'identifiant visiteur persiste
+    // dans localStorage pour distinguer les visiteurs uniques.
+    useEffect(() => {
+        if (page === 'admin') return;
+        let visitorId = localStorage.getItem('visitor_id');
+        if (!visitorId) {
+            visitorId = (crypto.randomUUID && crypto.randomUUID()) ||
+                `v_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+            localStorage.setItem('visitor_id', visitorId);
+        }
+        const path = pageToPath[page] || window.location.pathname;
+        supabase
+            .rpc('record_site_view', { p_path: path, p_visitor_id: visitorId })
+            .then(({ error }) => {
+                if (error) console.warn('record_site_view indisponible:', error.message);
+            });
+    }, [page]);
+
     useEffect(() => {
         // Check for mock session first (OTP demo mode)
         const mockSession = localStorage.getItem('mock_user_session');

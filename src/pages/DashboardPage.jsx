@@ -75,6 +75,8 @@ const DashboardPage = ({ setPage, user }) => {
     const [supportFile, setSupportFile] = useState(null);
     const [supportFilePreview, setSupportFilePreview] = useState(null);
     const [supportSubmitting, setSupportSubmitting] = useState(false);
+    const [selectedFullMessage, setSelectedFullMessage] = useState(null);
+    
     const [notifications, setNotifications] = useState(() => {
         const stored = localStorage.getItem('printacote_notifications');
         if (stored) {
@@ -245,6 +247,11 @@ const DashboardPage = ({ setPage, user }) => {
         setLoading(false);
     };
 
+    const truncateMessage = (text, maxLength = 150) => {
+        if (!text || text.length <= maxLength) return text;
+        return text.substring(0, maxLength) + '...';
+    };
+
     const fetchMyMessages = async () => {
         if (!printerData?.id || printerData.isMock) return;
         setMessagesLoading(true);
@@ -264,11 +271,88 @@ const DashboardPage = ({ setPage, user }) => {
         }
     };
 
+    // Auto-refresh support messages list
     useEffect(() => {
         if (activeTab === 'support' && printerData?.id) {
             fetchMyMessages();
             const interval = setInterval(fetchMyMessages, 10000);
             return () => clearInterval(interval);
+        }
+    }, [activeTab, printerData]);
+
+    // Sync support messages to notifications in background
+    useEffect(() => {
+        if (!printerData?.id || printerData.isMock) return;
+
+        const syncSupportMessages = async () => {
+            try {
+                const { data, error } = await supabase
+                    .from('admin_messages')
+                    .select('*')
+                    .eq('printer_id', printerData.id)
+                    .eq('direction', 'admin_to_printer')
+                    .eq('is_read', false);
+                
+                if (!error && data && data.length > 0) {
+                    setNotifications(prev => {
+                        let updated = [...prev];
+                        let hasNew = false;
+                        data.forEach(msg => {
+                            const notifId = `support_${msg.id}`;
+                            if (!updated.some(n => n.id === notifId)) {
+                                updated = [{
+                                    id: notifId,
+                                    title: msg.subject || 'Réponse du Support',
+                                    message: msg.content,
+                                    time: 'À l\'instant',
+                                    read: false,
+                                    type: 'info',
+                                    isSupport: true
+                                }, ...updated];
+                                hasNew = true;
+                            }
+                        });
+                        if (hasNew) {
+                            showToast("Nouvelle réponse du support disponible !", "info");
+                        }
+                        return updated;
+                    });
+                }
+            } catch (err) {
+                console.error("Error syncing support messages to notifications:", err);
+            }
+        };
+
+        syncSupportMessages();
+        const interval = setInterval(syncSupportMessages, 20000);
+        return () => clearInterval(interval);
+    }, [printerData]);
+
+    // Mark support messages as read in DB when activeTab is support
+    useEffect(() => {
+        if (activeTab === 'support' && printerData?.id && !printerData.isMock) {
+            const markAsRead = async () => {
+                try {
+                    const { error } = await supabase.rpc('printer_mark_messages_read', {
+                        p_printer_id: printerData.id
+                    });
+                    if (error) {
+                        console.warn("RPC printer_mark_messages_read failed, trying direct table update:", error.message);
+                        await supabase
+                            .from('admin_messages')
+                            .update({ is_read: true })
+                            .eq('printer_id', printerData.id)
+                            .eq('direction', 'admin_to_printer')
+                            .eq('is_read', false);
+                    }
+                } catch (err) {
+                    console.error("Error marking support messages as read:", err);
+                }
+            };
+            markAsRead();
+            
+            // Also mark corresponding local support notifications as read
+            setNotifications(prev => prev.map(n => n.id.startsWith('support_') ? { ...n, read: true } : n));
         }
     }, [activeTab, printerData]);
 
@@ -1137,7 +1221,16 @@ const DashboardPage = ({ setPage, user }) => {
                                                                         Objet: {msg.subject}
                                                                     </span>
                                                                 )}
-                                                                <p className="whitespace-pre-wrap">{msg.content}</p>
+                                                                <p className="whitespace-pre-wrap">{truncateMessage(msg.content)}</p>
+                                                                {msg.content.length > 150 && (
+                                                                    <button 
+                                                                        type="button"
+                                                                        onClick={() => setSelectedFullMessage(msg)}
+                                                                        className={`mt-2 text-[10px] font-black uppercase tracking-wider hover:underline block ${isAdmin ? 'text-primary' : 'text-primary/70'}`}
+                                                                    >
+                                                                        Voir plus
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                             <span className="text-[8px] font-mono text-dark/30 mt-1">
                                                                 {new Date(msg.created_at).toLocaleDateString('fr-FR')} à {new Date(msg.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
@@ -1332,6 +1425,61 @@ const DashboardPage = ({ setPage, user }) => {
                 </div>
             )}
 
+            {/* Support Message Details Modal */}
+            {selectedFullMessage && (
+                <div className="fixed inset-0 z-[300] flex items-center justify-center p-6 bg-primary/40 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[3rem] w-full max-w-lg overflow-hidden shadow-2xl border border-primary/10 animate-in zoom-in-95 duration-300 text-dark">
+                        <div className="bg-primary/5 p-8 text-primary flex justify-between items-center border-b border-primary/10">
+                            <div>
+                                <h4 className="text-2xl font-black mb-1">Détails du message</h4>
+                                <p className="text-primary/60 text-xs font-bold tracking-widest uppercase">Assistance Support</p>
+                            </div>
+                            <button 
+                                onClick={() => setSelectedFullMessage(null)} 
+                                className="w-12 h-12 bg-primary/5 rounded-2xl flex items-center justify-center hover:bg-primary/10 transition-all shrink-0 text-primary"
+                            >
+                                <X size={20} />
+                            </button>
+                        </div>
+                        <div className="p-8 space-y-6">
+                            <div className="space-y-4">
+                                <div className="flex justify-between items-center text-xs text-primary/50 font-bold border-b border-primary/5 pb-3">
+                                    <div>
+                                        <span className="text-[10px] uppercase tracking-wider text-primary/30 block mb-0.5">Expéditeur</span>
+                                        <span className="text-[#3D0B37] font-black">
+                                            {selectedFullMessage.direction === 'admin_to_printer' ? 'Administrateur (Support)' : 'Vous'}
+                                        </span>
+                                    </div>
+                                    <div className="text-right">
+                                        <span className="text-[10px] uppercase tracking-wider text-primary/30 block mb-0.5">Date & Heure</span>
+                                        <span>
+                                            {new Date(selectedFullMessage.created_at).toLocaleDateString('fr-FR')} à {new Date(selectedFullMessage.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                        </span>
+                                    </div>
+                                </div>
+                                {selectedFullMessage.subject && (
+                                    <div className="bg-primary/5 p-4 rounded-2xl border border-primary/5">
+                                        <span className="text-[9px] font-black uppercase tracking-wider text-primary block mb-1">Objet</span>
+                                        <span className="text-xs font-bold text-primary">{selectedFullMessage.subject}</span>
+                                    </div>
+                                )}
+                                <div className="max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+                                    <p className="text-sm text-primary/85 font-semibold whitespace-pre-wrap leading-relaxed">
+                                        {selectedFullMessage.content}
+                                    </p>
+                                </div>
+                            </div>
+                            <button 
+                                onClick={() => setSelectedFullMessage(null)}
+                                className="w-full bg-[#3D0B37] text-white py-4 rounded-2xl font-black text-sm hover:scale-[1.02] active:scale-95 transition-all shadow-lg"
+                            >
+                                Fermer
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Custom generalized toast */}
             {toast && (
                 <div className="fixed bottom-24 lg:bottom-6 right-6 z-[9999] bg-white border-2 border-primary/10 rounded-3xl p-6 shadow-2xl flex items-center gap-4 max-w-sm animate-in slide-in-from-bottom-5 duration-500 text-dark">
@@ -1350,6 +1498,7 @@ const DashboardPage = ({ setPage, user }) => {
                 </div>
             )}
         </div>
+        
     );
 };
 

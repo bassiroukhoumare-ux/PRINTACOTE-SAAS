@@ -1,5 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { ArrowRight, Calendar, Clock, Eye, Share2, MessageCircle, ArrowLeft, Heart, Reply, Send, User } from 'lucide-react';
+import { supabase } from '../lib/supabase';
+
+// Formate un nombre de vues réel (entier) en format compact (ex. 1200 -> "1.2k").
+const formatViews = (value) => {
+    const n = Number(value) || 0;
+    if (n >= 1000) return `${(n / 1000).toFixed(1).replace('.0', '')}k`;
+    return `${n}`;
+};
 
 const NewsPage = ({ setPage }) => {
     const [selectedArticle, setSelectedArticle] = useState(null);
@@ -10,7 +18,9 @@ const NewsPage = ({ setPage }) => {
     const [newComment, setNewComment] = useState({ name: '', email: '', text: '' });
     const [replyingTo, setReplyingTo] = useState(null);
 
-    const articles = [
+    // Contenu de repli (identique aux articles réels migrés dans la table news),
+    // utilisé uniquement si la base est injoignable.
+    const fallbackArticles = [
         {
             id: 1,
             title: "Comment choisir le bon papier pour vos impressions ?",
@@ -42,6 +52,33 @@ const NewsPage = ({ setPage }) => {
             img: "https://images.unsplash.com/photo-1563986768609-322da13575f3?q=80&w=1000&auto=format&fit=crop"
         }
     ];
+
+    // Articles réellement affichés : chargés depuis la table news (Supabase).
+    const [articles, setArticles] = useState(fallbackArticles);
+
+    useEffect(() => {
+        const fetchNews = async () => {
+            const { data, error } = await supabase
+                .from('news')
+                .select('*')
+                .eq('published', true)
+                .order('created_at', { ascending: false });
+            if (!error && Array.isArray(data) && data.length > 0) {
+                setArticles(data.map((n) => ({
+                    id: n.id,
+                    title: n.title,
+                    desc: n.excerpt || '',
+                    content: n.content || '',
+                    views: formatViews(n.views),
+                    date: new Date(n.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }),
+                    readTime: n.read_time || '5 min',
+                    img: n.image_url
+                })));
+            }
+            // En cas d'erreur ou de table vide, on conserve le contenu de repli.
+        };
+        fetchNews();
+    }, []);
 
     const handleSubmitComment = (e) => {
         e.preventDefault();

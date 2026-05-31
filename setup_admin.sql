@@ -175,6 +175,17 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- 9b. RPC : Activer/Désactiver un produit de la marketplace (contourne RLS)
+CREATE OR REPLACE FUNCTION public.admin_toggle_product_status(p_product_id UUID, p_status TEXT)
+RETURNS BOOLEAN AS $$
+BEGIN
+    UPDATE public.products
+    SET status = p_status
+    WHERE id = p_product_id;
+    RETURN FOUND;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- 10. RPC : Récupérer tous les messages support avec nom de l'imprimeur (contourne RLS)
 CREATE OR REPLACE FUNCTION public.admin_get_messages()
 RETURNS TABLE (
@@ -248,6 +259,34 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
+-- 13_printer. RPC : Marquer les messages reçus par l'imprimeur comme lus
+CREATE OR REPLACE FUNCTION public.printer_mark_messages_read(p_printer_id UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+    UPDATE public.admin_messages
+    SET is_read = true
+    WHERE printer_id = p_printer_id AND direction = 'admin_to_printer' AND is_read = false;
+    RETURN FOUND;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 13b. RPC : Mettre à jour un produit de la marketplace (contourne RLS)
+CREATE OR REPLACE FUNCTION public.admin_update_product(p_product_id UUID, p_name TEXT, p_price NUMERIC, p_promo_price NUMERIC, p_discount NUMERIC, p_description TEXT, p_options JSONB)
+RETURNS BOOLEAN AS $$
+BEGIN
+    UPDATE public.products
+    SET 
+        name = p_name,
+        price = p_price,
+        promo_price = p_promo_price,
+        discount = p_discount,
+        description = p_description,
+        options = p_options
+    WHERE id = p_product_id;
+    RETURN FOUND;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
 -- 14. Table des paramètres système (pour la bannière de publicité)
 CREATE TABLE IF NOT EXISTS public.system_settings (
     key          TEXT PRIMARY KEY,
@@ -271,6 +310,22 @@ BEGIN
     ON CONFLICT (key) DO UPDATE
     SET value = EXCLUDED.value,
         updated_at = now();
+    RETURN true;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 15. RPC : Mettre à jour le schéma de la base de données (contourne RLS)
+CREATE OR REPLACE FUNCTION public.admin_run_schema_updates()
+RETURNS BOOLEAN AS $$
+BEGIN
+    -- Ajouter la colonne created_at à la table products si elle n'existe pas
+    IF NOT EXISTS (
+        SELECT 1 
+        FROM information_schema.columns 
+        WHERE table_name='products' AND column_name='created_at'
+    ) THEN
+        ALTER TABLE public.products ADD COLUMN created_at TIMESTAMPTZ DEFAULT now();
+    END IF;
     RETURN true;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;

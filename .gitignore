@@ -2,3 +2,7 @@ node_modules
 supabase/functions/.env.local
 supabase/.temp
 .env
+
+# Scripts de debug ponctuels (contiennent des clés en dur)
+inspect_products.cjs
+inspect_products_join.cjs
