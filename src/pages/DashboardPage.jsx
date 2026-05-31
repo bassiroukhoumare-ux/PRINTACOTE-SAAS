@@ -23,6 +23,8 @@ const DashboardPage = ({ setPage, user }) => {
     const [autoOpenModal, setAutoOpenModal] = useState(false);
     const [showStatusModal, setShowStatusModal] = useState(false);
     const [statusModalLoading, setStatusModalLoading] = useState(false);
+    const [myMessages, setMyMessages] = useState([]);
+    const [messagesLoading, setMessagesLoading] = useState(false);
 
     // Forced password change state
     const [forcePasswordChange, setForcePasswordChange] = useState(() => {
@@ -242,6 +244,33 @@ const DashboardPage = ({ setPage, user }) => {
         }
         setLoading(false);
     };
+
+    const fetchMyMessages = async () => {
+        if (!printerData?.id || printerData.isMock) return;
+        setMessagesLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from('admin_messages')
+                .select('*')
+                .eq('printer_id', printerData.id)
+                .order('created_at', { ascending: false });
+            if (!error && data) {
+                setMyMessages(data);
+            }
+        } catch (e) {
+            console.error(e);
+        } finally {
+            setMessagesLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        if (activeTab === 'support' && printerData?.id) {
+            fetchMyMessages();
+            const interval = setInterval(fetchMyMessages, 10000);
+            return () => clearInterval(interval);
+        }
+    }, [activeTab, printerData]);
 
     const toggleShopStatus = () => {
         setShowStatusModal(true);
@@ -895,160 +924,231 @@ const DashboardPage = ({ setPage, user }) => {
                         {activeTab === 'portfolio' && <DashboardPortfolio printerData={printerData} onUpdate={fetchPrinterData} autoOpenModal={autoOpenModal} setAutoOpenModal={setAutoOpenModal} showToast={showToast} showConfirm={showConfirm} />}
                         {activeTab === 'marketplace' && <DashboardMarketplace printerData={printerData} onUpdate={fetchPrinterData} autoOpenModal={autoOpenModal} setAutoOpenModal={setAutoOpenModal} showToast={showToast} showConfirm={showConfirm} />}
                         {activeTab === 'support' && (
-                            <div className="bg-white border border-dark/5 rounded-[3rem] p-10 md:p-16 shadow-2xl relative overflow-hidden space-y-10 animate-in fade-in duration-500">
+                            <div className="bg-white border border-dark/5 rounded-[3rem] p-10 md:p-12 shadow-2xl relative overflow-hidden animate-in fade-in duration-500">
                                 <div className="absolute top-0 right-0 w-[50%] h-full bg-gradient-to-l from-primary/5 to-transparent pointer-events-none"></div>
                                 
-                                <div>
-                                    <h2 className="text-4xl font-black tracking-tight mb-2">Contacter le Support</h2>
-                                    <p className="text-dark/40 text-lg">Une question ou un problème technique ? Envoyez-nous un message.</p>
-                                </div>
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 relative z-10">
+                                    {/* Colonne Gauche : Formulaire de contact */}
+                                    <div className="space-y-8">
+                                        <div>
+                                            <h2 className="text-3xl font-black tracking-tight mb-2">Contacter le Support</h2>
+                                            <p className="text-dark/40 text-sm font-medium">Une question ou un problème technique ? Envoyez-nous un message.</p>
+                                        </div>
 
-                                <form onSubmit={async (e) => {
-                                    e.preventDefault();
-                                    const subject = e.target.subject.value;
-                                    const message = e.target.message.value;
-                                    const links = e.target.links.value;
-                                    
-                                    setSupportSubmitting(true);
-                                    
-                                    try {
-                                        const formData = new FormData();
-                                        formData.append('Nom de l\'imprimeur', printerData?.name || 'Non renseigné');
-                                        formData.append('Personne qui gère l\'imprimerie', `${printerData?.first_name || ''} ${printerData?.last_name || ''}`);
-                                        formData.append('Adresse e-mail', user?.email || 'Non renseignée');
-                                        formData.append('Numéro WhatsApp', printerData?.whatsapp || 'Non renseigné');
-                                        formData.append('_subject', `[Printacote Support] ${subject}`);
-                                        formData.append('Sujet', subject);
-                                        formData.append('Message', message);
-                                        formData.append('Liens additionnels', links || 'Aucun');
+                                        <form onSubmit={async (e) => {
+                                            e.preventDefault();
+                                            const subject = e.target.subject.value;
+                                            const message = e.target.message.value;
+                                            const links = e.target.links.value;
+                                            
+                                            setSupportSubmitting(true);
+                                            
+                                            try {
+                                                const formData = new FormData();
+                                                formData.append('Nom de l\'imprimeur', printerData?.name || 'Non renseigné');
+                                                formData.append('Personne qui gère l\'imprimerie', `${printerData?.first_name || ''} ${printerData?.last_name || ''}`);
+                                                formData.append('Adresse e-mail', user?.email || 'Non renseignée');
+                                                formData.append('Numéro WhatsApp', printerData?.whatsapp || 'Non renseigné');
+                                                formData.append('_subject', `[Printacote Support] ${subject}`);
+                                                formData.append('Sujet', subject);
+                                                formData.append('Message', message);
+                                                formData.append('Liens additionnels', links || 'Aucun');
+                                                
+                                                if (supportFile) {
+                                                    formData.append('attachment', supportFile);
+                                                }
+
+                                                // 1. Envoyer l'e-mail automatique via FormSubmit
+                                                const response = await fetch('https://formsubmit.co/ajax/bskdezigner@gmail.com', {
+                                                    method: 'POST',
+                                                    body: formData
+                                                });
+
+                                                // 2. Insérer dans admin_messages pour la messagerie admin de Supabase
+                                                if (printerData?.id && !printerData.isMock) {
+                                                    await supabase.from('admin_messages').insert({
+                                                        printer_id: printerData.id,
+                                                        subject: subject,
+                                                        content: message,
+                                                        direction: 'printer_to_admin'
+                                                    });
+                                                    fetchMyMessages();
+                                                } else if (printerData?.isMock) {
+                                                    const newMockMsg = {
+                                                        id: Date.now().toString(),
+                                                        created_at: new Date().toISOString(),
+                                                        printer_id: printerData.id,
+                                                        subject: subject,
+                                                        content: message,
+                                                        direction: 'printer_to_admin'
+                                                    };
+                                                    setMyMessages(prev => [newMockMsg, ...prev]);
+                                                }
+
+                                                if (response.ok) {
+                                                    showToast("Votre message a été envoyé avec succès !", "success");
+                                                    e.target.reset();
+                                                    setSupportFile(null);
+                                                    setSupportFilePreview(null);
+                                                } else {
+                                                    showToast("Une erreur est survenue lors de l'envoi. Veuillez réessayer.", "error");
+                                                }
+                                            } catch (error) {
+                                                showToast("Impossible de contacter le serveur de messagerie.", "error");
+                                            } finally {
+                                                setSupportSubmitting(false);
+                                            }
+                                        }} className="space-y-5">
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-dark/30 ml-2">Objet du message</label>
+                                                <input 
+                                                    name="subject"
+                                                    required
+                                                    placeholder="Ex: Problème d'affichage de mon logo"
+                                                    className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold text-sm text-dark"
+                                                />
+                                            </div>
+                                            
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-dark/30 ml-2">Votre Message</label>
+                                                <textarea 
+                                                    name="message"
+                                                    required
+                                                    rows="4"
+                                                    placeholder="Décrivez en détail votre demande..."
+                                                    className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold resize-none text-sm text-dark"
+                                                ></textarea>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-dark/30 ml-2">Liens additionnels (Optionnel)</label>
+                                                <textarea 
+                                                    name="links"
+                                                    rows="2"
+                                                    placeholder="Ex: Lien vers une capture d'écran, Dropbox, Google Drive..."
+                                                    className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold resize-none text-xs text-dark"
+                                                ></textarea>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-dark/30 ml-2">Capture d'écran / Image (Optionnel)</label>
+                                                <div className="flex items-center gap-4">
+                                                    {supportFilePreview ? (
+                                                        <div className="relative w-28 h-28 rounded-3xl overflow-hidden border-2 border-primary/10 group shadow-lg">
+                                                            <img src={supportFilePreview} alt="Aperçu" className="w-full h-full object-cover" />
+                                                            <button 
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setSupportFile(null);
+                                                                    setSupportFilePreview(null);
+                                                                }}
+                                                                className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:scale-110 active:scale-95 transition-transform shadow-md"
+                                                            >
+                                                                <X size={12} />
+                                                            </button>
+                                                        </div>
+                                                    ) : (
+                                                        <label className="flex flex-col items-center justify-center w-full h-28 border-2 border-dashed border-dark/10 rounded-[2rem] cursor-pointer hover:bg-dark/5 hover:border-primary/20 transition-all p-4 group">
+                                                            <div className="flex flex-col items-center justify-center text-center">
+                                                                <ImageIcon size={22} className="text-dark/30 group-hover:text-primary/50 group-hover:scale-110 transition-all mb-1" />
+                                                                <p className="text-[10px] text-dark/40 font-bold group-hover:text-dark transition-colors">Ajouter une capture d'écran</p>
+                                                            </div>
+                                                            <input 
+                                                                type="file" 
+                                                                accept="image/*"
+                                                                className="hidden"
+                                                                onChange={(e) => {
+                                                                    const file = e.target.files?.[0];
+                                                                    if (file) {
+                                                                        if (file.size > 5 * 1024 * 1024) {
+                                                                            showToast("L'image ne doit pas dépasser 5 Mo.", "error");
+                                                                            return;
+                                                                        }
+                                                                        setSupportFile(file);
+                                                                        const reader = new FileReader();
+                                                                        reader.onloadend = () => {
+                                                                            setSupportFilePreview(reader.result);
+                                                                        };
+                                                                        reader.readAsDataURL(file);
+                                                                    }
+                                                                }}
+                                                            />
+                                                        </label>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            {/* Auto-filled info */}
+                                            <div className="bg-[#3D0B37]/5 p-5 rounded-2xl border border-[#3D0B37]/10 text-[10px] text-[#3D0B37]/75 space-y-1 font-medium">
+                                                <h4 className="font-black uppercase tracking-wider mb-1 text-[#3D0B37]">Transmis automatiquement :</h4>
+                                                <div><strong>Nom :</strong> {printerData?.name || 'Non renseigné'}</div>
+                                                <div><strong>Email :</strong> {user?.email || 'Non renseigné'}</div>
+                                            </div>
+
+                                            <button 
+                                                type="submit"
+                                                disabled={supportSubmitting}
+                                                className="w-full bg-[#3D0B37] text-white py-4 rounded-xl font-black text-xs uppercase tracking-widest hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-[#3D0B37]/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
+                                            >
+                                                {supportSubmitting ? (
+                                                    <>
+                                                        <Loader2 size={16} className="animate-spin" />
+                                                        Envoi en cours...
+                                                    </>
+                                                ) : (
+                                                    "Envoyer au Support"
+                                                )}
+                                            </button>
+                                        </form>
+                                    </div>
+
+                                    {/* Colonne Droite : Historique des discussions */}
+                                    <div className="space-y-8 lg:border-l lg:border-dark/5 lg:pl-10">
+                                        <div>
+                                            <h3 className="text-2xl font-black tracking-tight text-[#3D0B37] mb-1">Historique des échanges</h3>
+                                            <p className="text-dark/40 text-sm font-medium">Consultez les réponses du support technique à vos demandes.</p>
+                                        </div>
                                         
-                                        if (supportFile) {
-                                            formData.append('attachment', supportFile);
-                                        }
-
-                                        const response = await fetch('https://formsubmit.co/ajax/bskdezigner@gmail.com', {
-                                            method: 'POST',
-                                            body: formData
-                                        });
-
-                                        if (response.ok) {
-                                            showToast("Votre message a été envoyé avec succès !", "success");
-                                            e.target.reset();
-                                            setSupportFile(null);
-                                            setSupportFilePreview(null);
-                                        } else {
-                                            showToast("Une erreur est survenue lors de l'envoi. Veuillez réessayer.", "error");
-                                        }
-                                    } catch (error) {
-                                        showToast("Impossible de contacter le serveur de messagerie.", "error");
-                                    } finally {
-                                        setSupportSubmitting(false);
-                                    }
-                                }} className="space-y-6 max-w-2xl relative z-10">
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-dark/30 ml-2">Objet du message</label>
-                                        <input 
-                                            name="subject"
-                                            required
-                                            placeholder="Ex: Problème d'affichage de mon logo"
-                                            className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold text-sm"
-                                        />
-                                    </div>
-                                    
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-dark/30 ml-2">Votre Message</label>
-                                        <textarea 
-                                            name="message"
-                                            required
-                                            rows="5"
-                                            placeholder="Décrivez en détail votre demande..."
-                                            className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold resize-none text-sm"
-                                        ></textarea>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-dark/30 ml-2">Liens additionnels (Optionnel)</label>
-                                        <textarea 
-                                            name="links"
-                                            rows="2"
-                                            placeholder="Ex: Lien vers une capture d'écran, Dropbox, Google Drive..."
-                                            className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold resize-none text-xs"
-                                        ></textarea>
-                                    </div>
-
-                                    <div className="space-y-2">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-dark/30 ml-2">Capture d'écran / Image (Optionnel)</label>
-                                        <div className="flex items-center gap-4">
-                                            {supportFilePreview ? (
-                                                <div className="relative w-32 h-32 rounded-3xl overflow-hidden border-2 border-primary/10 group shadow-lg">
-                                                    <img src={supportFilePreview} alt="Aperçu" className="w-full h-full object-cover" />
-                                                    <button 
-                                                        type="button"
-                                                        onClick={() => {
-                                                            setSupportFile(null);
-                                                            setSupportFilePreview(null);
-                                                        }}
-                                                        className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1.5 hover:scale-110 active:scale-90 transition-transform shadow-md"
-                                                    >
-                                                        <X size={14} />
-                                                    </button>
+                                        <div className="space-y-4 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar flex flex-col-reverse">
+                                            {messagesLoading && myMessages.length === 0 ? (
+                                                <div className="flex items-center justify-center py-10">
+                                                    <Loader2 className="animate-spin text-primary" size={24} />
+                                                </div>
+                                            ) : myMessages.length === 0 ? (
+                                                <div className="text-center py-12 bg-dark/5 rounded-[2rem] border border-dark/5 p-6">
+                                                    <p className="text-dark/30 text-xs font-black uppercase tracking-wider">Aucun échange</p>
+                                                    <p className="text-dark/40 text-xs font-medium mt-1">Vos futurs messages et réponses du support s'afficheront ici.</p>
                                                 </div>
                                             ) : (
-                                                <label className="flex flex-col items-center justify-center w-full h-36 border-2 border-dashed border-dark/10 rounded-[2rem] cursor-pointer hover:bg-dark/5 hover:border-primary/20 transition-all p-6 group">
-                                                    <div className="flex flex-col items-center justify-center text-center">
-                                                        <ImageIcon size={28} className="text-dark/30 group-hover:text-primary/50 group-hover:scale-110 transition-all mb-2" />
-                                                        <p className="text-xs text-dark/40 font-bold group-hover:text-dark transition-colors">Cliquez pour ajouter une capture d'écran</p>
-                                                        <p className="text-[9px] text-dark/30 mt-1 uppercase tracking-wider font-bold">Formats acceptés : PNG, JPG, JPEG (Max 5Mo)</p>
-                                                    </div>
-                                                    <input 
-                                                        type="file" 
-                                                        accept="image/*"
-                                                        className="hidden"
-                                                        onChange={(e) => {
-                                                            const file = e.target.files?.[0];
-                                                            if (file) {
-                                                                if (file.size > 5 * 1024 * 1024) {
-                                                                    showToast("L'image ne doit pas dépasser 5 Mo.", "error");
-                                                                    return;
-                                                                }
-                                                                setSupportFile(file);
-                                                                const reader = new FileReader();
-                                                                reader.onloadend = () => {
-                                                                    setSupportFilePreview(reader.result);
-                                                                };
-                                                                reader.readAsDataURL(file);
-                                                            }
-                                                        }}
-                                                    />
-                                                </label>
+                                                myMessages.map(msg => {
+                                                    const isAdmin = msg.direction === 'admin_to_printer';
+                                                    return (
+                                                        <div 
+                                                            key={msg.id} 
+                                                            className={`max-w-[85%] flex flex-col ${isAdmin ? 'self-start items-start' : 'self-end items-end'}`}
+                                                        >
+                                                            <div className={`p-4 rounded-3xl text-xs leading-relaxed ${
+                                                                isAdmin 
+                                                                    ? 'bg-primary/10 text-primary border border-primary/20 rounded-tl-none font-bold' 
+                                                                    : 'bg-dark/5 text-dark rounded-tr-none border border-dark/5 font-medium'
+                                                            }`}>
+                                                                {!isAdmin && (
+                                                                    <span className="block text-[8px] font-black uppercase tracking-wider text-accent mb-1">
+                                                                        Objet: {msg.subject}
+                                                                    </span>
+                                                                )}
+                                                                <p className="whitespace-pre-wrap">{msg.content}</p>
+                                                            </div>
+                                                            <span className="text-[8px] font-mono text-dark/30 mt-1">
+                                                                {new Date(msg.created_at).toLocaleDateString('fr-FR')} à {new Date(msg.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })
                                             )}
                                         </div>
                                     </div>
-
-                                    {/* Auto-filled information preview */}
-                                    <div className="bg-primary/5 p-6 rounded-2xl border border-primary/10 text-xs text-primary/70 space-y-2 font-medium">
-                                        <h4 className="font-black uppercase tracking-wider mb-2 text-primary">Informations transmises automatiquement :</h4>
-                                        <div><strong className="text-primary">Nom de l'imprimeur :</strong> {printerData?.name || 'Non renseigné'}</div>
-                                        <div><strong className="text-primary">Personne qui gère l'imprimerie :</strong> {printerData?.first_name || ''} {printerData?.last_name || ''}</div>
-                                        <div><strong className="text-primary">Adresse e-mail :</strong> {user?.email || 'Non renseignée'}</div>
-                                        <div><strong className="text-primary">Numéro WhatsApp :</strong> {printerData?.whatsapp || 'Non renseigné'}</div>
-                                    </div>
-
-                                    <button 
-                                        type="submit"
-                                        disabled={supportSubmitting}
-                                        className="bg-primary text-white px-8 py-4 rounded-xl font-black text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-all shadow-xl shadow-primary/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:pointer-events-none"
-                                    >
-                                        {supportSubmitting ? (
-                                            <>
-                                                <Loader2 size={16} className="animate-spin" />
-                                                Envoi en cours...
-                                            </>
-                                        ) : (
-                                            "Envoyer le message au Support"
-                                        )}
-                                    </button>
-                                </form>
+                                </div>
                             </div>
                         )}
                     </div>

@@ -13,6 +13,7 @@ import TermsOfServicePage from './pages/TermsOfServicePage';
 import MaquettePlace from './pages/MaquettePlace';
 import PrinterDetailPage from './pages/PrinterDetailPage';
 import NewsPage from './pages/NewsPage';
+import AdminPage from './pages/AdminPage';
 import { CheckCircle2 } from 'lucide-react';
 
 
@@ -20,8 +21,8 @@ import { CheckCircle2 } from 'lucide-react';
 
 
 const Layout = ({ children, setPage, currentPage, user }) => {
-    const hideNav = ['login', 'register', 'dashboard'].includes(currentPage);
-    const hideFooter = ['login', 'register', 'dashboard'].includes(currentPage);
+    const hideNav = ['login', 'register', 'dashboard', 'admin'].includes(currentPage);
+    const hideFooter = ['login', 'register', 'dashboard', 'admin'].includes(currentPage);
 
     return (
         <div className="relative min-h-screen bg-background text-dark selection:bg-accent selection:text-white">
@@ -80,7 +81,8 @@ const pageToPath = {
     'dashboard': '/dashboard',
     'legal': '/legal',
     'privacy': '/privacy',
-    'terms': '/terms'
+    'terms': '/terms',
+    'admin': '/adminprint'
 };
 
 const pathToPage = {
@@ -95,7 +97,8 @@ const pathToPage = {
     '/dashboard': 'dashboard',
     '/legal': 'legal',
     '/privacy': 'privacy',
-    '/terms': 'terms'
+    '/terms': 'terms',
+    '/adminprint': 'admin'
 };
 
 const App = () => {
@@ -196,6 +199,7 @@ const App = () => {
             {page === 'login' && <LoginPage setPage={setPage} setUser={setUser} />}
             {page === 'register' && <RegisterPage setPage={setPage} />}
             {page === 'dashboard' && <DashboardPage setPage={setPage} user={user} />}
+            {page === 'admin' && <AdminPage setPage={setPage} />}
             {page === 'legal' && <LegalNoticePage setPage={setPage} />}
             {page === 'privacy' && <PrivacyPolicyPage setPage={setPage} />}
             {page === 'terms' && <TermsOfServicePage setPage={setPage} />}
