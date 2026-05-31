@@ -1,18 +1,20 @@
-// Edge Function : initialisation d'un paiement d'abonnement Moneroo.
+// Edge Function : initialisation d'un paiement d'abonnement PayTech SN.
 //
 // Flux : authentifie l'imprimeur (JWT) → lit le prix côté serveur (anti-fraude)
-// → insère une ligne subscription_payments 'pending' AVANT d'appeler Moneroo
-// → appelle Moneroo initialize → renvoie { checkoutUrl }.
+// → insère une ligne subscription_payments 'pending' AVANT d'appeler PayTech
+// → appelle PayTech initialize → renvoie { checkoutUrl }.
 //
 // Secrets requis (supabase secrets set ...) :
-//   MONEROO_SECRET_KEY  — clé secrète Moneroo
-//   SITE_URL            — origine publique du site (ex. https://printacote.com)
+//   PAYTECH_API_KEY      — clé API PayTech
+//   PAYTECH_API_SECRET   — clé secrète PayTech
+//   SITE_URL             — origine publique du site (ex. https://printacote.com)
+//   PAYTECH_ENV          — "test" ou "prod" (défaut: "test")
 // Fournis automatiquement par la plateforme : SUPABASE_URL,
 //   SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { corsHeaders } from "../_shared/cors.ts";
-import { initiatePayment, PLANS } from "../_shared/moneroo.ts";
+import { initiatePayTechPayment, PLANS } from "../_shared/paytech.ts";
 
 function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
@@ -28,10 +30,15 @@ Deno.serve(async (req) => {
   const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
   const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY")!;
   const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const MONEROO_SECRET_KEY = Deno.env.get("MONEROO_SECRET_KEY");
+  
+  const PAYTECH_API_KEY = Deno.env.get("PAYTECH_API_KEY");
+  const PAYTECH_API_SECRET = Deno.env.get("PAYTECH_API_SECRET");
   const SITE_URL = (Deno.env.get("SITE_URL") || "").replace(/\/$/, "");
+  const isTest = Deno.env.get("PAYTECH_ENV") !== "prod";
 
-  if (!MONEROO_SECRET_KEY) return json({ error: "Configuration Moneroo manquante" }, 500);
+  if (!PAYTECH_API_KEY || !PAYTECH_API_SECRET) {
+    return json({ error: "Configuration PayTech manquante sur le serveur" }, 500);
+  }
 
   // 1. Authentifier l'utilisateur via son JWT (décodage direct car l'API Gateway valide la signature via verify_jwt = true).
   const authHeader = req.headers.get("Authorization") || "";
@@ -71,7 +78,7 @@ Deno.serve(async (req) => {
     .single();
   if (printerErr || !printer) return json({ error: "Profil imprimeur introuvable" }, 404);
 
-  // 4. Insérer la ligne de paiement 'pending' AVANT d'appeler Moneroo
+  // 4. Insérer la ligne de paiement 'pending' AVANT d'appeler PayTech
   const { data: payment, error: insertErr } = await admin
     .from("subscription_payments")
     .insert({
@@ -82,27 +89,26 @@ Deno.serve(async (req) => {
       amount: planDef.amount,
       currency: "XOF",
       status: "pending",
-      provider: "moneroo",
+      provider: "paytech",
     })
     .select("id")
     .single();
   if (insertErr || !payment) return json({ error: "Création du paiement impossible" }, 500);
 
-  // 5. Initialiser le paiement Moneroo.
-  const customerName =
-    [printer.first_name, printer.last_name].filter(Boolean).join(" ").trim() || printer.name;
-  const result = await initiatePayment(
+  // 5. Initialiser le paiement PayTech.
+  const result = await initiatePayTechPayment(
     {
-      amount: planDef.amount,
-      currency: "XOF",
-      description: `Abonnement Printacote ${planDef.months} mois`,
-      returnUrl: `${SITE_URL}/dashboard?payment=return&pid=${payment.id}`,
-      customerEmail: user.email!,
-      customerName,
-      customerPhone: printer.whatsapp || undefined,
-      metadata: { paymentId: payment.id, ownerId: user.id, plan },
+      paymentId: payment.id,
+      itemName: `Abonnement ${planDef.months} mois`,
+      itemPrice: planDef.amount,
+      commandName: `Abonnement Printacote ${planDef.months} mois`,
+      ipnUrl: `${SUPABASE_URL}/functions/v1/paytech-webhook`, // webhook dédié à PayTech
+      successUrl: `${SITE_URL}/dashboard?payment=return&pid=${payment.id}`,
+      cancelUrl: `${SITE_URL}/dashboard?payment=cancel&pid=${payment.id}`,
     },
-    MONEROO_SECRET_KEY,
+    PAYTECH_API_KEY,
+    PAYTECH_API_SECRET,
+    isTest
   );
 
   if (!result.ok) {
@@ -113,15 +119,15 @@ Deno.serve(async (req) => {
     return json({ error: result.error }, 502);
   }
 
-  // 6. Mémoriser l'id de transaction + l'URL de checkout.
+  // 6. Mémoriser le token de transaction + l'URL de checkout.
   await admin
     .from("subscription_payments")
     .update({
-      provider_transaction_id: result.providerTransactionId,
-      checkout_url: result.checkoutUrl,
+      provider_transaction_id: result.token,
+      checkout_url: result.redirectUrl,
       updated_at: new Date().toISOString(),
     })
     .eq("id", payment.id);
 
-  return json({ checkoutUrl: result.checkoutUrl, paymentId: payment.id });
+  return json({ checkoutUrl: result.redirectUrl, paymentId: payment.id });
 });

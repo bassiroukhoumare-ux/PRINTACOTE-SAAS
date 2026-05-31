@@ -15,3 +15,11 @@ verify_jwt = true
 # La sécurité repose sur la signature HMAC X-Moneroo-Signature.
 [functions.moneroo-webhook]
 verify_jwt = false
+
+# PayTech checkout exige un utilisateur connecté
+[functions.paytech-checkout]
+verify_jwt = true
+
+# PayTech appelle le webhook (IPN) sans token utilisateur -> pas de vérification JWT
+[functions.paytech-webhook]
+verify_jwt = false
