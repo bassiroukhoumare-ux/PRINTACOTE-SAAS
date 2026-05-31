@@ -228,7 +228,7 @@ export async function verifyMonerooSignature(
 // On NE fait JAMAIS confiance au montant envoyé par le client : on lit
 // toujours le prix ici à partir de l'identifiant de formule.
 export const PLANS: Record<string, { months: number; amount: number }> = {
-  "1m": { months: 1, amount: 5000 },
+  "1m": { months: 1, amount: 150 },
   "3m": { months: 3, amount: 12000 },
   "6m": { months: 6, amount: 20000 },
 };
