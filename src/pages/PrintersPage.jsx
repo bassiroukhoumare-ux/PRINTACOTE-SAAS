@@ -226,7 +226,14 @@ const PrintersPage = ({ setPage, setSelectedPrinterId }) => {
                                             <img src={p.logo_url} className="w-full h-full object-cover" />
                                         </div>
                                         <div className="text-white min-w-0">
-                                            <h3 className="font-black text-xs sm:text-xl leading-none mb-1 sm:mb-2 truncate">{p.name}</h3>
+                                            <div className="flex items-center gap-1.5 mb-1 sm:mb-2">
+                                                <h3 className="font-black text-xs sm:text-xl leading-none truncate">{p.name}</h3>
+                                                {p.badge && (
+                                                    <span className="shrink-0 px-1.5 py-0.5 rounded-md text-[6px] sm:text-[8px] font-black uppercase tracking-wider bg-white/20 backdrop-blur-md border border-white/20">
+                                                        {p.badge === 'Vérifié' ? '✓' : p.badge}
+                                                    </span>
+                                                )}
+                                            </div>
                                             <div className="flex items-center gap-1 text-[7px] sm:text-[10px] opacity-80 uppercase tracking-widest font-black bg-white/10 w-fit px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md truncate">
                                                 <MapPin size={8} className="sm:w-[10px] sm:h-[10px]" /> <span className="truncate">{p.city}</span>
                                             </div>

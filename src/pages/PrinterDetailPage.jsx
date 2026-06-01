@@ -162,7 +162,17 @@ const PrinterDetailPage = ({ id, setPage }) => {
                                      <img src={printer.logo_url} className="w-full h-full object-cover" />
                                  </div>
                                   <div className="flex-1 space-y-3 text-center sm:text-left">
-                                      <h1 className="text-4xl md:text-5xl font-black text-primary tracking-tight leading-tight">{printer.name}</h1>
+                                      <div className="flex items-center justify-center sm:justify-start gap-3 flex-wrap">
+                                          <h1 className="text-4xl md:text-5xl font-black text-primary tracking-tight leading-tight">{printer.name}</h1>
+                                          {printer.badge && (
+                                              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border
+                                                  ${printer.badge === 'Pro' ? 'bg-[#C9A84C]/15 text-[#9A7B2E] border-[#C9A84C]/40'
+                                                    : printer.badge === 'Vérifié' ? 'bg-blue-500/10 text-blue-600 border-blue-500/30'
+                                                    : 'bg-purple-500/10 text-purple-600 border-purple-500/30'}`}>
+                                                  {printer.badge === 'Vérifié' ? '✓ Vérifié' : printer.badge}
+                                              </span>
+                                          )}
+                                      </div>
                                       <div className="flex flex-wrap items-center justify-center sm:justify-start gap-4 text-primary/60 font-bold text-sm">
                                           <div className="flex items-center gap-1.5"><MapPin size={18} /> {printer.city}, {printer.neighborhood || 'Quartier Pro'}</div>
                                           {reviews.length > 0 && (

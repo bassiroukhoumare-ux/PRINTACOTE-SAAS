@@ -124,6 +124,15 @@ const AdminPage = ({ setPage }) => {
         return text.substring(0, maxLength) + '...';
     };
 
+    // Badges de profil attribuables aux imprimeurs.
+    const BADGE_OPTIONS = ['Pro', 'Vérifié', 'Pionnier', 'Pionnière'];
+    const badgeClass = (b) => {
+        if (b === 'Pro') return 'bg-[#C9A84C]/15 text-[#C9A84C] border-[#C9A84C]/30';
+        if (b === 'Vérifié') return 'bg-blue-500/15 text-blue-400 border-blue-500/30';
+        if (b === 'Pionnier' || b === 'Pionnière') return 'bg-purple-500/15 text-purple-400 border-purple-500/30';
+        return 'bg-white/5 text-white/40 border-white/10';
+    };
+
     // Refs for animations
     const loginCardRef = useRef(null);
 
@@ -340,6 +349,22 @@ const AdminPage = ({ setPage }) => {
     };
 
     // ── Actions Modérateurs ──────────────────────────────────────────
+
+    // Attribue (ou retire) un badge de profil à un imprimeur.
+    const handleSetBadge = async (printerId, badge) => {
+        try {
+            const { error } = await supabase.rpc('admin_set_printer_badge', {
+                p_printer_id: printerId,
+                p_badge: badge || null
+            });
+            if (error) throw error;
+            showToast(badge ? `Badge « ${badge} » attribué.` : "Badge retiré.", "success");
+            fetchAdminData();
+        } catch (err) {
+            console.error("Error setting badge:", err);
+            showToast("Impossible de modifier le badge (migration SQL requise).", "error");
+        }
+    };
 
     const handleToggleStatus = async (printerId, currentStatus) => {
         const newStatus = currentStatus === 'En ligne' ? 'Désactivé' : 'En ligne';
@@ -1350,81 +1375,150 @@ const AdminPage = ({ setPage }) => {
                                         />
                                     </div>
 
-                                    <div className="bg-[#111116] border border-white/5 rounded-[2.5rem] overflow-hidden shadow-2xl">
-                                        <div className="overflow-x-auto">
-                                            <table className="w-full text-left text-sm text-white/80 border-collapse">
-                                                <thead>
-                                                    <tr className="bg-white/5 border-b border-white/5 text-[10px] font-black uppercase tracking-wider text-white/40">
-                                                        <th className="p-6">Imprimerie</th>
-                                                        <th className="p-6">Contact & Profil</th>
-                                                        <th className="p-6">Localisation</th>
-                                                        <th className="p-6">Statistiques</th>
-                                                        <th className="p-6 text-center">Visibilité</th>
-                                                        <th className="p-6 text-right">Actions</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    {filteredPrinters.length === 0 ? (
-                                                        <tr>
-                                                            <td colSpan="6" className="p-12 text-center text-white/40 font-bold">Aucun imprimeur trouvé.</td>
-                                                        </tr>
-                                                    ) : (
-                                                        filteredPrinters.map(p => (
-                                                            <tr key={p.id} className="border-b border-white/5 hover:bg-white/[0.01] transition-colors">
-                                                                <td className="p-6 flex items-center gap-4">
-                                                                    <div className="w-12 h-12 rounded-xl overflow-hidden border border-white/10 shrink-0">
-                                                                        <img src={p.logo_url} alt="" className="w-full h-full object-cover" />
-                                                                    </div>
-                                                                    <div>
-                                                                        <h4 className="font-bold text-white text-base">{p.name}</h4>
-                                                                        <span className="text-[10px] text-white/30 block mt-0.5">Inscrit le {new Date(p.created_at).toLocaleDateString('fr-FR')}</span>
-                                                                    </div>
-                                                                </td>
-                                                                <td className="p-6">
-                                                                    <p className="font-semibold text-xs text-white/90 truncate max-w-[200px]">{p.email || <span className="text-white/30 italic">Email non renseigné</span>}</p>
-                                                                    {p.whatsapp && (
-                                                                        <a href={`https://wa.me/${(p.whatsapp || '').replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-xs text-[#C9A84C] font-mono mt-1 inline-block hover:underline">WA: +{p.whatsapp}</a>
-                                                                    )}
-                                                                    {p.phone && (
-                                                                        <a href={`tel:${p.phone}`} className="text-xs text-white/50 font-mono mt-0.5 block hover:text-white/80">Tél: {p.phone}</a>
-                                                                    )}
-                                                                    {!p.whatsapp && !p.phone && (
-                                                                        <p className="text-[10px] text-white/25 italic mt-1">Aucun contact renseigné</p>
-                                                                    )}
-                                                                </td>
-                                                                <td className="p-6 text-xs font-bold text-white/70">
-                                                                    {[p.city, p.country].filter(Boolean).join(', ') || <span className="text-white/30 italic font-medium">Non défini</span>}
-                                                                </td>
-                                                                <td className="p-6 text-xs text-white/55 font-mono space-y-0.5">
-                                                                    <p>{p.views || 0} vues</p>
-                                                                    <p>{p.clicks || 0} clics WhatsApp</p>
-                                                                </td>
-                                                                <td className="p-6 text-center">
-                                                                    <button
-                                                                        onClick={() => handleToggleStatus(p.id, p.status)}
-                                                                        className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider border transition-all
-                                                                            ${p.status === 'En ligne' 
-                                                                                ? 'bg-green-500/10 text-green-400 border-green-500/20' 
-                                                                                : 'bg-red-500/10 text-red-400 border-red-500/20'}`}
-                                                                    >
-                                                                        {p.status}
-                                                                    </button>
-                                                                </td>
-                                                                <td className="p-6 text-right">
-                                                                    <button 
-                                                                        onClick={() => handleDeletePrinter(p.id)}
-                                                                        className="p-3 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-xl transition-all hover:scale-105 active:scale-95"
-                                                                    >
-                                                                        <Trash2 size={16} />
-                                                                    </button>
-                                                                </td>
+                                    {filteredPrinters.length === 0 ? (
+                                        <div className="bg-[#111116] border border-white/5 rounded-[2.5rem] p-12 text-center text-white/40 font-bold">Aucun imprimeur trouvé.</div>
+                                    ) : (
+                                        <>
+                                            {/* Tableau (desktop ≥ lg) */}
+                                            <div className="hidden lg:block bg-[#111116] border border-white/5 rounded-[2.5rem] overflow-hidden shadow-2xl">
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full text-left text-sm text-white/80 border-collapse">
+                                                        <thead>
+                                                            <tr className="bg-white/5 border-b border-white/5 text-[10px] font-black uppercase tracking-wider text-white/40">
+                                                                <th className="p-6">Imprimerie</th>
+                                                                <th className="p-6">Contact & Profil</th>
+                                                                <th className="p-6">Localisation</th>
+                                                                <th className="p-6">Statistiques</th>
+                                                                <th className="p-6">Badge</th>
+                                                                <th className="p-6 text-center">Visibilité</th>
+                                                                <th className="p-6 text-right">Actions</th>
                                                             </tr>
-                                                        ))
-                                                    )}
-                                                </tbody>
-                                            </table>
-                                        </div>
-                                    </div>
+                                                        </thead>
+                                                        <tbody>
+                                                            {filteredPrinters.map(p => (
+                                                                <tr key={p.id} className="border-b border-white/5 hover:bg-white/[0.01] transition-colors">
+                                                                    <td className="p-6">
+                                                                        <div className="flex items-center gap-4">
+                                                                            <div className="w-12 h-12 rounded-xl overflow-hidden border border-white/10 shrink-0">
+                                                                                <img src={p.logo_url} alt="" className="w-full h-full object-cover" />
+                                                                            </div>
+                                                                            <div>
+                                                                                <h4 className="font-bold text-white text-base flex items-center gap-2">{p.name}
+                                                                                    {p.badge && <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border ${badgeClass(p.badge)}`}>{p.badge}</span>}
+                                                                                </h4>
+                                                                                <span className="text-[10px] text-white/30 block mt-0.5">Inscrit le {new Date(p.created_at).toLocaleDateString('fr-FR')}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="p-6">
+                                                                        <p className="font-semibold text-xs text-white/90 truncate max-w-[200px]">{p.email || <span className="text-white/30 italic">Email non renseigné</span>}</p>
+                                                                        {p.whatsapp && (
+                                                                            <a href={`https://wa.me/${(p.whatsapp || '').replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-xs text-[#C9A84C] font-mono mt-1 inline-block hover:underline">WA: +{p.whatsapp}</a>
+                                                                        )}
+                                                                        {p.phone && (
+                                                                            <a href={`tel:${p.phone}`} className="text-xs text-white/50 font-mono mt-0.5 block hover:text-white/80">Tél: {p.phone}</a>
+                                                                        )}
+                                                                        {!p.whatsapp && !p.phone && (
+                                                                            <p className="text-[10px] text-white/25 italic mt-1">Aucun contact renseigné</p>
+                                                                        )}
+                                                                    </td>
+                                                                    <td className="p-6 text-xs font-bold text-white/70">
+                                                                        {[p.city, p.country].filter(Boolean).join(', ') || <span className="text-white/30 italic font-medium">Non défini</span>}
+                                                                    </td>
+                                                                    <td className="p-6 text-xs text-white/55 font-mono space-y-0.5">
+                                                                        <p>{p.views || 0} vues</p>
+                                                                        <p>{p.clicks || 0} clics WhatsApp</p>
+                                                                    </td>
+                                                                    <td className="p-6">
+                                                                        <select
+                                                                            value={p.badge || ''}
+                                                                            onChange={(e) => handleSetBadge(p.id, e.target.value)}
+                                                                            className="bg-white/5 border border-white/10 focus:border-[#C9A84C]/40 text-[11px] font-bold text-white rounded-xl px-3 py-2 focus:outline-none"
+                                                                        >
+                                                                            <option value="" className="bg-[#111116]">Aucun</option>
+                                                                            {BADGE_OPTIONS.map(b => <option key={b} value={b} className="bg-[#111116]">{b}</option>)}
+                                                                        </select>
+                                                                    </td>
+                                                                    <td className="p-6 text-center">
+                                                                        <button
+                                                                            onClick={() => handleToggleStatus(p.id, p.status)}
+                                                                            className={`px-3 py-1.5 rounded-full text-[9px] font-black uppercase tracking-wider border transition-all
+                                                                                ${p.status === 'En ligne' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}
+                                                                        >
+                                                                            {p.status}
+                                                                        </button>
+                                                                    </td>
+                                                                    <td className="p-6 text-right">
+                                                                        <button onClick={() => handleDeletePrinter(p.id)} className="p-3 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-xl transition-all hover:scale-105 active:scale-95">
+                                                                            <Trash2 size={16} />
+                                                                        </button>
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+
+                                            {/* Cartes (mobile/tablette < lg) */}
+                                            <div className="lg:hidden space-y-4">
+                                                {filteredPrinters.map(p => (
+                                                    <div key={p.id} className="bg-[#111116] border border-white/5 rounded-[2rem] p-5 shadow-xl">
+                                                        <div className="flex items-start gap-4">
+                                                            <div className="w-14 h-14 rounded-2xl overflow-hidden border border-white/10 shrink-0">
+                                                                <img src={p.logo_url} alt="" className="w-full h-full object-cover" />
+                                                            </div>
+                                                            <div className="flex-1 min-w-0">
+                                                                <div className="flex items-center gap-2 flex-wrap">
+                                                                    <h4 className="font-bold text-white text-base truncate">{p.name}</h4>
+                                                                    {p.badge && <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border ${badgeClass(p.badge)}`}>{p.badge}</span>}
+                                                                </div>
+                                                                <span className="text-[10px] text-white/30 block mt-0.5">Inscrit le {new Date(p.created_at).toLocaleDateString('fr-FR')}</span>
+                                                                <p className="text-xs text-white/60 mt-1 truncate">{p.email || 'Email non renseigné'}</p>
+                                                            </div>
+                                                            <button onClick={() => handleDeletePrinter(p.id)} className="p-2.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-xl transition-all shrink-0">
+                                                                <Trash2 size={15} />
+                                                            </button>
+                                                        </div>
+
+                                                        <div className="grid grid-cols-2 gap-3 mt-4 text-xs">
+                                                            <div className="bg-white/5 rounded-xl p-3">
+                                                                <span className="text-[9px] uppercase tracking-wider text-white/30 font-black block">Localisation</span>
+                                                                <span className="text-white/70 font-bold">{[p.city, p.country].filter(Boolean).join(', ') || 'Non défini'}</span>
+                                                            </div>
+                                                            <div className="bg-white/5 rounded-xl p-3">
+                                                                <span className="text-[9px] uppercase tracking-wider text-white/30 font-black block">Activité</span>
+                                                                <span className="text-white/70 font-bold font-mono">{p.views || 0} vues · {p.clicks || 0} clics</span>
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="flex flex-wrap items-center gap-2 mt-3">
+                                                            {p.whatsapp && <a href={`https://wa.me/${(p.whatsapp || '').replace(/\D/g, '')}`} target="_blank" rel="noopener noreferrer" className="text-[11px] text-[#C9A84C] font-mono bg-[#C9A84C]/10 px-3 py-1.5 rounded-lg">WA +{p.whatsapp}</a>}
+                                                            {p.phone && <a href={`tel:${p.phone}`} className="text-[11px] text-white/60 font-mono bg-white/5 px-3 py-1.5 rounded-lg">Tél {p.phone}</a>}
+                                                        </div>
+
+                                                        <div className="flex items-center gap-2 mt-4 pt-4 border-t border-white/5">
+                                                            <select
+                                                                value={p.badge || ''}
+                                                                onChange={(e) => handleSetBadge(p.id, e.target.value)}
+                                                                className="flex-1 bg-white/5 border border-white/10 focus:border-[#C9A84C]/40 text-[11px] font-bold text-white rounded-xl px-3 py-2.5 focus:outline-none"
+                                                            >
+                                                                <option value="" className="bg-[#111116]">Badge : Aucun</option>
+                                                                {BADGE_OPTIONS.map(b => <option key={b} value={b} className="bg-[#111116]">Badge : {b}</option>)}
+                                                            </select>
+                                                            <button
+                                                                onClick={() => handleToggleStatus(p.id, p.status)}
+                                                                className={`px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-wider border transition-all shrink-0
+                                                                    ${p.status === 'En ligne' ? 'bg-green-500/10 text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-400 border-red-500/20'}`}
+                                                            >
+                                                                {p.status}
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
                             )}
 
