@@ -5,7 +5,7 @@ import {
     Store, Mail, LogOut, Shield, ShieldAlert, KeyRound,
     Search, Trash2, CheckCircle2, XCircle, Send, Plus, Users2,
     Loader2, Megaphone, Menu, Pencil, Save, Star, Sparkles,
-    Eye, Newspaper, UserCheck, Clock, PauseCircle, PlayCircle, ArrowLeft, Video
+    Eye, Newspaper, UserCheck, Clock, PauseCircle, PlayCircle, ArrowLeft, Video, Bell
 } from 'lucide-react';
 import gsap from 'gsap';
 import RichTextEditor from '../components/RichTextEditor';
@@ -90,6 +90,10 @@ const AdminPage = ({ setPage }) => {
 
     // Messagerie : recherche d'imprimeur à contacter
     const [messageSearch, setMessageSearch] = useState('');
+
+    // Notifications admin
+    const [notifications, setNotifications] = useState([]);
+    const [showNotifications, setShowNotifications] = useState(false);
 
     // Actualités / Blog
     const [newsList, setNewsList] = useState([]);
@@ -196,6 +200,25 @@ const AdminPage = ({ setPage }) => {
         fetchSeries();
         return () => { cancelled = true; };
     }, [isAuthenticated, activeTab, overviewFilter]);
+
+    // Notifications : chargement au login + rafraîchissement à chaque changement d'onglet.
+    const fetchNotifications = async () => {
+        const { data, error } = await supabase.rpc('admin_get_notifications');
+        if (!error && Array.isArray(data)) setNotifications(data);
+    };
+    useEffect(() => {
+        if (isAuthenticated) fetchNotifications();
+    }, [isAuthenticated, activeTab]);
+
+    const handleMarkNotificationsRead = async () => {
+        await supabase.rpc('admin_mark_notifications_read').then(undefined, () => {});
+        setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    };
+    const handleClearNotifications = async () => {
+        await supabase.rpc('admin_clear_notifications').then(undefined, () => {});
+        setNotifications([]);
+    };
+    const unreadNotifications = notifications.filter(n => !n.is_read).length;
 
     const handleLogin = (e) => {
         e.preventDefault();
@@ -1323,9 +1346,52 @@ const AdminPage = ({ setPage }) => {
                                 {activeTab === 'advertising' && "Bannière Publicitaire"}
                             </h1>
                         </div>
-                        <div className="flex items-center gap-2 text-xs font-mono text-white/40 bg-white/5 px-4 py-2 rounded-xl border border-white/5">
-                            <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
-                            Système Connecté
+                        <div className="flex items-center gap-3">
+                            {/* Cloche de notifications */}
+                            <div className="relative">
+                                <button
+                                    onClick={() => { setShowNotifications(s => !s); if (!showNotifications && unreadNotifications > 0) handleMarkNotificationsRead(); }}
+                                    className="relative w-11 h-11 flex items-center justify-center rounded-xl bg-white/5 border border-white/5 text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+                                    title="Notifications"
+                                >
+                                    <Bell size={18} />
+                                    {unreadNotifications > 0 && (
+                                        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] font-black min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center">{unreadNotifications}</span>
+                                    )}
+                                </button>
+                                {showNotifications && (
+                                    <>
+                                        <div className="fixed inset-0 z-[90]" onClick={() => setShowNotifications(false)} />
+                                        <div className="absolute right-0 mt-2 w-[320px] sm:w-[380px] max-h-[440px] bg-[#111116] border border-white/10 rounded-2xl shadow-2xl z-[100] overflow-hidden flex flex-col">
+                                            <div className="flex items-center justify-between p-4 border-b border-white/5">
+                                                <span className="text-[11px] font-black uppercase tracking-wider text-white/60">Notifications</span>
+                                                {notifications.length > 0 && (
+                                                    <button onClick={handleClearNotifications} className="text-[10px] font-black uppercase tracking-wider text-red-400 hover:text-red-300">Tout effacer</button>
+                                                )}
+                                            </div>
+                                            <div className="flex-1 overflow-y-auto custom-scrollbar divide-y divide-white/5">
+                                                {notifications.length === 0 ? (
+                                                    <p className="p-8 text-center text-xs text-white/30 font-bold">Aucune notification.</p>
+                                                ) : notifications.map(n => (
+                                                    <div key={n.id} className={`p-4 flex items-start gap-3 ${!n.is_read ? 'bg-[#C9A84C]/5' : ''}`}>
+                                                        <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${n.type === 'product' ? 'bg-blue-500/15 text-blue-400' : n.type === 'account' ? 'bg-green-500/15 text-green-400' : 'bg-purple-500/15 text-purple-400'}`}>
+                                                            {n.type === 'product' ? <Store size={15} /> : n.type === 'account' ? <UserCheck size={15} /> : <ImageIcon size={15} />}
+                                                        </div>
+                                                        <div className="min-w-0">
+                                                            <p className="text-xs text-white/80 font-medium leading-snug">{n.message}</p>
+                                                            <p className="text-[10px] text-white/30 font-mono mt-1">{new Date(n.created_at).toLocaleString('fr-FR')}</p>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </>
+                                )}
+                            </div>
+                            <div className="hidden sm:flex items-center gap-2 text-xs font-mono text-white/40 bg-white/5 px-4 py-2 rounded-xl border border-white/5">
+                                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                                Système Connecté
+                            </div>
                         </div>
                     </div>
 
