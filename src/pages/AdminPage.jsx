@@ -5,7 +5,7 @@ import {
     Store, Mail, LogOut, Shield, ShieldAlert, KeyRound,
     Search, Trash2, CheckCircle2, XCircle, Send, Plus, Users2,
     Loader2, Megaphone, Menu, Pencil, Save, Star, Sparkles,
-    Eye, Newspaper, UserCheck, Clock, PauseCircle, PlayCircle, ArrowLeft
+    Eye, Newspaper, UserCheck, Clock, PauseCircle, PlayCircle, ArrowLeft, Video
 } from 'lucide-react';
 import gsap from 'gsap';
 import RichTextEditor from '../components/RichTextEditor';
@@ -41,15 +41,19 @@ const AdminPage = ({ setPage }) => {
     const [selectedBulkPrinters, setSelectedBulkPrinters] = useState([]);
     
     // Publicity Banner States
-    const [bannerSettings, setBannerSettings] = useState({ 
-        image_url: '', 
-        link_url: '', 
+    const [bannerSettings, setBannerSettings] = useState({
+        image_url: '',
+        link_url: '',
         is_active: false,
         facebook_url: '',
         instagram_url: '',
-        tiktok_url: ''
+        tiktok_url: '',
+        media_type: 'image',   // 'image' | 'video'
+        video_url: '',
+        active_until: ''        // ISO ; vide = illimité
     });
     const [bannerUploading, setBannerUploading] = useState(false);
+    const [bannerVideoUploading, setBannerVideoUploading] = useState(false);
     // Product Edit Modal States
     const [editingProduct, setEditingProduct] = useState(null);
     const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -326,42 +330,27 @@ const AdminPage = ({ setPage }) => {
                 setCommentsList(Array.isArray(commentsRes.data) ? commentsRes.data : []);
                 if (newsRes.error) console.warn('admin_get_all_news:', newsRes.error.message);
             } else if (activeTab === 'advertising') {
+                const normalize = (v) => ({
+                    image_url: v.image_url || '',
+                    link_url: v.link_url || '',
+                    is_active: v.is_active || false,
+                    facebook_url: v.facebook_url || '',
+                    instagram_url: v.instagram_url || '',
+                    tiktok_url: v.tiktok_url || '',
+                    media_type: v.media_type || 'image',
+                    video_url: v.video_url || '',
+                    active_until: v.active_until || ''
+                });
                 const { data, error } = await supabase
                     .from('system_settings')
                     .select('*')
                     .eq('key', 'publicity_banner')
                     .maybeSingle();
                 if (!error && data && data.value) {
-                    setBannerSettings({
-                        image_url: data.value.image_url || '',
-                        link_url: data.value.link_url || '',
-                        is_active: data.value.is_active || false,
-                        facebook_url: data.value.facebook_url || '',
-                        instagram_url: data.value.instagram_url || '',
-                        tiktok_url: data.value.tiktok_url || ''
-                    });
+                    setBannerSettings(normalize(data.value));
                 } else {
                     const localBanner = localStorage.getItem('publicity_banner');
-                    if (localBanner) {
-                        const parsed = JSON.parse(localBanner);
-                        setBannerSettings({
-                            image_url: parsed.image_url || '',
-                            link_url: parsed.link_url || '',
-                            is_active: parsed.is_active || false,
-                            facebook_url: parsed.facebook_url || '',
-                            instagram_url: parsed.instagram_url || '',
-                            tiktok_url: parsed.tiktok_url || ''
-                        });
-                    } else {
-                        setBannerSettings({ 
-                            image_url: '', 
-                            link_url: '', 
-                            is_active: false,
-                            facebook_url: '',
-                            instagram_url: '',
-                            tiktok_url: ''
-                        });
-                    }
+                    setBannerSettings(localBanner ? normalize(JSON.parse(localBanner)) : normalize({}));
                 }
             }
         } catch (err) {
@@ -930,6 +919,32 @@ const AdminPage = ({ setPage }) => {
             reader.readAsDataURL(file);
         } finally {
             setBannerUploading(false);
+        }
+    };
+
+    // Upload d'une vidéo de bannière vers le storage (pas de repli base64 :
+    // les vidéos sont trop lourdes pour ça).
+    const handleBannerVideoUpload = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        setBannerVideoUploading(true);
+        const fileExt = file.name.split('.').pop();
+        const fileName = `banners/pub_video_${Date.now()}.${fileExt}`;
+        try {
+            const { error } = await supabase.storage
+                .from('public-assets')
+                .upload(fileName, file, { cacheControl: '3600', upsert: true });
+            if (error) throw error;
+            const { data: { publicUrl } } = supabase.storage.from('public-assets').getPublicUrl(fileName);
+            const updatedSettings = { ...bannerSettings, video_url: publicUrl, media_type: 'video' };
+            setBannerSettings(updatedSettings);
+            localStorage.setItem('publicity_banner', JSON.stringify(updatedSettings));
+            showToast("Vidéo de la bannière importée avec succès !", "success");
+        } catch (err) {
+            console.error("Video upload failed:", err);
+            showToast("Échec de l'import vidéo (taille/format). Essayez un lien YouTube/Vimeo.", "error");
+        } finally {
+            setBannerVideoUploading(false);
         }
     };
 
@@ -2161,8 +2176,8 @@ const AdminPage = ({ setPage }) => {
                                                 <p className="text-xs text-white/40 mt-0.5">Si activé, votre affiche remplacera le call-to-action par défaut sur le site public.</p>
                                             </div>
                                             <label className="relative inline-flex items-center cursor-pointer">
-                                                <input 
-                                                    type="checkbox" 
+                                                <input
+                                                    type="checkbox"
                                                     checked={bannerSettings.is_active}
                                                     onChange={(e) => setBannerSettings(prev => ({ ...prev, is_active: e.target.checked }))}
                                                     className="sr-only peer"
@@ -2170,6 +2185,79 @@ const AdminPage = ({ setPage }) => {
                                                 <div className="w-11 h-6 bg-white/10 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#C9A84C]"></div>
                                             </label>
                                         </div>
+
+                                        {/* Durée d'activation automatique */}
+                                        <div className="bg-white/2 border border-white/5 rounded-2xl p-6 space-y-4">
+                                            <div>
+                                                <h4 className="font-bold text-white text-sm">Durée d'activation</h4>
+                                                <p className="text-xs text-white/40 mt-0.5">La bannière se désactive automatiquement à la fin de la durée choisie.</p>
+                                            </div>
+                                            <div className="flex flex-wrap gap-2">
+                                                {[
+                                                    { label: 'Illimitée', days: null },
+                                                    { label: '24 heures', days: 1 },
+                                                    { label: '7 jours', days: 7 },
+                                                    { label: '30 jours', days: 30 },
+                                                ].map(opt => {
+                                                    const target = opt.days ? new Date(Date.now() + opt.days * 86400000) : null;
+                                                    const isActive = opt.days === null ? !bannerSettings.active_until : false;
+                                                    return (
+                                                        <button key={opt.label} type="button"
+                                                            onClick={() => setBannerSettings(prev => ({ ...prev, active_until: target ? target.toISOString() : '' }))}
+                                                            className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider border transition-all ${isActive ? 'bg-[#C9A84C] text-[#0F0F13] border-[#C9A84C]' : 'bg-white/5 text-white/50 border-white/10 hover:text-white'}`}>
+                                                            {opt.label}
+                                                        </button>
+                                                    );
+                                                })}
+                                            </div>
+                                            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-white/30">Ou jusqu'au :</span>
+                                                <input type="datetime-local"
+                                                    value={bannerSettings.active_until ? new Date(bannerSettings.active_until).toISOString().slice(0, 16) : ''}
+                                                    onChange={(e) => setBannerSettings(prev => ({ ...prev, active_until: e.target.value ? new Date(e.target.value).toISOString() : '' }))}
+                                                    className="bg-white/5 border border-white/10 focus:border-[#C9A84C]/40 text-sm font-bold text-white rounded-xl px-4 py-2.5 focus:outline-none" />
+                                            </div>
+                                            {bannerSettings.active_until && (
+                                                <p className="text-[11px] font-bold text-[#C9A84C]">
+                                                    Désactivation prévue le {new Date(bannerSettings.active_until).toLocaleString('fr-FR')}
+                                                </p>
+                                            )}
+                                        </div>
+
+                                        {/* Type de média : image ou vidéo */}
+                                        <div>
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-2 mb-2 block">Type de média</label>
+                                            <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5 w-full sm:w-fit">
+                                                {[{ id: 'image', label: 'Image' }, { id: 'video', label: 'Vidéo' }].map(m => (
+                                                    <button key={m.id} type="button"
+                                                        onClick={() => setBannerSettings(prev => ({ ...prev, media_type: m.id }))}
+                                                        className={`px-6 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all flex-1 sm:flex-none ${bannerSettings.media_type === m.id ? 'bg-[#C9A84C] text-[#0F0F13]' : 'text-white/50 hover:text-white'}`}>
+                                                        {m.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Zone vidéo (lien ou upload) */}
+                                        {bannerSettings.media_type === 'video' && (
+                                            <div className="space-y-3 bg-white/2 border border-white/5 rounded-2xl p-6">
+                                                <label className="text-[10px] font-black uppercase tracking-widest text-white/30 block">Vidéo : lien YouTube / Vimeo / .mp4</label>
+                                                <input type="url" placeholder="https://youtube.com/watch?v=… ou https://…/video.mp4"
+                                                    value={bannerSettings.video_url || ''}
+                                                    onChange={(e) => setBannerSettings(prev => ({ ...prev, video_url: e.target.value }))}
+                                                    className="w-full bg-white/5 border border-white/10 focus:border-[#C9A84C]/40 text-sm font-bold text-white rounded-2xl px-5 py-3.5 focus:outline-none" />
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-white/30">ou</span>
+                                                    <label className="px-5 py-2.5 bg-[#C9A84C]/10 text-[#C9A84C] border border-[#C9A84C]/20 rounded-xl text-[11px] font-black uppercase tracking-wider cursor-pointer hover:bg-[#C9A84C]/20 transition-all flex items-center gap-2">
+                                                        {bannerVideoUploading ? <Loader2 size={14} className="animate-spin" /> : <Video size={14} />} Importer une vidéo
+                                                        <input type="file" accept="video/*" className="hidden" onChange={handleBannerVideoUpload} />
+                                                    </label>
+                                                </div>
+                                                {bannerSettings.video_url && (
+                                                    <p className="text-[11px] text-green-400 font-bold truncate">Vidéo définie : {bannerSettings.video_url.slice(0, 60)}…</p>
+                                                )}
+                                            </div>
+                                        )}
 
                                         {/* Redirect Link Input */}
                                         <div className="space-y-2">
@@ -2217,9 +2305,10 @@ const AdminPage = ({ setPage }) => {
                                             </div>
                                         </div>
 
-                                        {/* Image Upload Area */}
+                                        {/* Image Upload Area (uniquement si média = image) */}
+                                        {bannerSettings.media_type !== 'video' && (
                                         <div className="space-y-2">
-                                            <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-2">Affiche publicitaire (Format recommandé : horizontal, max 5 Mo)</label>
+                                            <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-2">Affiche publicitaire (Format 16/7 recommandé, max 5 Mo)</label>
                                             <div className="flex flex-col md:flex-row gap-6 items-start">
                                                 {bannerSettings.image_url ? (
                                                     <div className="relative w-full md:w-[480px] aspect-[16/6] bg-black/40 rounded-[2rem] overflow-hidden border border-white/10 group shadow-lg">
@@ -2268,6 +2357,7 @@ const AdminPage = ({ setPage }) => {
                                                 )}
                                             </div>
                                         </div>
+                                        )}
 
                                         <div className="flex justify-end pt-4">
                                             <button

@@ -2,6 +2,23 @@ import React, { useState, useEffect } from 'react';
 import { Phone, ArrowRight, MessageCircle, X, Clock, Zap, Info, Image as ImageIcon, Video, Palette } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
+// La bannière est active si is_active et que la durée n'est pas expirée.
+const isBannerActive = (v) => {
+    if (!v || !v.is_active) return false;
+    if (v.active_until && new Date(v.active_until) <= new Date()) return false;
+    return !!(v.image_url || v.video_url);
+};
+
+// Convertit une URL YouTube/Vimeo en URL d'intégration (sinon null).
+const toEmbedUrl = (url) => {
+    if (!url) return null;
+    const yt = url.match(/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([\w-]{11})/);
+    if (yt) return `https://www.youtube.com/embed/${yt[1]}?autoplay=1&mute=1&loop=1&playlist=${yt[1]}&controls=0&modestbranding=1&rel=0`;
+    const vm = url.match(/vimeo\.com\/(?:video\/)?(\d+)/);
+    if (vm) return `https://player.vimeo.com/video/${vm[1]}?autoplay=1&muted=1&loop=1&background=1`;
+    return null;
+};
+
 const AdBanner = ({ dark = false }) => {
     const [showTariffs, setShowTariffs] = useState(false);
     const [showInfo, setShowInfo] = useState(false);
@@ -15,50 +32,62 @@ const AdBanner = ({ dark = false }) => {
                     .select('*')
                     .eq('key', 'publicity_banner')
                     .maybeSingle();
-                if (!error && data && data.value && data.value.is_active && data.value.image_url) {
+                if (!error && data && data.value && isBannerActive(data.value)) {
                     setCustomBanner(data.value);
                 } else {
                     const localBanner = localStorage.getItem('publicity_banner');
                     if (localBanner) {
                         const parsed = JSON.parse(localBanner);
-                        if (parsed.is_active && parsed.image_url) {
-                            setCustomBanner(parsed);
-                        }
+                        if (isBannerActive(parsed)) setCustomBanner(parsed);
                     }
                 }
             } catch (err) {
                 console.error("Error fetching publicity banner:", err);
-                const localBanner = localStorage.getItem('publicity_banner');
-                if (localBanner) {
-                    const parsed = JSON.parse(localBanner);
-                    if (parsed.is_active && parsed.image_url) {
-                        setCustomBanner(parsed);
-                    }
-                }
             }
         };
         fetchBanner();
     }, []);
 
     if (customBanner) {
+        const embedUrl = customBanner.media_type === 'video' ? toEmbedUrl(customBanner.video_url) : null;
+        const isVideo = customBanner.media_type === 'video' && !!customBanner.video_url;
         return (
-            <div 
-                className="w-full max-w-[1000px] min-h-[250px] md:h-[250px] mx-auto border rounded-[2rem] sm:rounded-[3rem] overflow-hidden block relative group shadow-xl hover:scale-[1.01] transition-transform duration-500"
+            <div
+                className="w-full max-w-[1000px] aspect-[16/7] mx-auto border rounded-[2rem] sm:rounded-[3rem] overflow-hidden block relative group shadow-xl hover:scale-[1.01] transition-transform duration-500"
                 style={{ borderColor: dark ? 'rgba(255,255,255,0.1)' : 'rgba(61,11,55,0.1)' }}
             >
                 {/* Main click redirect layer */}
-                <a 
-                    href={customBanner.link_url || '#'} 
+                <a
+                    href={customBanner.link_url || '#'}
                     target={customBanner.link_url ? "_blank" : undefined}
                     rel="noopener noreferrer"
                     className="absolute inset-0 z-0 block w-full h-full"
                 >
-                    <img 
-                        src={customBanner.image_url} 
-                        alt="Publicité Partenaire" 
-                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent flex items-end p-6 sm:p-8">
+                    {isVideo ? (
+                        embedUrl ? (
+                            <iframe
+                                src={embedUrl}
+                                title="Publicité Partenaire"
+                                allow="autoplay; encrypted-media; picture-in-picture"
+                                allowFullScreen
+                                className="absolute inset-0 w-full h-full object-cover pointer-events-none"
+                                style={{ border: 0, width: '100%', height: '100%' }}
+                            />
+                        ) : (
+                            <video
+                                src={customBanner.video_url}
+                                autoPlay muted loop playsInline
+                                className="absolute inset-0 w-full h-full object-cover"
+                            />
+                        )
+                    ) : (
+                        <img
+                            src={customBanner.image_url}
+                            alt="Publicité Partenaire"
+                            className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+                        />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent flex items-end p-6 sm:p-8 pointer-events-none">
                         <span className="text-[8px] sm:text-[9px] font-black text-white bg-black/40 backdrop-blur-md border border-white/10 px-3 py-1 rounded-full uppercase tracking-widest relative z-10">
                             Sponsorisé
                         </span>
