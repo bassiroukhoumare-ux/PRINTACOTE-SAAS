@@ -11,12 +11,9 @@ const formatViews = (value) => {
 
 const NewsPage = ({ setPage }) => {
     const [selectedArticle, setSelectedArticle] = useState(null);
-    const [comments, setComments] = useState([
-        { id: 1, author: "Moussa Diop", date: "Il y a 2 heures", text: "Article très instructif ! Le choix du papier change vraiment tout pour la perception de la marque.", likes: 12, isLiked: false, replies: [] },
-        { id: 2, author: "Awa Ndiaye", date: "Il y a 5 heures", text: "Merci pour ces précisions sur le grammage. Je comprends mieux mes erreurs passées.", likes: 8, isLiked: false, replies: [] }
-    ]);
+    const [comments, setComments] = useState([]);
     const [newComment, setNewComment] = useState({ name: '', email: '', text: '' });
-    const [replyingTo, setReplyingTo] = useState(null);
+    const [commentSubmitting, setCommentSubmitting] = useState(false);
 
     // Articles réellement affichés : chargés UNIQUEMENT depuis la table news.
     // (Plus aucun contenu fictif codé en dur.)
@@ -47,37 +44,48 @@ const NewsPage = ({ setPage }) => {
         fetchNews();
     }, []);
 
-    const handleSubmitComment = (e) => {
-        e.preventDefault();
-        if (!newComment.name || !newComment.text) return;
-        
-        const comment = {
-            id: comments.length + 1,
-            author: newComment.name,
-            date: "À l'instant",
-            text: newComment.text,
-            likes: 0,
-            isLiked: false,
-            replies: []
+    // Charge les commentaires réels et incrémente les vues à l'ouverture d'un article.
+    useEffect(() => {
+        if (!selectedArticle?.id) { setComments([]); return; }
+        let cancelled = false;
+        const loadComments = async () => {
+            const { data } = await supabase
+                .from('comments')
+                .select('*')
+                .eq('news_id', selectedArticle.id)
+                .eq('approved', true)
+                .order('created_at', { ascending: false });
+            if (!cancelled) setComments(Array.isArray(data) ? data : []);
         };
-        
-        setComments([comment, ...comments]);
-        setNewComment({ name: '', email: '', text: '' });
+        loadComments();
+        supabase.rpc('increment_news_views', { p_id: selectedArticle.id }).then(undefined, () => {});
+        return () => { cancelled = true; };
+    }, [selectedArticle?.id]);
+
+    const handleSubmitComment = async (e) => {
+        e.preventDefault();
+        if (!newComment.name.trim() || !newComment.text.trim() || !selectedArticle?.id) return;
+        setCommentSubmitting(true);
+        const { data, error } = await supabase
+            .from('comments')
+            .insert({
+                news_id: selectedArticle.id,
+                author_name: newComment.name.trim(),
+                author_email: newComment.email.trim() || null,
+                content: newComment.text.trim(),
+            })
+            .select()
+            .single();
+        if (!error && data) {
+            setComments([data, ...comments]);
+            setNewComment({ name: '', email: '', text: '' });
+        }
+        setCommentSubmitting(false);
     };
 
-    const handleLike = (id) => {
-        setComments(comments.map(c => {
-            if (c.id === id) {
-                return { ...c, likes: c.isLiked ? c.likes - 1 : c.likes + 1, isLiked: !c.isLiked };
-            }
-            return c;
-        }));
-    };
-
-    const handleReply = (id) => {
-        setReplyingTo(id);
-        const element = document.getElementById('comment-form');
-        element.scrollIntoView({ behavior: 'smooth' });
+    const relativeDate = (iso) => {
+        try { return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }); }
+        catch (e) { return ''; }
     };
 
     const shareArticle = (article) => {
@@ -113,9 +121,7 @@ const NewsPage = ({ setPage }) => {
                                 {selectedArticle.title}
                             </h1>
 
-                            <div className="prose prose-xl prose-primary max-w-none text-primary/70 font-medium leading-relaxed mb-16 whitespace-pre-line">
-                                {selectedArticle.content}
-                            </div>
+                            <div className="prose-news max-w-none mb-16" dangerouslySetInnerHTML={{ __html: selectedArticle.content || '' }} />
 
                             <div className="pt-12 border-t border-primary/10 flex flex-wrap gap-6 items-center justify-between mb-16">
                                 <div className="text-primary font-black">Partager cet article :</div>
@@ -137,12 +143,6 @@ const NewsPage = ({ setPage }) => {
 
                                 {/* Comment Form */}
                                 <form id="comment-form" onSubmit={handleSubmitComment} className="bg-primary/5 p-8 md:p-12 rounded-[3rem] mb-16 space-y-6">
-                                    {replyingTo && (
-                                        <div className="flex items-center justify-between bg-primary text-accent px-6 py-2 rounded-xl mb-4">
-                                            <span className="text-xs font-bold uppercase tracking-widest">Réponse à un commentaire</span>
-                                            <button onClick={() => setReplyingTo(null)} className="text-xs font-black">ANNULER</button>
-                                        </div>
-                                    )}
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                         <div className="space-y-2">
                                             <label className="text-xs font-black uppercase text-primary/40 ml-4">Nom complet</label>
@@ -167,51 +167,36 @@ const NewsPage = ({ setPage }) => {
                                     </div>
                                     <div className="space-y-2">
                                         <label className="text-xs font-black uppercase text-primary/40 ml-4">Votre commentaire</label>
-                                        <textarea 
-                                            rows="4" 
+                                        <textarea
+                                            rows="4"
                                             value={newComment.text}
                                             onChange={(e) => setNewComment({...newComment, text: e.target.value})}
-                                            placeholder={replyingTo ? "Tapez votre réponse ici..." : "Que pensez-vous de cet article ?"} 
+                                            placeholder="Que pensez-vous de cet article ?"
                                             className="w-full bg-white border border-primary/10 rounded-3xl px-6 py-4 focus:outline-none focus:border-accent font-bold resize-none"
                                         ></textarea>
                                     </div>
-                                    <button type="submit" className="bg-primary text-accent px-10 py-5 rounded-2xl font-black flex items-center gap-3 hover:scale-105 transition-transform shadow-xl">
-                                        {replyingTo ? "Répondre" : "Publier mon commentaire"}
+                                    <button type="submit" disabled={commentSubmitting} className="bg-primary text-accent px-10 py-5 rounded-2xl font-black flex items-center gap-3 hover:scale-105 transition-transform shadow-xl disabled:opacity-50">
+                                        {commentSubmitting ? 'Envoi…' : 'Publier mon commentaire'}
                                         <Send size={18} />
                                     </button>
                                 </form>
 
                                 {/* Comments List */}
                                 <div className="space-y-12">
+                                    {comments.length === 0 && (
+                                        <p className="text-primary/40 font-bold text-center py-8">Soyez le premier à commenter cet article.</p>
+                                    )}
                                     {comments.map((comment) => (
                                         <div key={comment.id} className="flex gap-6 group">
                                             <div className="w-16 h-16 bg-primary/5 rounded-2xl flex items-center justify-center text-primary shrink-0">
                                                 <User size={32} />
                                             </div>
-                                            <div className="flex-1 space-y-4">
-                                                <div className="flex items-center justify-between">
-                                                    <div>
-                                                        <h4 className="text-lg font-black text-primary">{comment.author}</h4>
-                                                        <span className="text-xs font-bold text-primary/30 uppercase tracking-widest">{comment.date}</span>
-                                                    </div>
-                                                </div>
-                                                <p className="text-primary/70 leading-relaxed font-medium text-lg">
-                                                    {comment.text}
+                                            <div className="flex-1 space-y-2">
+                                                <h4 className="text-lg font-black text-primary">{comment.author_name}</h4>
+                                                <span className="text-xs font-bold text-primary/30 uppercase tracking-widest">{relativeDate(comment.created_at)}</span>
+                                                <p className="text-primary/70 leading-relaxed font-medium text-lg pt-2">
+                                                    {comment.content}
                                                 </p>
-                                                <div className="flex items-center gap-8 pt-2">
-                                                    <button 
-                                                        onClick={() => handleLike(comment.id)}
-                                                        className={`flex items-center gap-2 transition-colors text-sm font-black uppercase tracking-widest ${comment.isLiked ? 'text-red-500' : 'text-primary/40 hover:text-red-500'}`}
-                                                    >
-                                                        <Heart size={16} fill={comment.isLiked ? "currentColor" : "none"} /> {comment.likes} J'aime
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => handleReply(comment.id)}
-                                                        className="flex items-center gap-2 text-primary/40 hover:text-accent transition-colors text-sm font-black uppercase tracking-widest"
-                                                    >
-                                                        <Reply size={16} /> Répondre
-                                                    </button>
-                                                </div>
                                             </div>
                                         </div>
                                     ))}

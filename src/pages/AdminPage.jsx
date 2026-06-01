@@ -8,6 +8,7 @@ import {
     Eye, Newspaper, UserCheck, Clock, PauseCircle, PlayCircle, ArrowLeft
 } from 'lucide-react';
 import gsap from 'gsap';
+import RichTextEditor from '../components/RichTextEditor';
 
 const AdminPage = ({ setPage }) => {
     const [password, setPassword] = useState('');
@@ -85,6 +86,15 @@ const AdminPage = ({ setPage }) => {
 
     // Messagerie : recherche d'imprimeur à contacter
     const [messageSearch, setMessageSearch] = useState('');
+
+    // Actualités / Blog
+    const [newsList, setNewsList] = useState([]);
+    const [commentsList, setCommentsList] = useState([]);
+    const [newsSubTab, setNewsSubTab] = useState('articles'); // 'articles' | 'comments'
+    const [isNewsModalOpen, setIsNewsModalOpen] = useState(false);
+    const [coverUploading, setCoverUploading] = useState(false);
+    const emptyNewsForm = { id: null, title: '', excerpt: '', content: '', image_url: '', read_time: '5 min', published: true };
+    const [newsForm, setNewsForm] = useState(emptyNewsForm);
 
     // Helper functions
     const getPortfolioImageUrl = (item) => {
@@ -307,6 +317,14 @@ const AdminPage = ({ setPage }) => {
                 } else {
                     setMessages(data || []);
                 }
+            } else if (activeTab === 'news') {
+                const [newsRes, commentsRes] = await Promise.all([
+                    supabase.rpc('admin_get_all_news'),
+                    supabase.rpc('admin_get_comments'),
+                ]);
+                setNewsList(Array.isArray(newsRes.data) ? newsRes.data : []);
+                setCommentsList(Array.isArray(commentsRes.data) ? commentsRes.data : []);
+                if (newsRes.error) console.warn('admin_get_all_news:', newsRes.error.message);
             } else if (activeTab === 'advertising') {
                 const { data, error } = await supabase
                     .from('system_settings')
@@ -760,6 +778,97 @@ const AdminPage = ({ setPage }) => {
         }
     };
 
+    // ── Actualités / Blog ─────────────────────────────────────────────
+    const handleOpenNewsEditor = (article = null) => {
+        if (article) {
+            setNewsForm({
+                id: article.id,
+                title: article.title || '',
+                excerpt: article.excerpt || '',
+                content: article.content || '',
+                image_url: article.image_url || '',
+                read_time: article.read_time || '5 min',
+                published: article.published !== false,
+            });
+        } else {
+            setNewsForm(emptyNewsForm);
+        }
+        setIsNewsModalOpen(true);
+    };
+
+    const handleCoverUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        setCoverUploading(true);
+        try {
+            const ext = file.name.split('.').pop();
+            const path = `news/cover-${Date.now()}.${ext}`;
+            const { error } = await supabase.storage.from('public-assets').upload(path, file, { cacheControl: '3600', upsert: true });
+            if (error) throw error;
+            const { data: { publicUrl } } = supabase.storage.from('public-assets').getPublicUrl(path);
+            setNewsForm(prev => ({ ...prev, image_url: publicUrl }));
+        } catch (err) {
+            const reader = new FileReader();
+            reader.onloadend = () => setNewsForm(prev => ({ ...prev, image_url: reader.result }));
+            reader.readAsDataURL(file);
+        } finally {
+            setCoverUploading(false);
+        }
+    };
+
+    const handleSaveNews = async (e) => {
+        e.preventDefault();
+        if (!newsForm.title.trim()) { showToast("Le titre est obligatoire.", "error"); return; }
+        setActionLoading(true);
+        try {
+            const { error } = await supabase.rpc('admin_upsert_news', {
+                p_id: newsForm.id,
+                p_title: newsForm.title,
+                p_excerpt: newsForm.excerpt,
+                p_content: newsForm.content,
+                p_image_url: newsForm.image_url,
+                p_read_time: newsForm.read_time,
+                p_published: newsForm.published,
+            });
+            if (error) throw error;
+            showToast(newsForm.id ? "Article mis à jour." : "Article publié.", "success");
+            setIsNewsModalOpen(false);
+            setNewsForm(emptyNewsForm);
+            fetchAdminData();
+        } catch (err) {
+            console.error("Error saving news:", err);
+            showToast("Erreur lors de l'enregistrement de l'article.", "error");
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleDeleteNews = async (id) => {
+        if (!confirm("Supprimer définitivement cet article et ses commentaires ?")) return;
+        try {
+            const { error } = await supabase.rpc('admin_delete_news', { p_id: id });
+            if (error) throw error;
+            showToast("Article supprimé.", "success");
+            fetchAdminData();
+        } catch (err) {
+            console.error("Error deleting news:", err);
+            showToast("Erreur lors de la suppression.", "error");
+        }
+    };
+
+    const handleDeleteComment = async (id) => {
+        if (!confirm("Supprimer ce commentaire ?")) return;
+        try {
+            const { error } = await supabase.rpc('admin_delete_comment', { p_id: id });
+            if (error) throw error;
+            showToast("Commentaire supprimé.", "success");
+            fetchAdminData();
+        } catch (err) {
+            console.error("Error deleting comment:", err);
+            showToast("Erreur lors de la suppression du commentaire.", "error");
+        }
+    };
+
     const handleSaveBannerSettings = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -1048,6 +1157,15 @@ const AdminPage = ({ setPage }) => {
                             </button>
 
                             <button
+                                onClick={() => { setActiveTab('news'); setIsMobileMenuOpen(false); }}
+                                className={`w-full flex items-center gap-4 px-6 py-4 rounded-[1.5rem] font-bold text-xs uppercase tracking-wider transition-all
+                                    ${activeTab === 'news' ? 'bg-[#C9A84C] text-[#0F0F13] shadow-xl shadow-[#C9A84C]/10' : 'text-white/50 hover:bg-white/5'}`}
+                            >
+                                <Newspaper size={18} />
+                                <span>Actualités</span>
+                            </button>
+
+                            <button
                                 onClick={() => { setActiveTab('advertising'); setIsMobileMenuOpen(false); }}
                                 className={`w-full flex items-center gap-4 px-6 py-4 rounded-[1.5rem] font-bold text-xs uppercase tracking-wider transition-all
                                     ${activeTab === 'advertising' ? 'bg-[#C9A84C] text-[#0F0F13] shadow-xl shadow-[#C9A84C]/10' : 'text-white/50 hover:bg-white/5'}`}
@@ -1140,6 +1258,15 @@ const AdminPage = ({ setPage }) => {
                     </button>
 
                     <button
+                        onClick={() => setActiveTab('news')}
+                        className={`w-full flex items-center gap-4 px-6 py-4 rounded-[1.5rem] font-bold text-xs uppercase tracking-wider transition-all group
+                            ${activeTab === 'news' ? 'bg-[#C9A84C] text-[#0F0F13] shadow-xl shadow-[#C9A84C]/10' : 'text-white/50 hover:bg-white/5 hover:text-white'}`}
+                    >
+                        <Newspaper size={18} />
+                        <span>Actualités</span>
+                    </button>
+
+                    <button
                         onClick={() => setActiveTab('advertising')}
                         className={`w-full flex items-center gap-4 px-6 py-4 rounded-[1.5rem] font-bold text-xs uppercase tracking-wider transition-all group
                             ${activeTab === 'advertising' ? 'bg-[#C9A84C] text-[#0F0F13] shadow-xl shadow-[#C9A84C]/10' : 'text-white/50 hover:bg-white/5 hover:text-white'}`}
@@ -1177,6 +1304,7 @@ const AdminPage = ({ setPage }) => {
                                 {activeTab === 'portfolio' && "Modération du Portfolio"}
                                 {activeTab === 'marketplace' && "Modération Marketplace"}
                                 {activeTab === 'support' && "Support & Messagerie"}
+                                {activeTab === 'news' && "Actualités & Blog"}
                                 {activeTab === 'advertising' && "Bannière Publicitaire"}
                             </h1>
                         </div>
@@ -1947,6 +2075,76 @@ const AdminPage = ({ setPage }) => {
                                 </div>
                             )}
 
+                            {/* TAB: NEWS / BLOG */}
+                            {activeTab === 'news' && (
+                                <div className="space-y-6">
+                                    {/* Sous-onglets + bouton nouvel article */}
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                                        <div className="flex bg-white/5 p-1 rounded-2xl border border-white/5 w-full sm:w-auto">
+                                            <button onClick={() => setNewsSubTab('articles')} className={`px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all flex-1 sm:flex-none ${newsSubTab === 'articles' ? 'bg-[#C9A84C] text-[#0F0F13]' : 'text-white/50 hover:text-white'}`}>
+                                                Articles ({newsList.length})
+                                            </button>
+                                            <button onClick={() => setNewsSubTab('comments')} className={`px-5 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all flex-1 sm:flex-none ${newsSubTab === 'comments' ? 'bg-[#C9A84C] text-[#0F0F13]' : 'text-white/50 hover:text-white'}`}>
+                                                Commentaires ({commentsList.length})
+                                            </button>
+                                        </div>
+                                        {newsSubTab === 'articles' && (
+                                            <button onClick={() => handleOpenNewsEditor(null)} className="px-5 py-3 bg-[#C9A84C] text-[#0F0F13] rounded-2xl text-xs font-black uppercase tracking-wider flex items-center justify-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-lg shadow-[#C9A84C]/10">
+                                                <Plus size={16} /> Nouvel article
+                                            </button>
+                                        )}
+                                    </div>
+
+                                    {/* Liste des articles */}
+                                    {newsSubTab === 'articles' && (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                                            {newsList.length === 0 ? (
+                                                <p className="text-white/40 col-span-full font-bold py-10 text-center">Aucun article. Cliquez sur « Nouvel article » pour commencer.</p>
+                                            ) : newsList.map(a => (
+                                                <div key={a.id} className="bg-[#111116] border border-white/5 rounded-[2rem] overflow-hidden flex flex-col">
+                                                    <div className="aspect-video bg-black/30 relative">
+                                                        {a.image_url ? <img src={a.image_url} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-white/20"><Newspaper size={32} /></div>}
+                                                        <div className={`absolute top-3 left-3 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${a.published ? 'bg-green-500 text-white' : 'bg-white/20 text-white backdrop-blur-md'}`}>
+                                                            {a.published ? 'Publié' : 'Brouillon'}
+                                                        </div>
+                                                    </div>
+                                                    <div className="p-5 flex flex-col flex-1">
+                                                        <h4 className="font-bold text-white text-base leading-tight line-clamp-2">{a.title}</h4>
+                                                        <p className="text-xs text-white/40 mt-1.5 line-clamp-2 flex-1">{a.excerpt}</p>
+                                                        <p className="text-[9px] font-mono text-white/30 mt-3">{new Date(a.created_at).toLocaleDateString('fr-FR')} · {a.views || 0} vues</p>
+                                                        <div className="flex gap-2 mt-4 pt-4 border-t border-white/5">
+                                                            <button onClick={() => handleOpenNewsEditor(a)} className="flex-1 py-2.5 bg-blue-500/10 text-blue-400 hover:bg-blue-500/20 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all"><Pencil size={13} /> Modifier</button>
+                                                            <button onClick={() => handleDeleteNews(a.id)} className="px-3.5 py-2.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-xl transition-all"><Trash2 size={14} /></button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+
+                                    {/* Liste des commentaires reçus */}
+                                    {newsSubTab === 'comments' && (
+                                        <div className="bg-[#111116] border border-white/5 rounded-[2.5rem] p-6 sm:p-8 space-y-4">
+                                            {commentsList.length === 0 ? (
+                                                <p className="text-white/40 font-bold py-10 text-center">Aucun commentaire pour le moment.</p>
+                                            ) : commentsList.map(c => (
+                                                <div key={c.id} className="bg-white/5 border border-white/5 rounded-2xl p-5 flex items-start justify-between gap-4">
+                                                    <div className="min-w-0">
+                                                        <div className="flex items-center gap-2 flex-wrap">
+                                                            <span className="font-bold text-white text-sm">{c.author_name}</span>
+                                                            <span className="text-[10px] text-white/30 font-mono">{new Date(c.created_at).toLocaleDateString('fr-FR')} {new Date(c.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
+                                                        </div>
+                                                        <p className="text-[10px] font-black uppercase tracking-wider text-[#C9A84C] mt-1 truncate">sur : {c.news_title || 'Article supprimé'}</p>
+                                                        <p className="text-sm text-white/70 mt-2 leading-relaxed break-words">{c.content}</p>
+                                                    </div>
+                                                    <button onClick={() => handleDeleteComment(c.id)} className="p-2.5 bg-red-500/10 text-red-400 hover:bg-red-500/20 rounded-xl transition-all shrink-0"><Trash2 size={14} /></button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
                             {/* TAB 7: ADVERTISING BANNER SETTINGS */}
                             {activeTab === 'advertising' && (
                                 <div className="bg-[#111116] border border-white/5 rounded-[2.5rem] p-8 md:p-10 space-y-8 shadow-2xl">
@@ -2194,6 +2392,73 @@ const AdminPage = ({ setPage }) => {
                             >
                                 Envoyer la diffusion ({selectedBulkPrinters.length} destinataire(s))
                             </button>
+                        </form>
+                    </div>
+                </div>
+            )}
+
+            {/* News Editor Modal */}
+            {isNewsModalOpen && (
+                <div className="fixed inset-0 z-[200] flex items-start justify-center p-4 bg-black/50 backdrop-blur-sm overflow-y-auto">
+                    <div className="bg-[#111116] border border-white/10 rounded-[2.5rem] p-6 sm:p-8 w-full max-w-3xl my-8 relative shadow-2xl">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl sm:text-2xl font-black text-white">{newsForm.id ? "Modifier l'article" : "Nouvel article"}</h3>
+                            <button onClick={() => setIsNewsModalOpen(false)} className="p-2 bg-white/5 text-white/60 hover:text-white rounded-xl"><XCircle size={20} /></button>
+                        </div>
+
+                        <form onSubmit={handleSaveNews} className="space-y-5">
+                            {/* Image de couverture */}
+                            <div>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-1 mb-2 block">Image de couverture</label>
+                                {newsForm.image_url ? (
+                                    <div className="relative w-full aspect-[16/7] rounded-2xl overflow-hidden border border-white/10 group">
+                                        <img src={newsForm.image_url} alt="" className="w-full h-full object-cover" />
+                                        <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                                            <label className="p-3 bg-[#C9A84C] text-[#0F0F13] rounded-full cursor-pointer hover:scale-105 transition-all"><ImageIcon size={18} /><input type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} /></label>
+                                            <button type="button" onClick={() => setNewsForm(prev => ({ ...prev, image_url: '' }))} className="p-3 bg-red-500 text-white rounded-full hover:scale-105 transition-all"><Trash2 size={18} /></button>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <label className="flex flex-col items-center justify-center w-full aspect-[16/7] border-2 border-dashed border-white/10 rounded-2xl cursor-pointer hover:bg-white/5 hover:border-[#C9A84C]/35 transition-all">
+                                        {coverUploading ? <Loader2 size={28} className="animate-spin text-[#C9A84C]" /> : (<><ImageIcon size={28} className="text-white/20 mb-2" /><span className="text-xs text-white/45 font-bold">Importer une couverture</span></>)}
+                                        <input type="file" accept="image/*" className="hidden" onChange={handleCoverUpload} />
+                                    </label>
+                                )}
+                            </div>
+
+                            <div>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-1 mb-2 block">Titre *</label>
+                                <input type="text" value={newsForm.title} onChange={(e) => setNewsForm(prev => ({ ...prev, title: e.target.value }))} placeholder="Titre de l'article" className="w-full bg-white/5 border border-white/10 focus:border-[#C9A84C]/40 text-base font-bold text-white rounded-2xl px-5 py-3.5 focus:outline-none" />
+                            </div>
+
+                            <div>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-1 mb-2 block">Accroche (résumé)</label>
+                                <textarea rows="2" value={newsForm.excerpt} onChange={(e) => setNewsForm(prev => ({ ...prev, excerpt: e.target.value }))} placeholder="Courte description affichée dans la liste" className="w-full bg-white/5 border border-white/10 focus:border-[#C9A84C]/40 text-sm font-medium text-white rounded-2xl px-5 py-3.5 focus:outline-none resize-none" />
+                            </div>
+
+                            <div>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-1 mb-2 block">Contenu de l'article</label>
+                                <RichTextEditor value={newsForm.content} onChange={(html) => setNewsForm(prev => ({ ...prev, content: html }))} />
+                            </div>
+
+                            <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
+                                <div className="flex-1">
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-1 mb-2 block">Temps de lecture</label>
+                                    <input type="text" value={newsForm.read_time} onChange={(e) => setNewsForm(prev => ({ ...prev, read_time: e.target.value }))} placeholder="5 min" className="w-full bg-white/5 border border-white/10 focus:border-[#C9A84C]/40 text-sm font-bold text-white rounded-2xl px-5 py-3 focus:outline-none" />
+                                </div>
+                                <label className="flex items-center gap-3 cursor-pointer sm:mt-6">
+                                    <input type="checkbox" checked={newsForm.published} onChange={(e) => setNewsForm(prev => ({ ...prev, published: e.target.checked }))} className="sr-only peer" />
+                                    <div className="w-11 h-6 bg-white/10 rounded-full peer peer-checked:after:translate-x-full after:content-[''] after:absolute after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all relative after:top-0.5 after:left-0.5 peer-checked:bg-[#C9A84C]"></div>
+                                    <span className="text-xs font-bold text-white/70">Publié (visible sur le site)</span>
+                                </label>
+                            </div>
+
+                            <div className="flex gap-3 pt-2">
+                                <button type="button" onClick={() => setIsNewsModalOpen(false)} className="flex-1 py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider bg-white/5 text-white/60 hover:text-white transition-all">Annuler</button>
+                                <button type="submit" disabled={actionLoading} className="flex-1 py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider bg-[#C9A84C] text-[#0F0F13] hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+                                    {actionLoading ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />} {newsForm.id ? 'Enregistrer' : 'Publier'}
+                                </button>
+                            </div>
                         </form>
                     </div>
                 </div>
