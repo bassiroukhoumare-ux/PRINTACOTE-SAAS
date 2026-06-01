@@ -13,6 +13,7 @@ import TermsOfServicePage from './pages/TermsOfServicePage';
 import MaquettePlace from './pages/MaquettePlace';
 import PrinterDetailPage from './pages/PrinterDetailPage';
 import NewsPage from './pages/NewsPage';
+import RgpdPage from './pages/RgpdPage';
 import AdminPage from './pages/AdminPage';
 import { CheckCircle2 } from 'lucide-react';
 
@@ -82,6 +83,7 @@ const pageToPath = {
     'legal': '/legal',
     'privacy': '/privacy',
     'terms': '/terms',
+    'rgpd': '/rgpd',
     'admin': '/admin21'
 };
 
@@ -98,6 +100,7 @@ const pathToPage = {
     '/legal': 'legal',
     '/privacy': 'privacy',
     '/terms': 'terms',
+    '/rgpd': 'rgpd',
     '/admin21': 'admin'
 };
 
@@ -223,6 +226,7 @@ const App = () => {
             {page === 'legal' && <LegalNoticePage setPage={setPage} />}
             {page === 'privacy' && <PrivacyPolicyPage setPage={setPage} />}
             {page === 'terms' && <TermsOfServicePage setPage={setPage} />}
+            {page === 'rgpd' && <RgpdPage setPage={setPage} />}
             
             {showSuccessToast && (
                 <div className="fixed bottom-6 right-6 z-[9999] bg-[#F5F5DC] border-2 border-[#3D0B37]/10 rounded-3xl p-6 shadow-2xl flex items-center gap-4 max-w-sm animate-in slide-in-from-bottom-5 duration-500">

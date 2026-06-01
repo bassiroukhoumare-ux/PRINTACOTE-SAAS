@@ -38,6 +38,7 @@ const Footer = ({ setPage }) => {
                             <li><button onClick={() => setPage('legal')} className="text-[#3D0B37]/40 hover:text-[#3D0B37] transition-colors text-sm font-bold">Mentions Légales</button></li>
                             <li><button onClick={() => setPage('terms')} className="text-[#3D0B37]/40 hover:text-[#3D0B37] transition-colors text-sm font-bold">Conditions d'Utilisation</button></li>
                             <li><button onClick={() => setPage('privacy')} className="text-[#3D0B37]/40 hover:text-[#3D0B37] transition-colors text-sm font-bold">Confidentialité</button></li>
+                            <li><button onClick={() => setPage('rgpd')} className="text-[#3D0B37]/40 hover:text-[#3D0B37] transition-colors text-sm font-bold">RGPD & Protection des données</button></li>
                         </ul>
                     </div>
                     
