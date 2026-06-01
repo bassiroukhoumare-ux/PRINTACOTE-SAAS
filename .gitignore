@@ -6,3 +6,5 @@ supabase/.temp
 # Scripts de debug ponctuels (contiennent des clés en dur)
 inspect_products.cjs
 inspect_products_join.cjs
+apply_migrations.cjs
+fix_admin_schema.sql

@@ -213,9 +213,10 @@ BEGIN
     INTO v_total_printers, v_total_views, v_total_clicks
     FROM public.printers;
 
+    -- NB : printers.services est de type jsonb, printers.portfolio est text[].
     FOR r IN SELECT services, portfolio FROM public.printers LOOP
         v_total_services := v_total_services + COALESCE(jsonb_array_length(r.services), 0);
-        v_total_portfolio := v_total_portfolio + COALESCE(jsonb_array_length(r.portfolio), 0);
+        v_total_portfolio := v_total_portfolio + COALESCE(array_length(r.portfolio, 1), 0);
     END LOOP;
 
     SELECT COUNT(*) INTO v_total_products FROM public.products;

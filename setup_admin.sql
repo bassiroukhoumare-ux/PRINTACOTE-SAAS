@@ -115,9 +115,9 @@ BEGIN
         p.logo_url,
         p.cover_url,
         p.rating,
-        u.email,
+        u.email::text,            -- auth.users.email est varchar(255)
         p.services,
-        p.portfolio
+        to_jsonb(p.portfolio)     -- printers.portfolio est text[] -> jsonb pour le front
     FROM public.printers p
     LEFT JOIN auth.users u ON p.owner_id = u.id
     ORDER BY p.created_at DESC;
@@ -148,8 +148,12 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 CREATE OR REPLACE FUNCTION public.admin_update_printer_portfolio(p_printer_id UUID, p_portfolio JSONB)
 RETURNS BOOLEAN AS $$
 BEGIN
+    -- printers.portfolio est text[] : on convertit le jsonb reçu du front en text[].
     UPDATE public.printers
-    SET portfolio = p_portfolio
+    SET portfolio = CASE
+        WHEN p_portfolio IS NULL OR jsonb_typeof(p_portfolio) <> 'array' THEN '{}'::text[]
+        ELSE ARRAY(SELECT jsonb_array_elements_text(p_portfolio))
+    END
     WHERE id = p_printer_id;
     RETURN FOUND;
 END;
