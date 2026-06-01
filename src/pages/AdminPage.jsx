@@ -190,7 +190,7 @@ const AdminPage = ({ setPage }) => {
         setLoading(true);
         try {
             // Run schema updates to ensure columns are present
-            supabase.rpc('admin_run_schema_updates').catch(e => console.warn(e));
+            supabase.rpc('admin_run_schema_updates').then(undefined, e => console.warn(e));
 
             if (activeTab === 'overview') {
                 const { data, error } = await supabase.rpc('admin_get_global_stats');
@@ -243,7 +243,7 @@ const AdminPage = ({ setPage }) => {
                 }
             } else if (activeTab === 'marketplace') {
                 // Réactive d'abord les produits dont la suspension a expiré.
-                await supabase.rpc('reactivate_expired_products').catch(() => {});
+                await supabase.rpc('reactivate_expired_products').then(undefined, () => {});
                 const { data, error } = await supabase
                     .from('products')
                     .select('*, printers(name, created_at)')
@@ -523,7 +523,7 @@ const AdminPage = ({ setPage }) => {
                     .eq('id', productId);
                 if (dbError) throw dbError;
             } else {
-                await supabase.from('products').update({ suspended_until: null }).eq('id', productId).catch(() => {});
+                await supabase.from('products').update({ suspended_until: null }).eq('id', productId).then(undefined, () => {});
             }
             showToast("Produit réactivé et remis en ligne.", "success");
             fetchAdminData();
@@ -1176,7 +1176,7 @@ const AdminPage = ({ setPage }) => {
                                             </div>
                                             <div>
                                                 <span className="text-[9px] font-black uppercase text-white/30 tracking-widest block">Vues de vitrines</span>
-                                                <h3 className="text-3xl font-black mt-1">{stats.totalViews.toLocaleString()}</h3>
+                                                <h3 className="text-3xl font-black mt-1">{(stats.totalViews || 0).toLocaleString()}</h3>
                                             </div>
                                         </div>
                                         <div className="bg-[#111116] border border-white/5 rounded-[2rem] p-6 flex items-center gap-5">
@@ -1185,7 +1185,7 @@ const AdminPage = ({ setPage }) => {
                                             </div>
                                             <div>
                                                 <span className="text-[9px] font-black uppercase text-white/30 tracking-widest block">Clics de Contact</span>
-                                                <h3 className="text-3xl font-black mt-1">{stats.totalClicks.toLocaleString()}</h3>
+                                                <h3 className="text-3xl font-black mt-1">{(stats.totalClicks || 0).toLocaleString()}</h3>
                                             </div>
                                         </div>
                                         <div className="bg-[#111116] border border-white/5 rounded-[2rem] p-6 flex items-center gap-5">

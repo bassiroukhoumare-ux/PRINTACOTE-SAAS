@@ -31,7 +31,7 @@ const MaquettePlace = ({ setPage }) => {
         setLoading(true);
         // Réactive les produits dont la suspension temporaire a expiré avant
         // de charger la liste publique (mécanique réelle, idempotente).
-        await supabase.rpc('reactivate_expired_products').catch(() => {});
+        await supabase.rpc('reactivate_expired_products').then(undefined, () => {});
         const { data, error } = await supabase
             .from('products')
             .select('*, printers(name, country, city, description, whatsapp, status)')
@@ -71,7 +71,7 @@ const MaquettePlace = ({ setPage }) => {
 
     const contactSeller = (product) => {
         if (product.printerId) {
-            supabase.rpc('increment_printer_clicks', { printer_id: product.printerId }).catch(err => console.warn(err));
+            supabase.rpc('increment_printer_clicks', { printer_id: product.printerId }).then(undefined, err => console.warn(err));
         }
         const productUrl = `${window.location.origin}/?product=${product.id}`;
         const message = `Bonjour, je suis intéressé par le produit "${product.title}" au prix de ${product.promoPrice || product.price}. \nLien du produit : ${productUrl} \n\nEnvoyé depuis printacote.com`;

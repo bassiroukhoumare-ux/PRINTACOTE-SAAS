@@ -51,7 +51,7 @@ const PrinterDetailPage = ({ id, setPage }) => {
                 setPrinter(data);
                 
                 // Track profile view in the background
-                supabase.rpc('increment_printer_views', { printer_id: id }).catch(e => {
+                supabase.rpc('increment_printer_views', { printer_id: id }).then(undefined, e => {
                     console.warn("Could not increment views:", e);
                 });
 
@@ -200,7 +200,7 @@ const PrinterDetailPage = ({ id, setPage }) => {
                               <div className="flex flex-col sm:flex-row gap-4 mb-4">
                                   <button 
                                       onClick={() => {
-                                          supabase.rpc('increment_printer_clicks', { printer_id: printer.id }).catch(err => console.warn(err));
+                                          supabase.rpc('increment_printer_clicks', { printer_id: printer.id }).then(undefined, err => console.warn(err));
                                           const rawPhone = printer.whatsapp || '221709465891';
                                           const cleanPhone = rawPhone.replace(/[^0-9]/g, '');
                                           window.open(`https://wa.me/${cleanPhone}`, '_blank');

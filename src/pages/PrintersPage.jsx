@@ -257,7 +257,7 @@ const PrintersPage = ({ setPage, setSelectedPrinterId }) => {
                                         <button 
                                             onClick={(e) => { 
                                                 e.stopPropagation(); 
-                                                supabase.rpc('increment_printer_clicks', { printer_id: p.id }).catch(err => console.warn(err));
+                                                supabase.rpc('increment_printer_clicks', { printer_id: p.id }).then(undefined, err => console.warn(err));
                                                 const rawPhone = p.whatsapp || '221709465891';
                                                 const cleanPhone = rawPhone.replace(/[^0-9]/g, '');
                                                 window.open(`https://wa.me/${cleanPhone}`, '_blank'); 
