@@ -5,7 +5,7 @@ import {
     Store, Mail, LogOut, Shield, ShieldAlert, KeyRound,
     Search, Trash2, CheckCircle2, XCircle, Send, Plus, Users2,
     Loader2, Megaphone, Menu, Pencil, Save, Star, Sparkles,
-    Eye, Newspaper, UserCheck, Clock, PauseCircle, PlayCircle
+    Eye, Newspaper, UserCheck, Clock, PauseCircle, PlayCircle, ArrowLeft
 } from 'lucide-react';
 import gsap from 'gsap';
 
@@ -82,6 +82,9 @@ const AdminPage = ({ setPage }) => {
 
     // Confirmation de déconnexion
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+    // Messagerie : recherche d'imprimeur à contacter
+    const [messageSearch, setMessageSearch] = useState('');
 
     // Helper functions
     const getPortfolioImageUrl = (item) => {
@@ -267,6 +270,15 @@ const AdminPage = ({ setPage }) => {
                     setProducts(data || []);
                 }
             } else if (activeTab === 'support') {
+                // Charge aussi la liste des imprimeurs pour pouvoir contacter
+                // n'importe lequel (pas seulement ceux qui ont déjà écrit).
+                const { data: printersData } = await supabase.rpc('admin_get_printers_list');
+                if (Array.isArray(printersData)) {
+                    setPrinters(printersData);
+                } else {
+                    const { data: pt } = await supabase.from('printers').select('*').order('created_at', { ascending: false });
+                    if (Array.isArray(pt)) setPrinters(pt);
+                }
                 const { data, error } = await supabase.rpc('admin_get_messages');
                 if (error) {
                     console.warn("RPC admin_get_messages failed, falling back to direct table query:", error.message);
@@ -291,15 +303,9 @@ const AdminPage = ({ setPage }) => {
                             direction: msg.direction
                         })) || [];
                         setMessages(mappedMessages);
-                        if (mappedMessages.length > 0 && !selectedPrinterId) {
-                            setSelectedPrinterId(mappedMessages[0].printer_id);
-                        }
                     }
                 } else {
                     setMessages(data || []);
-                    if (data && data.length > 0 && !selectedPrinterId) {
-                        setSelectedPrinterId(data[0].printer_id);
-                    }
                 }
             } else if (activeTab === 'advertising') {
                 const { data, error } = await supabase
@@ -908,6 +914,36 @@ const AdminPage = ({ setPage }) => {
             if (p) p.unread += 1;
         }
     });
+
+    // Liste de conversations : TOUS les imprimeurs sont contactables (pas
+    // seulement ceux qui ont déjà écrit). Ceux avec messages remontent en haut.
+    const conversationList = printers
+        .map(p => {
+            const msgs = messagesByPrinter[p.id] || [];
+            const conv = printersWithMessages.find(x => x.id === p.id);
+            return {
+                id: p.id,
+                name: p.name,
+                logo: p.logo_url,
+                email: p.email,
+                hasMessages: msgs.length > 0,
+                lastContent: msgs[0]?.content || '',
+                lastAt: msgs[0]?.created_at || null,
+                unread: conv?.unread || 0,
+            };
+        })
+        .filter(c => {
+            const q = messageSearch.trim().toLowerCase();
+            if (!q) return true;
+            return (c.name || '').toLowerCase().includes(q) || (c.email || '').toLowerCase().includes(q);
+        })
+        .sort((a, b) => {
+            if (a.hasMessages && b.hasMessages) return new Date(b.lastAt) - new Date(a.lastAt);
+            if (a.hasMessages) return -1;
+            if (b.hasMessages) return 1;
+            return (a.name || '').localeCompare(b.name || '');
+        });
+    const selectedPrinter = printers.find(p => p.id === selectedPrinterId);
 
     return (
         <div className="min-h-screen bg-[#0F0F13] flex flex-col lg:flex-row text-[#FAF8F5] font-sans selection:bg-[#C9A84C] selection:text-[#0F0F13]">
@@ -1781,27 +1817,36 @@ const AdminPage = ({ setPage }) => {
 
                             {/* TAB 6: SUPPORT MESSAGING & CHAT */}
                             {activeTab === 'support' && (
-                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 h-auto lg:h-[calc(100vh-200px)]">
-                                    
-                                    {/* Printers List Side panel */}
-                                    <div className="bg-[#111116] border border-white/5 rounded-[2rem] overflow-hidden flex flex-col h-[300px] lg:h-full">
-                                        <div className="p-5 border-b border-white/5 flex items-center justify-between">
-                                            <span className="text-[10px] font-black uppercase text-white/40 tracking-wider">Discussions</span>
-                                            <button 
-                                                onClick={() => {
-                                                    setSelectedBulkPrinters([]);
-                                                    setShowBulkModal(true);
-                                                }}
-                                                className="px-3.5 py-2 bg-[#C9A84C]/10 text-[#C9A84C] border border-[#C9A84C]/20 rounded-xl hover:bg-[#C9A84C]/20 active:scale-95 transition-all text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5"
+                                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 lg:gap-8 h-[calc(100vh-180px)] lg:h-[calc(100vh-200px)]">
+
+                                    {/* Printers List Side panel (masqué sur mobile quand un chat est ouvert) */}
+                                    <div className={`bg-[#111116] border border-white/5 rounded-[2rem] overflow-hidden flex-col h-full ${selectedPrinterId ? 'hidden lg:flex' : 'flex'}`}>
+                                        <div className="p-5 border-b border-white/5 flex items-center justify-between gap-2">
+                                            <span className="text-[10px] font-black uppercase text-white/40 tracking-wider">Imprimeurs</span>
+                                            <button
+                                                onClick={() => { setSelectedBulkPrinters([]); setShowBulkModal(true); }}
+                                                className="px-3.5 py-2 bg-[#C9A84C]/10 text-[#C9A84C] border border-[#C9A84C]/20 rounded-xl hover:bg-[#C9A84C]/20 active:scale-95 transition-all text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shrink-0"
                                             >
                                                 <Users2 size={12} /> Diffusion
                                             </button>
                                         </div>
+                                        <div className="p-3 border-b border-white/5">
+                                            <div className="relative">
+                                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-white/30"><Search size={14} /></div>
+                                                <input
+                                                    type="text"
+                                                    placeholder="Rechercher un imprimeur…"
+                                                    value={messageSearch}
+                                                    onChange={(e) => setMessageSearch(e.target.value)}
+                                                    className="w-full bg-white/5 border border-white/5 rounded-xl pl-9 pr-3 py-2.5 text-xs focus:outline-none focus:border-[#C9A84C]/40 text-white font-bold"
+                                                />
+                                            </div>
+                                        </div>
                                         <div className="flex-1 overflow-y-auto divide-y divide-white/5 custom-scrollbar">
-                                            {printersWithMessages.length === 0 ? (
-                                                <p className="p-8 text-center text-xs text-white/30 font-bold">Aucun message d'assistance reçu.</p>
+                                            {conversationList.length === 0 ? (
+                                                <p className="p-8 text-center text-xs text-white/30 font-bold">Aucun imprimeur trouvé.</p>
                                             ) : (
-                                                printersWithMessages.map(item => (
+                                                conversationList.map(item => (
                                                     <button
                                                         key={item.id}
                                                         onClick={() => setSelectedPrinterId(item.id)}
@@ -1814,10 +1859,10 @@ const AdminPage = ({ setPage }) => {
                                                         <div className="flex-1 min-w-0">
                                                             <h4 className="font-bold text-sm text-white truncate">{item.name}</h4>
                                                             <p className="text-[10px] text-white/40 mt-0.5 truncate">
-                                                                {messagesByPrinter[item.id]?.[0]?.content}
+                                                                {item.hasMessages ? item.lastContent : <span className="italic text-white/25">Aucun message — cliquez pour écrire</span>}
                                                             </p>
                                                         </div>
-                                                                        {item.unread > 0 && (
+                                                        {item.unread > 0 && (
                                                             <span className="bg-red-500 text-white font-black text-[9px] w-5 h-5 rounded-full flex items-center justify-center shrink-0">
                                                                 {item.unread}
                                                             </span>
@@ -1827,55 +1872,48 @@ const AdminPage = ({ setPage }) => {
                                             )}
                                         </div>
                                     </div>
-                                
+
                                     {/* Chat Dialog Panel */}
-                                    <div className="lg:col-span-2 bg-[#111116] border border-white/5 rounded-[2rem] flex flex-col h-[500px] lg:h-full overflow-hidden relative">
-                                        {selectedPrinterId && messagesByPrinter[selectedPrinterId] ? (
+                                    <div className={`lg:col-span-2 bg-[#111116] border border-white/5 rounded-[2rem] flex-col h-full overflow-hidden relative ${selectedPrinterId ? 'flex' : 'hidden lg:flex'}`}>
+                                        {selectedPrinterId ? (
                                             <>
                                                 {/* Active chat header */}
-                                                <div className="p-5 border-b border-white/5 bg-white/2 flex items-center justify-between">
-                                                    <div>
-                                                        <h3 className="font-bold text-white text-base">
-                                                            {printers.find(p => p.id === selectedPrinterId)?.name}
-                                                        </h3>
-                                                        <p className="text-[10px] text-white/45 mt-0.5 font-bold uppercase tracking-wider">
-                                                            {printers.find(p => p.id === selectedPrinterId)?.email}
-                                                        </p>
+                                                <div className="p-5 border-b border-white/5 bg-white/2 flex items-center gap-3">
+                                                    <button onClick={() => setSelectedPrinterId(null)} className="lg:hidden p-2 -ml-2 text-white/60 hover:text-white shrink-0">
+                                                        <ArrowLeft size={20} />
+                                                    </button>
+                                                    <div className="w-9 h-9 rounded-full border border-white/10 overflow-hidden shrink-0">
+                                                        <img src={selectedPrinter?.logo_url} alt="" className="w-full h-full object-cover" />
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <h3 className="font-bold text-white text-base truncate">{selectedPrinter?.name}</h3>
+                                                        <p className="text-[10px] text-white/45 mt-0.5 font-bold tracking-wider truncate">{selectedPrinter?.email}</p>
                                                     </div>
                                                 </div>
 
                                                 {/* Messages Thread list */}
-                                                <div className="flex-1 p-6 overflow-y-auto space-y-4 flex flex-col-reverse custom-scrollbar">
-                                                    {messagesByPrinter[selectedPrinterId].map((msg) => {
+                                                <div className="flex-1 p-4 sm:p-6 overflow-y-auto space-y-4 flex flex-col-reverse custom-scrollbar">
+                                                    {(messagesByPrinter[selectedPrinterId] || []).length === 0 ? (
+                                                        <div className="flex-1 flex flex-col items-center justify-center text-center text-white/30 py-10">
+                                                            <Mail size={32} className="mb-3 opacity-50" />
+                                                            <p className="text-xs font-bold">Aucun message pour le moment.</p>
+                                                            <p className="text-[11px] text-white/25 mt-1">Écrivez ci-dessous pour démarrer la conversation.</p>
+                                                        </div>
+                                                    ) : (messagesByPrinter[selectedPrinterId] || []).map((msg) => {
                                                         const isAdmin = msg.direction === 'admin_to_printer';
                                                         return (
-                                                            <div 
-                                                                key={msg.id} 
-                                                                className={`max-w-[80%] flex flex-col ${isAdmin ? 'self-end items-end' : 'self-start items-start'}`}
-                                                            >
-                                                                <div className={`p-4 rounded-3xl text-sm leading-relaxed ${
-                                                                    isAdmin 
-                                                                        ? 'bg-[#C9A84C] text-[#0F0F13] rounded-tr-none font-bold shadow-md shadow-[#C9A84C]/5' 
-                                                                        : 'bg-white/5 text-white rounded-tl-none border border-white/5 font-medium'
-                                                                }`}>
+                                                            <div key={msg.id} className={`max-w-[85%] sm:max-w-[80%] flex flex-col ${isAdmin ? 'self-end items-end' : 'self-start items-start'}`}>
+                                                                <div className={`p-4 rounded-3xl text-sm leading-relaxed ${isAdmin ? 'bg-[#C9A84C] text-[#0F0F13] rounded-tr-none font-bold shadow-md shadow-[#C9A84C]/5' : 'bg-white/5 text-white rounded-tl-none border border-white/5 font-medium'}`}>
                                                                     {!isAdmin && (
-                                                                        <span className="block text-[8px] font-black uppercase tracking-widest text-[#C9A84C] mb-1.5">
-                                                                            {msg.subject || "Demande de support"}
-                                                                        </span>
+                                                                        <span className="block text-[8px] font-black uppercase tracking-widest text-[#C9A84C] mb-1.5">{msg.subject || "Demande de support"}</span>
                                                                     )}
-                                                                    <p className="whitespace-pre-wrap">{truncateMessage(msg.content)}</p>
+                                                                    <p className="whitespace-pre-wrap break-words">{truncateMessage(msg.content)}</p>
                                                                     {msg.content.length > 150 && (
-                                                                        <button 
-                                                                            type="button"
-                                                                            onClick={() => setSelectedFullMessage(msg)}
-                                                                            className={`mt-2 text-[10px] font-black uppercase tracking-wider hover:underline block ${isAdmin ? 'text-[#0F0F13]/70' : 'text-[#C9A84C]'}`}
-                                                                        >
-                                                                            Voir plus
-                                                                        </button>
+                                                                        <button type="button" onClick={() => setSelectedFullMessage(msg)} className={`mt-2 text-[10px] font-black uppercase tracking-wider hover:underline block ${isAdmin ? 'text-[#0F0F13]/70' : 'text-[#C9A84C]'}`}>Voir plus</button>
                                                                     )}
                                                                 </div>
                                                                 <span className="text-[9px] font-mono text-white/30 mt-1.5">
-                                                                    {new Date(msg.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                                                    {new Date(msg.created_at).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })} {new Date(msg.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
                                                                 </span>
                                                             </div>
                                                         );
@@ -1883,38 +1921,26 @@ const AdminPage = ({ setPage }) => {
                                                 </div>
 
                                                 {/* Send Reply box */}
-                                                <form onSubmit={handleSendMessage} className="p-5 border-t border-white/5 bg-white/2 flex gap-4">
+                                                <form onSubmit={handleSendMessage} className="p-3 sm:p-5 border-t border-white/5 bg-white/2 flex gap-2 sm:gap-4">
                                                     <input
                                                         type="text"
-                                                        placeholder="Votre réponse d'assistance..."
+                                                        placeholder="Votre message…"
                                                         value={replyContent}
                                                         onChange={(e) => setReplyContent(e.target.value)}
-                                                        className="flex-1 bg-white/5 border border-white/5 focus:border-[#C9A84C]/40 text-sm font-bold text-white rounded-2xl px-6 py-4 focus:outline-none transition-colors"
+                                                        className="flex-1 bg-white/5 border border-white/5 focus:border-[#C9A84C]/40 text-sm font-bold text-white rounded-2xl px-4 sm:px-6 py-3.5 sm:py-4 focus:outline-none transition-colors min-w-0"
                                                     />
-                                                    <button
-                                                        type="submit"
-                                                        className="px-6 bg-[#C9A84C] text-[#0F0F13] rounded-2xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center shrink-0 shadow-lg shadow-[#C9A84C]/10"
-                                                    >
+                                                    <button type="submit" disabled={!replyContent.trim()} className="px-5 sm:px-6 bg-[#C9A84C] text-[#0F0F13] rounded-2xl hover:scale-105 active:scale-95 transition-all flex items-center justify-center shrink-0 shadow-lg shadow-[#C9A84C]/10 disabled:opacity-40 disabled:pointer-events-none">
                                                         <Send size={18} />
                                                     </button>
                                                 </form>
                                             </>
                                         ) : (
                                             <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
-                                                <Mail size={40} className="text-white/20 mb-4 animate-bounce" />
+                                                <Mail size={40} className="text-white/20 mb-4" />
                                                 <h4 className="font-bold text-lg text-white/40">Aucune discussion sélectionnée</h4>
                                                 <p className="text-xs text-white/30 max-w-sm mt-2 leading-relaxed">
-                                                    Sélectionnez une imprimerie sur le volet gauche pour voir l'historique ou lui envoyer un message.
+                                                    Sélectionnez un imprimeur à gauche pour voir l'historique ou lui envoyer un message — même s'il n'a jamais écrit.
                                                 </p>
-                                                <button
-                                                    onClick={() => {
-                                                        setSelectedBulkPrinters([]);
-                                                        setShowBulkModal(true);
-                                                    }}
-                                                    className="mt-6 px-6 py-3.5 bg-[#C9A84C] text-[#0F0F13] rounded-2xl hover:scale-105 active:scale-95 transition-all text-xs font-black uppercase tracking-wider flex items-center gap-2 shadow-lg shadow-[#C9A84C]/10"
-                                                >
-                                                    <Users2 size={16} /> Diffuser un message groupé
-                                                </button>
                                             </div>
                                         )}
                                     </div>
