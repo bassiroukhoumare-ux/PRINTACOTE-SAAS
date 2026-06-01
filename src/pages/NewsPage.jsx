@@ -18,43 +18,10 @@ const NewsPage = ({ setPage }) => {
     const [newComment, setNewComment] = useState({ name: '', email: '', text: '' });
     const [replyingTo, setReplyingTo] = useState(null);
 
-    // Contenu de repli (identique aux articles réels migrés dans la table news),
-    // utilisé uniquement si la base est injoignable.
-    const fallbackArticles = [
-        {
-            id: 1,
-            title: "Comment choisir le bon papier pour vos impressions ?",
-            desc: "Le choix du support est crucial pour le rendu final de vos documents. Découvrez nos conseils d'experts.",
-            content: "Le choix du papier est l'un des aspects les plus critiques de tout projet d'impression. Il ne s'agit pas seulement d'esthétique, mais aussi de fonctionnalité et de perception de la marque. Dans cet article, nous explorons les différences entre le papier couché, le papier offset, et les papiers texturés.\n\nPourquoi le grammage est-il important ?\n\nLe grammage (exprimé en g/m²) détermine la rigidité et l'opacité du papier. Pour des cartes de visite, nous recommandons au moins 350g, tandis que pour des flyers standards, 135g à 170g suffisent largement.",
-            views: "1.2k",
-            date: "14 Mai 2024",
-            readTime: "5 min",
-            img: "https://images.unsplash.com/photo-1589330694653-ded6df03f754?q=80&w=1000&auto=format&fit=crop"
-        },
-        {
-            id: 2,
-            title: "L'impression 3D révolutionne l'artisanat local",
-            desc: "Une nouvelle ère s'ouvre pour les créateurs sénégalais avec l'arrivée de machines haute précision.",
-            content: "L'impression 3D n'est plus une technologie du futur ; elle est déjà là et transforme la façon dont les artisans sénégalais conçoivent leurs produits. Des bijoux aux pièces mécaniques, les possibilités sont infinies.\n\nLes avantages pour les PME :\n\n- Réduction des coûts de prototypage.\n- Personnalisation extrême des produits.\n- Rapidité de mise sur le marché.",
-            views: "856",
-            date: "12 Mai 2024",
-            readTime: "8 min",
-            img: "https://images.unsplash.com/photo-1631034300185-da943f9a74a4?q=80&w=1000&auto=format&fit=crop"
-        },
-        {
-            id: 3,
-            title: "Tendance : Le retour du Letterpress",
-            desc: "Pourquoi cette technique ancienne redevient le summum du luxe pour les cartes de visite.",
-            content: "Le Letterpress, ou impression typographique, est une technique ancestrale qui consiste à presser les caractères sur le papier, créant un relief palpable. C'est aujourd'hui le choix privilégié pour les marques de luxe cherchant une distinction tactile.",
-            views: "2.4k",
-            date: "10 Mai 2024",
-            readTime: "6 min",
-            img: "https://images.unsplash.com/photo-1563986768609-322da13575f3?q=80&w=1000&auto=format&fit=crop"
-        }
-    ];
-
-    // Articles réellement affichés : chargés depuis la table news (Supabase).
-    const [articles, setArticles] = useState(fallbackArticles);
+    // Articles réellement affichés : chargés UNIQUEMENT depuis la table news.
+    // (Plus aucun contenu fictif codé en dur.)
+    const [articles, setArticles] = useState([]);
+    const [loadingNews, setLoadingNews] = useState(true);
 
     useEffect(() => {
         const fetchNews = async () => {
@@ -63,7 +30,7 @@ const NewsPage = ({ setPage }) => {
                 .select('*')
                 .eq('published', true)
                 .order('created_at', { ascending: false });
-            if (!error && Array.isArray(data) && data.length > 0) {
+            if (!error && Array.isArray(data)) {
                 setArticles(data.map((n) => ({
                     id: n.id,
                     title: n.title,
@@ -75,7 +42,7 @@ const NewsPage = ({ setPage }) => {
                     img: n.image_url
                 })));
             }
-            // En cas d'erreur ou de table vide, on conserve le contenu de repli.
+            setLoadingNews(false);
         };
         fetchNews();
     }, []);
@@ -275,6 +242,15 @@ const NewsPage = ({ setPage }) => {
             </div>
 
             <div className="container mx-auto px-6 -mt-12 relative z-20">
+                {!loadingNews && articles.length === 0 && (
+                    <div className="bg-white rounded-[3rem] border border-primary/10 shadow-xl p-16 text-center max-w-2xl mx-auto">
+                        <div className="w-16 h-16 bg-primary/5 rounded-2xl flex items-center justify-center mx-auto mb-6 text-primary">
+                            <Calendar size={32} />
+                        </div>
+                        <h3 className="text-2xl font-black text-primary mb-3">Aucune actualité pour le moment</h3>
+                        <p className="text-primary/50 font-medium">Nos premiers articles arrivent très bientôt. Revenez prochainement !</p>
+                    </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
                     {articles.map((article) => (
                         <div 

@@ -80,6 +80,9 @@ const AdminPage = ({ setPage }) => {
     const [suspendModalProduct, setSuspendModalProduct] = useState(null);
     const [suspendDays, setSuspendDays] = useState('7');
 
+    // Confirmation de déconnexion
+    const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
     // Helper functions
     const getPortfolioImageUrl = (item) => {
         if (!item) return '';
@@ -995,7 +998,7 @@ const AdminPage = ({ setPage }) => {
 
                         <div className="pt-6 border-t border-white/5">
                             <button 
-                                onClick={handleLogout}
+                                onClick={() => setShowLogoutConfirm(true)}
                                 className="w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold text-red-400 hover:bg-red-500/10 transition-colors text-xs uppercase tracking-wider"
                             >
                                 <LogOut size={18} />
@@ -1087,7 +1090,7 @@ const AdminPage = ({ setPage }) => {
 
                 <div className="p-8 border-t border-white/5">
                     <button 
-                        onClick={handleLogout}
+                        onClick={() => setShowLogoutConfirm(true)}
                         className="w-full flex items-center gap-4 px-6 py-4 rounded-2xl font-bold text-red-400 hover:bg-red-500/10 transition-colors text-xs uppercase tracking-wider"
                     >
                         <LogOut size={18} />
@@ -2072,6 +2075,37 @@ const AdminPage = ({ setPage }) => {
                                 Envoyer la diffusion ({selectedBulkPrinters.length} destinataire(s))
                             </button>
                         </form>
+                    </div>
+                </div>
+            )}
+
+            {/* Logout Confirmation Modal */}
+            {showLogoutConfirm && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-300">
+                    <div className="bg-[#111116] border border-white/10 rounded-[3rem] p-8 md:p-10 w-full max-w-md relative z-10 shadow-2xl animate-in zoom-in-95 duration-300">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="w-12 h-12 bg-red-500/10 text-red-400 rounded-2xl flex items-center justify-center shrink-0">
+                                <LogOut size={22} />
+                            </div>
+                            <h3 className="text-xl font-black text-white">Confirmer la déconnexion</h3>
+                        </div>
+                        <p className="text-sm text-white/50 font-medium mb-8 leading-relaxed">
+                            Vous allez quitter la console d'administration. Vous devrez ressaisir le mot de passe pour y revenir.
+                        </p>
+                        <div className="flex gap-3">
+                            <button
+                                onClick={() => setShowLogoutConfirm(false)}
+                                className="flex-1 py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider bg-white/5 text-white/60 hover:text-white transition-all"
+                            >
+                                Annuler
+                            </button>
+                            <button
+                                onClick={() => { setShowLogoutConfirm(false); handleLogout(); }}
+                                className="flex-1 py-3.5 rounded-2xl text-xs font-black uppercase tracking-wider bg-red-500 text-white hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2"
+                            >
+                                <LogOut size={16} /> Se déconnecter
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
