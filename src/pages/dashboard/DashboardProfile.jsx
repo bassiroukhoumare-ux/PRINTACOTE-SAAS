@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Camera, Save, Loader2, MapPin, Phone, Globe, Info, Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { compressImage } from '../../lib/image';
 
 const DashboardProfile = ({ printerData, onUpdate, showToast }) => {
     const [loading, setLoading] = useState(false);
@@ -116,14 +117,18 @@ const DashboardProfile = ({ printerData, onUpdate, showToast }) => {
             return;
         }
 
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${printerData.id}/${type}_${Date.now()}.${fileExt}`;
-        
         try {
+            // Compress the image before uploading
+            const maxDimension = type === 'logo' ? 400 : 1400;
+            const compressedFile = await compressImage(file, maxDimension, maxDimension, 0.85);
+
+            const fileExt = compressedFile.name.split('.').pop();
+            const fileName = `${printerData.id}/${type}_${Date.now()}.${fileExt}`;
+
             // Attempt Supabase Storage Upload
             const { data, error } = await supabase.storage
                 .from('public-assets')
-                .upload(fileName, file, { cacheControl: '3600', upsert: true });
+                .upload(fileName, compressedFile, { cacheControl: '3600', upsert: true });
                 
             if (error) throw error;
             

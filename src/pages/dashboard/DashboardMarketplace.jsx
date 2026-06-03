@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Plus, Store, ShoppingBag, X, Trash2, Loader2, DollarSign, Tag, Archive, Pencil } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { compressImage } from '../../lib/image';
 
 const DashboardMarketplace = ({ printerData, onUpdate, autoOpenModal, setAutoOpenModal, showToast, showConfirm }) => {
     const [products, setProducts] = useState([]);
@@ -114,13 +115,14 @@ const DashboardMarketplace = ({ printerData, onUpdate, autoOpenModal, setAutoOpe
         if (!file) return;
 
         setUploadingImage(true);
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${printerData.id}/product_${Date.now()}.${fileExt}`;
-
         try {
+            const compressedFile = await compressImage(file, 1000, 1000, 0.8);
+            const fileExt = compressedFile.name.split('.').pop();
+            const fileName = `${printerData.id}/product_${Date.now()}.${fileExt}`;
+
             const { data, error } = await supabase.storage
                 .from('public-assets')
-                .upload(fileName, file, { cacheControl: '3600', upsert: true });
+                .upload(fileName, compressedFile, { cacheControl: '3600', upsert: true });
 
             if (error) throw error;
 

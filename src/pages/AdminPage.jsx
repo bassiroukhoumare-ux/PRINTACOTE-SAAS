@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 import gsap from 'gsap';
 import RichTextEditor from '../components/RichTextEditor';
+import { compressImage } from '../lib/image';
 
 const AdminPage = ({ setPage }) => {
     const [password, setPassword] = useState('');
@@ -101,8 +102,9 @@ const AdminPage = ({ setPage }) => {
     const [newsSubTab, setNewsSubTab] = useState('articles'); // 'articles' | 'comments'
     const [isNewsModalOpen, setIsNewsModalOpen] = useState(false);
     const [coverUploading, setCoverUploading] = useState(false);
-    const emptyNewsForm = { id: null, title: '', excerpt: '', content: '', image_url: '', read_time: '5 min', published: true };
+    const emptyNewsForm = { id: null, title: '', excerpt: '', content: '', image_url: '', read_time: '5 min', published: true, category: 'Actualité', tags: '', mentions: [] };
     const [newsForm, setNewsForm] = useState(emptyNewsForm);
+    const [customCategory, setCustomCategory] = useState('');
 
     // Helper functions
     const getPortfolioImageUrl = (item) => {
@@ -345,12 +347,24 @@ const AdminPage = ({ setPage }) => {
                     setMessages(data || []);
                 }
             } else if (activeTab === 'news') {
-                const [newsRes, commentsRes] = await Promise.all([
+                const [newsRes, commentsRes, printersRes] = await Promise.all([
                     supabase.rpc('admin_get_all_news'),
                     supabase.rpc('admin_get_comments'),
+                    supabase.rpc('admin_get_printers_list')
                 ]);
                 setNewsList(Array.isArray(newsRes.data) ? newsRes.data : []);
                 setCommentsList(Array.isArray(commentsRes.data) ? commentsRes.data : []);
+                
+                let ptList = [];
+                if (printersRes.error) {
+                    console.warn("RPC admin_get_printers_list failed for news, trying direct table select:", printersRes.error.message);
+                    const { data: directPt } = await supabase.from('printers').select('id, name, city').order('name', { ascending: true });
+                    ptList = directPt || [];
+                } else {
+                    ptList = printersRes.data || [];
+                }
+                setPrinters(ptList);
+
                 if (newsRes.error) console.warn('admin_get_all_news:', newsRes.error.message);
             } else if (activeTab === 'advertising') {
                 const normalize = (v) => ({
@@ -793,6 +807,8 @@ const AdminPage = ({ setPage }) => {
     // ── Actualités / Blog ─────────────────────────────────────────────
     const handleOpenNewsEditor = (article = null) => {
         if (article) {
+            const cat = article.category || 'Actualité';
+            const isPreset = ['Actualité', 'Conseils', 'Innovation', 'Tendance', 'Technologie'].includes(cat);
             setNewsForm({
                 id: article.id,
                 title: article.title || '',
@@ -801,9 +817,14 @@ const AdminPage = ({ setPage }) => {
                 image_url: article.image_url || '',
                 read_time: article.read_time || '5 min',
                 published: article.published !== false,
+                category: isPreset ? cat : 'Autre',
+                tags: Array.isArray(article.tags) ? article.tags.join(', ') : (article.tags || ''),
+                mentions: Array.isArray(article.mentions) ? article.mentions : [],
             });
+            setCustomCategory(isPreset ? '' : cat);
         } else {
             setNewsForm(emptyNewsForm);
+            setCustomCategory('');
         }
         setIsNewsModalOpen(true);
     };
@@ -813,9 +834,10 @@ const AdminPage = ({ setPage }) => {
         if (!file) return;
         setCoverUploading(true);
         try {
-            const ext = file.name.split('.').pop();
+            const compressedFile = await compressImage(file, 1200, 1200, 0.8);
+            const ext = compressedFile.name.split('.').pop();
             const path = `news/cover-${Date.now()}.${ext}`;
-            const { error } = await supabase.storage.from('public-assets').upload(path, file, { cacheControl: '3600', upsert: true });
+            const { error } = await supabase.storage.from('public-assets').upload(path, compressedFile, { cacheControl: '3600', upsert: true });
             if (error) throw error;
             const { data: { publicUrl } } = supabase.storage.from('public-assets').getPublicUrl(path);
             setNewsForm(prev => ({ ...prev, image_url: publicUrl }));
@@ -832,8 +854,38 @@ const AdminPage = ({ setPage }) => {
         e.preventDefault();
         if (!newsForm.title.trim()) { showToast("Le titre est obligatoire.", "error"); return; }
         setActionLoading(true);
+
+        // 1. Détermine la catégorie finale
+        const savedCategory = newsForm.category === 'Autre' ? customCategory.trim() : newsForm.category;
+        if (!savedCategory) {
+            showToast("Veuillez spécifier une catégorie.", "error");
+            setActionLoading(false);
+            return;
+        }
+
+        // 2. Parse les tags
+        const tagsArray = (newsForm.tags || '').split(',').map(t => t.trim()).filter(Boolean);
+
+        // 3. Extrait automatiquement les mentions du contenu HTML
+        const contentHtml = newsForm.content || '';
+        const parsedMentions = [];
+        const mentionRegex = /data-printer-id="([a-f0-9-]{36})"/g;
+        let match;
+        while ((match = mentionRegex.exec(contentHtml)) !== null) {
+            if (!parsedMentions.includes(match[1])) {
+                parsedMentions.push(match[1]);
+            }
+        }
+        const mentionAll = contentHtml.includes('data-mention-all="true"');
+        const finalMentions = mentionAll ? printers.map(p => p.id) : parsedMentions;
+
+        // 4. Détermine les imprimeurs nouvellement mentionnés
+        const originalArticle = newsList.find(a => a.id === newsForm.id);
+        const oldMentions = originalArticle ? (Array.isArray(originalArticle.mentions) ? originalArticle.mentions : []) : [];
+        const newlyAddedMentions = finalMentions.filter(id => !oldMentions.includes(id));
+
         try {
-            const { error } = await supabase.rpc('admin_upsert_news', {
+            const { data: savedId, error } = await supabase.rpc('admin_upsert_news', {
                 p_id: newsForm.id,
                 p_title: newsForm.title,
                 p_excerpt: newsForm.excerpt,
@@ -841,11 +893,104 @@ const AdminPage = ({ setPage }) => {
                 p_image_url: newsForm.image_url,
                 p_read_time: newsForm.read_time,
                 p_published: newsForm.published,
+                p_category: savedCategory,
+                p_tags: tagsArray,
+                p_mentions: finalMentions,
             });
-            if (error) throw error;
+
+            let savedArticleId = savedId || newsForm.id;
+
+            if (error) {
+                console.warn("RPC admin_upsert_news failed, trying direct upsert:", error.message);
+                const payload = {
+                    title: newsForm.title,
+                    excerpt: newsForm.excerpt,
+                    content: newsForm.content,
+                    image_url: newsForm.image_url,
+                    read_time: newsForm.read_time || '5 min',
+                    published: newsForm.published !== false,
+                    category: savedCategory,
+                    tags: tagsArray,
+                    mentions: finalMentions
+                };
+                let dbError;
+                if (newsForm.id) {
+                    const { error: err } = await supabase
+                        .from('news')
+                        .update(payload)
+                        .eq('id', newsForm.id);
+                    dbError = err;
+                } else {
+                    const { data: insertData, error: err } = await supabase
+                        .from('news')
+                        .insert(payload)
+                        .select()
+                        .single();
+                    dbError = err;
+                    if (insertData) savedArticleId = insertData.id;
+                }
+                
+                if (dbError) {
+                    console.warn("Direct upsert with metadata fields failed, falling back to core fields upsert:", dbError.message);
+                    const corePayload = {
+                        title: newsForm.title,
+                        excerpt: newsForm.excerpt,
+                        content: newsForm.content,
+                        image_url: newsForm.image_url,
+                        read_time: newsForm.read_time || '5 min',
+                        published: newsForm.published !== false
+                    };
+                    let coreError;
+                    if (newsForm.id) {
+                        const { error: err } = await supabase
+                            .from('news')
+                            .update(corePayload)
+                            .eq('id', newsForm.id);
+                        coreError = err;
+                    } else {
+                        const { data: insertData, error: err } = await supabase
+                            .from('news')
+                            .insert(corePayload)
+                            .select()
+                            .single();
+                        coreError = err;
+                        if (insertData) savedArticleId = insertData.id;
+                    }
+                    if (coreError) throw coreError;
+                }
+            }
+
+            // 5. Envoi des notifications directes de messagerie aux imprimeurs mentionnés
+            if (savedArticleId && newlyAddedMentions.length > 0) {
+                const subject = `🔔 Nouvelle mention : ${newsForm.title}`;
+                const content = mentionAll 
+                    ? `Bonjour! Un nouvel article vient d'être publié sur Printacoté : "${newsForm.title}".\n\nDécouvrez nos derniers conseils et tendances en lisant l'article ici : ${window.location.origin}/actualites?article=${savedArticleId}`
+                    : `Bonjour! Votre imprimerie a été mentionnée dans notre nouvel article de blog : "${newsForm.title}".\n\nVous pouvez lire l'article complet et le partager en cliquant ici : ${window.location.origin}/actualites?article=${savedArticleId}`;
+                
+                await supabase.rpc('admin_send_message_bulk', {
+                    p_printer_ids: newlyAddedMentions,
+                    p_subject: subject,
+                    p_content: content
+                }).then(({ error: bulkError }) => {
+                    if (bulkError) {
+                        console.warn("RPC admin_send_message_bulk failed, falling back to individual support inserts:", bulkError.message);
+                        newlyAddedMentions.forEach(async (pid) => {
+                            await supabase.from('admin_messages').insert({
+                                printer_id: pid,
+                                subject: subject,
+                                content: content,
+                                direction: 'admin_to_printer',
+                                is_read: false
+                            });
+                        });
+                    }
+                });
+            }
+
             showToast(newsForm.id ? "Article mis à jour." : "Article publié.", "success");
             setIsNewsModalOpen(false);
             setNewsForm(emptyNewsForm);
+            setCustomCategory('');
             fetchAdminData();
         } catch (err) {
             console.error("Error saving news:", err);
@@ -2592,9 +2737,87 @@ const AdminPage = ({ setPage }) => {
                                 <textarea rows="2" value={newsForm.excerpt} onChange={(e) => setNewsForm(prev => ({ ...prev, excerpt: e.target.value }))} placeholder="Courte description affichée dans la liste" className="w-full bg-white/5 border border-white/10 focus:border-[#C9A84C]/40 text-sm font-medium text-white rounded-2xl px-5 py-3.5 focus:outline-none resize-none" />
                             </div>
 
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-1 mb-2 block">Catégorie</label>
+                                    <select 
+                                        value={newsForm.category} 
+                                        onChange={(e) => setNewsForm(prev => ({ ...prev, category: e.target.value }))} 
+                                        className="w-full bg-[#111116] border border-white/10 focus:border-[#C9A84C]/45 text-sm font-bold text-[#FAF8F5] rounded-2xl px-5 py-3.5 focus:outline-none"
+                                    >
+                                        <option value="Actualité" className="bg-[#111116] text-[#FAF8F5]">Actualité</option>
+                                        <option value="Conseils" className="bg-[#111116] text-[#FAF8F5]">Conseils</option>
+                                        <option value="Innovation" className="bg-[#111116] text-[#FAF8F5]">Innovation</option>
+                                        <option value="Tendance" className="bg-[#111116] text-[#FAF8F5]">Tendance</option>
+                                        <option value="Technologie" className="bg-[#111116] text-[#FAF8F5]">Technologie</option>
+                                        <option value="Autre" className="bg-[#111116] text-[#FAF8F5]">Autre (personnalisé)...</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-1 mb-2 block">Tags (séparés par des virgules)</label>
+                                    <input 
+                                        type="text" 
+                                        value={newsForm.tags} 
+                                        onChange={(e) => setNewsForm(prev => ({ ...prev, tags: e.target.value }))} 
+                                        placeholder="ex: Offset, Sénégal, 3D" 
+                                        className="w-full bg-white/5 border border-white/10 focus:border-[#C9A84C]/40 text-sm font-bold text-white rounded-2xl px-5 py-3.5 focus:outline-none" 
+                                    />
+                                </div>
+                                {newsForm.category === 'Autre' && (
+                                    <div className="md:col-span-2">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-[#C9A84C] ml-1 mb-2 block">Nom de la catégorie personnalisée</label>
+                                        <input 
+                                            type="text" 
+                                            required
+                                            value={customCategory} 
+                                            onChange={(e) => setCustomCategory(e.target.value)} 
+                                            placeholder="Saisissez votre catégorie personnalisée (ex: Tutoriels, Machines, Encre)" 
+                                            className="w-full bg-white/5 border border-[#C9A84C]/40 focus:border-[#C9A84C] text-sm font-bold text-[#FAF8F5] rounded-2xl px-5 py-3.5 focus:outline-none" 
+                                        />
+                                    </div>
+                                )}
+                            </div>
+
                             <div>
                                 <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-1 mb-2 block">Contenu de l'article</label>
-                                <RichTextEditor value={newsForm.content} onChange={(html) => setNewsForm(prev => ({ ...prev, content: html }))} />
+                                <RichTextEditor value={newsForm.content} printers={printers} onChange={(html) => setNewsForm(prev => ({ ...prev, content: html }))} />
+                            </div>
+
+                            <div>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-white/30 ml-1 mb-2 block">Imprimeurs mentionnés dans l'article</label>
+                                <div className="border border-white/10 rounded-2xl p-4 bg-white/5 max-h-36 overflow-y-auto space-y-2 custom-scrollbar">
+                                    {printers && printers.length > 0 ? (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                            {printers.map((p) => {
+                                                const isChecked = newsForm.mentions.includes(p.id);
+                                                return (
+                                                    <label key={p.id} className="flex items-center gap-3 cursor-pointer p-2 rounded-xl hover:bg-white/5 transition-colors">
+                                                        <input 
+                                                            type="checkbox" 
+                                                            checked={isChecked} 
+                                                            onChange={(e) => {
+                                                                if (e.target.checked) {
+                                                                    setNewsForm(prev => ({ ...prev, mentions: [...prev.mentions, p.id] }));
+                                                                } else {
+                                                                    setNewsForm(prev => ({ ...prev, mentions: prev.mentions.filter(id => id !== p.id) }));
+                                                                }
+                                                            }}
+                                                            className="rounded border-white/10 text-[#C9A84C] focus:ring-0 focus:ring-offset-0 bg-transparent w-4 h-4 cursor-pointer"
+                                                        />
+                                                        <div className="flex items-center gap-2">
+                                                            {p.logo_url && (
+                                                                <img src={p.logo_url} alt="" className="w-5 h-5 rounded-full object-cover bg-white/10" />
+                                                            )}
+                                                            <span className="text-xs font-bold text-white/80 line-clamp-1">{p.name} <span className="text-white/40 font-medium">({p.city})</span></span>
+                                                        </div>
+                                                    </label>
+                                                );
+                                            })}
+                                        </div>
+                                    ) : (
+                                        <p className="text-xs text-white/40 font-bold text-center py-4">Aucun imprimeur enregistré pour le moment.</p>
+                                    )}
+                                </div>
                             </div>
 
                             <div className="flex flex-col sm:flex-row gap-4 sm:items-center">

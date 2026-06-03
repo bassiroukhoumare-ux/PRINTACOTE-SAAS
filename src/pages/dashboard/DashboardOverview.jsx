@@ -1,12 +1,229 @@
 import React, { useState, useEffect } from 'react';
-import { Star, TrendingUp, MessageSquare, Eye, Loader2 } from 'lucide-react';
+import { Star, TrendingUp, MessageSquare, Eye, Loader2, QrCode, Download } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
 const DashboardOverview = ({ printerData, setActiveTab }) => {
-    const [periodFilter, setPeriodFilter] = useState('week');
+    const [periodFilter, setPeriodFilter] = useState('all');
     const [realStats, setRealStats] = useState(null);
+    const [viewsSeries, setViewsSeries] = useState([]);
     const [clicksSeries, setClicksSeries] = useState([]);
-    const [seriesLoading, setSeriesLoading] = useState(false);
+    const [statsLoading, setStatsLoading] = useState(false);
+
+    const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+
+    const profileUrl = `${window.location.origin}/imprimerie-detail?id=${printerData?.id || ''}`;
+    const qrCodeUrl = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&data=${encodeURIComponent(profileUrl)}`;
+
+    const getImageBase64 = (url) => {
+        return new Promise((resolve) => {
+            if (!url) {
+                resolve(null);
+                return;
+            }
+            if (url.startsWith('data:')) {
+                resolve(url);
+                return;
+            }
+
+            // Try standard fetch first (good for CORS-enabled APIs)
+            fetch(url)
+                .then(res => res.blob())
+                .then(blob => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result);
+                    reader.onerror = () => resolve(null);
+                    reader.readAsDataURL(blob);
+                })
+                .catch(() => {
+                    // Canvas fallback if fetch fails (e.g. CORS block on direct fetch but image loading allows it if crossOrigin is set)
+                    const img = new Image();
+                    img.crossOrigin = 'Anonymous';
+                    img.onload = () => {
+                        try {
+                            const canvas = document.createElement('canvas');
+                            canvas.width = img.naturalWidth || img.width;
+                            canvas.height = img.naturalHeight || img.height;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(img, 0, 0);
+                            const dataURL = canvas.toDataURL('image/jpeg');
+                            resolve(dataURL);
+                        } catch (e) {
+                            resolve(null);
+                        }
+                    };
+                    img.onerror = () => resolve(null);
+                    img.src = url;
+                });
+        });
+    };
+
+    const handleDownloadPDF = async () => {
+        setIsGeneratingPDF(true);
+        try {
+            const { jsPDF } = await import('jspdf');
+            const doc = new jsPDF({
+                orientation: 'portrait',
+                unit: 'mm',
+                format: 'a4'
+            });
+
+            // 1. Fetch QR Code image
+            const qrCodeBase64 = await getImageBase64(qrCodeUrl);
+            if (!qrCodeBase64) {
+                alert("Erreur lors de la génération du code QR. Veuillez réessayer.");
+                setIsGeneratingPDF(false);
+                return;
+            }
+
+            // 2. Fetch Logo image (if available)
+            let logoBase64 = null;
+            if (printerData?.logo_url) {
+                logoBase64 = await getImageBase64(printerData.logo_url);
+            }
+
+            // 3. Draw Background & Borders
+            doc.setFillColor(13, 13, 18); // #0D0D12 Obsidian
+            doc.rect(0, 0, 210, 297, 'F');
+            doc.setFillColor(250, 248, 245); // #FAF8F5 Ivory
+            doc.rect(8, 8, 194, 281, 'F');
+
+            // 4. Draw Logo or Initials Monogram
+            const centerX = 105;
+            const logoY = 48;
+            const logoRadius = 15;
+            const name = printerData?.name || 'Printacoté';
+
+            const drawMonogram = (pdfDoc, cx, cy, r) => {
+                pdfDoc.setFillColor(13, 13, 18); // Obsidian #0D0D12
+                pdfDoc.circle(cx, cy, r, 'F');
+                
+                pdfDoc.setDrawColor(201, 168, 76); // Champagne #C9A84C
+                pdfDoc.setLineWidth(1.5);
+                pdfDoc.circle(cx, cy, r, 'S');
+                
+                const initials = name
+                    .split(' ')
+                    .map(w => w[0])
+                    .join('')
+                    .slice(0, 2)
+                    .toUpperCase();
+                    
+                pdfDoc.setTextColor(201, 168, 76); // Champagne
+                pdfDoc.setFont('Helvetica', 'bold');
+                pdfDoc.setFontSize(26);
+                pdfDoc.text(initials, cx, cy + 3.5, { align: 'center' });
+            };
+            
+            if (logoBase64) {
+                try {
+                    // White circle background for transparent logos
+                    doc.setFillColor(255, 255, 255);
+                    doc.circle(centerX, logoY, logoRadius, 'F');
+                    
+                    // Draw circular border
+                    doc.setDrawColor(201, 168, 76); // #C9A84C Champagne
+                    doc.setLineWidth(1.5);
+                    doc.circle(centerX, logoY, logoRadius, 'S');
+
+                    // Draw logo image (contained inside circular region)
+                    try {
+                        doc.saveGraphicsState();
+                        doc.circle(centerX, logoY, logoRadius, 'F');
+                        doc.clip();
+                        doc.addImage(logoBase64, 'JPEG', centerX - logoRadius, logoY - logoRadius, logoRadius * 2, logoRadius * 2);
+                        doc.restoreGraphicsState();
+                    } catch (clipError) {
+                        // Fallback without clipping
+                        const imgSize = 22;
+                        doc.addImage(logoBase64, 'JPEG', centerX - imgSize / 2, logoY - imgSize / 2, imgSize, imgSize);
+                    }
+                } catch (err) {
+                    drawMonogram(doc, centerX, logoY, logoRadius);
+                }
+            } else {
+                drawMonogram(doc, centerX, logoY, logoRadius);
+            }
+
+            // 5. Draw Title & Subtitle
+            doc.setFont('Helvetica', 'bold');
+            doc.setFontSize(14);
+            doc.setTextColor(13, 13, 18);
+            doc.text(name.toUpperCase(), centerX, 78, { align: 'center' });
+            
+            // Horizontal line separator
+            doc.setDrawColor(201, 168, 76);
+            doc.setLineWidth(0.4);
+            doc.line(centerX - 20, 84, centerX + 20, 84);
+
+            // CTA text
+            doc.setFont('Helvetica', 'bold');
+            doc.setFontSize(18);
+            doc.setTextColor(13, 13, 18);
+            doc.text("SCANNEZ CE CODE QR", centerX, 98, { align: 'center' });
+            
+            doc.setFont('Helvetica', 'normal');
+            doc.setFontSize(12);
+            doc.setTextColor(42, 42, 53); // #2A2A35 Slate
+            doc.text("pour visiter notre profil en ligne", centerX, 106, { align: 'center' });
+
+            // 6. Draw QR Code Frame & Image
+            const frameSize = 110;
+            const frameX = centerX - frameSize / 2;
+            const frameY = 125;
+            const qrSize = 86;
+            const qrX = centerX - qrSize / 2;
+            const qrY = frameY + (frameSize - qrSize) / 2;
+
+            // Draw white background
+            doc.setFillColor(255, 255, 255);
+            doc.roundedRect(frameX, frameY, frameSize, frameSize, 8, 8, 'F');
+            
+            // Draw Champagne border
+            doc.setDrawColor(201, 168, 76); // Champagne #C9A84C
+            doc.setLineWidth(2);
+            doc.roundedRect(frameX, frameY, frameSize, frameSize, 8, 8, 'D');
+
+            // Draw QR Code
+            doc.addImage(qrCodeBase64, 'JPEG', qrX, qrY, qrSize, qrSize);
+
+            // 7. Draw Footer divider & text
+            doc.setDrawColor(13, 13, 18);
+            doc.setLineWidth(0.2);
+            doc.line(8 + 15, 260, 210 - 8 - 15, 260);
+
+            doc.setFont('Courier', 'bold');
+            doc.setFontSize(9);
+            doc.setTextColor(13, 13, 18);
+            doc.text("GÉNÉRÉ SUR WWW.PRINTACOTE.COM", centerX, 267, { align: 'center' });
+
+            // 8. Direct Download
+            const fileName = `affiche_qr_${name.toLowerCase().replace(/\s+/g, '_')}.pdf`;
+            doc.save(fileName);
+
+        } catch (error) {
+            console.error("Error generating PDF:", error);
+            alert("Erreur lors de la génération du PDF.");
+        } finally {
+            setIsGeneratingPDF(false);
+        }
+    };
+
+    const handleDownloadPNG = async () => {
+        try {
+            const response = await fetch(qrCodeUrl);
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `qrcode_${printerData?.name?.toLowerCase().replace(/\s+/g, '_') || 'boutique'}.png`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+        } catch (e) {
+            window.open(qrCodeUrl, '_blank');
+        }
+    };
 
     const getReviews = () => {
         const rawReviews = printerData?.reviews;
@@ -21,70 +238,114 @@ const DashboardOverview = ({ printerData, setActiveTab }) => {
     const reviewCount = reviews.length;
     const displayRating = reviewCount > 0 ? (printerData?.rating || 0) : 0;
 
-    const getMonthName = () => {
-        const months = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
-        return months[new Date().getMonth()];
-    };
-
-    // Totaux réels : cumul stocké sur le profil (fallback) + résumé RPC.
-    const totalViews = realStats?.totalViews ?? (printerData?.views || 0);
-    const totalClicks = realStats?.totalClicks ?? (printerData?.clicks || 0);
-    const monthViews = realStats?.monthViews ?? 0;
-
-    // Récupère le résumé chiffré réel de l'imprimeur.
+    // Fetch cumulative overall stats once on mount
     useEffect(() => {
         if (!printerData?.id || printerData?.isMock) return;
         let cancelled = false;
         supabase.rpc('get_printer_stats', { p_printer_id: printerData.id }).then(({ data, error }) => {
             if (cancelled) return;
-            if (error) { console.warn('get_printer_stats indisponible:', error.message); return; }
+            if (error) { console.warn('get_printer_stats unavailable:', error.message); return; }
             setRealStats(data || null);
         });
         return () => { cancelled = true; };
     }, [printerData?.id, printerData?.isMock]);
 
-    // Récupère la série temporelle réelle des clics WhatsApp selon la période.
+    // Fetch timeseries in parallel for views and clicks when a filter is active
     useEffect(() => {
-        if (!printerData?.id || printerData?.isMock) { setClicksSeries([]); return; }
+        if (!printerData?.id || printerData?.isMock || periodFilter === 'all') {
+            setViewsSeries([]);
+            setClicksSeries([]);
+            return;
+        }
+
         let cancelled = false;
-        setSeriesLoading(true);
-        supabase.rpc('get_printer_event_timeseries', {
-            p_printer_id: printerData.id,
-            p_type: 'whatsapp_click',
-            p_period: periodFilter,
-        }).then(({ data, error }) => {
+        setStatsLoading(true);
+
+        Promise.all([
+            supabase.rpc('get_printer_event_timeseries', {
+                p_printer_id: printerData.id,
+                p_type: 'view',
+                p_period: periodFilter,
+            }),
+            supabase.rpc('get_printer_event_timeseries', {
+                p_printer_id: printerData.id,
+                p_type: 'whatsapp_click',
+                p_period: periodFilter,
+            })
+        ]).then(([resViews, resClicks]) => {
             if (cancelled) return;
-            if (error) { console.warn('get_printer_event_timeseries indisponible:', error.message); setClicksSeries([]); }
-            else setClicksSeries(Array.isArray(data) ? data : []);
-            setSeriesLoading(false);
+            setViewsSeries(Array.isArray(resViews.data) ? resViews.data : []);
+            setClicksSeries(Array.isArray(resClicks.data) ? resClicks.data : []);
+            setStatsLoading(false);
+        }).catch((err) => {
+            if (cancelled) return;
+            console.error('Error loading analytics series:', err);
+            setStatsLoading(false);
         });
+
         return () => { cancelled = true; };
     }, [printerData?.id, printerData?.isMock, periodFilter]);
 
-    const series = Array.isArray(clicksSeries) ? clicksSeries : [];
-    const periodClicks = series.reduce((acc, b) => acc + (b.value || 0), 0);
-    const maxValue = series.reduce((acc, b) => Math.max(acc, b.value || 0), 0);
-    const periodDays = periodFilter === 'today' ? 1 : periodFilter === 'week' ? 7 : periodFilter === 'month' ? 30 : 365;
-    const avgUnit = periodFilter === 'today' ? 'heure' : periodFilter === 'year' ? 'mois' : 'jour';
-    const formatBucketLabel = (ts) => {
-        const d = new Date(ts);
-        if (periodFilter === 'today') return `${d.getHours()}h`;
-        if (periodFilter === 'year') return d.toLocaleDateString('fr-FR', { month: 'short' });
-        return d.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' });
+    const getPeriodSum = (series) => {
+        return series.reduce((acc, bar) => acc + (bar.value || 0), 0);
     };
-    const periodLabels = { today: "Aujourd'hui", week: '7 derniers jours', month: '30 derniers jours', year: '12 derniers mois' };
+
+    const displayViews = periodFilter === 'all'
+        ? (realStats?.totalViews ?? (printerData?.views || 0))
+        : getPeriodSum(viewsSeries);
+
+    const displayClicks = periodFilter === 'all'
+        ? (realStats?.totalClicks ?? (printerData?.clicks || 0))
+        : getPeriodSum(clicksSeries);
+
+
+
+    const getFilterLabel = () => {
+        if (periodFilter === 'all') return 'Tout';
+        if (periodFilter === 'today') return "Aujourd'hui";
+        if (periodFilter === 'week') return 'Semaine';
+        if (periodFilter === 'month') return 'Mois';
+        return 'Année';
+    };
 
     const stats = [
-        { label: 'Visites Profil', value: totalViews, sub: 'Vues réelles cumulées', icon: Eye, color: 'bg-primary text-white' },
-        { label: `Visites - ${getMonthName()}`, value: monthViews, sub: 'Visites ce mois-ci', icon: TrendingUp, color: 'bg-accent text-[#3D0B37]' },
-        { label: 'Clics WhatsApp', value: totalClicks, sub: 'Demandes de contact', icon: MessageSquare, color: 'bg-[#25D366] text-white' },
+        { label: 'Visites Profil', value: displayViews, sub: periodFilter === 'all' ? 'Vues réelles cumulées' : `Vues : ${getFilterLabel()}`, icon: Eye, color: 'bg-primary text-white' },
+        { label: 'Clics WhatsApp', value: displayClicks, sub: periodFilter === 'all' ? 'Demandes de contact' : `Clics : ${getFilterLabel()}`, icon: MessageSquare, color: 'bg-[#25D366] text-white' },
         { label: 'Note Moyenne', value: reviewCount > 0 ? displayRating.toFixed(1) : '0', sub: `Basé sur ${reviewCount} avis réel${reviewCount > 1 ? 's' : ''}`, icon: Star, color: 'bg-yellow-500 text-white' },
     ];
 
     return (
         <div className="space-y-8 sm:space-y-12">
+            {/* Header / Period Selector */}
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-dark/5 pb-6">
+                <div>
+                    <h2 className="text-xl sm:text-2xl font-black text-dark tracking-tight">Vue d'ensemble</h2>
+                    <p className="text-dark/40 text-xs sm:text-sm font-medium mt-1">
+                        Suivez les performances de votre vitrine en temps réel.
+                    </p>
+                </div>
+                <div className="flex bg-dark/5 p-1 rounded-2xl w-full sm:w-auto overflow-x-auto">
+                    {[
+                        { id: 'all', label: 'Tout' },
+                        { id: 'today', label: 'Jour' },
+                        { id: 'week', label: 'Semaine' },
+                        { id: 'month', label: 'Mois' },
+                        { id: 'year', label: 'Année' }
+                    ].map((filter) => (
+                        <button
+                            key={filter.id}
+                            onClick={() => setPeriodFilter(filter.id)}
+                            className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all whitespace-nowrap flex-1 sm:flex-none
+                                ${periodFilter === filter.id ? 'bg-primary text-white shadow-md' : 'text-dark/50 hover:text-dark'}`}
+                        >
+                            {filter.label}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
             {/* Stats Grid */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
                 {stats.map((stat, i) => (
                     <div key={i} className="bg-white border border-dark/5 rounded-[1.5rem] sm:rounded-[2.5rem] p-5 sm:p-10 flex flex-col justify-between min-h-[150px] sm:min-h-[220px] hover:shadow-2xl transition-all duration-500 group relative overflow-hidden">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-dark/5 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700"></div>
@@ -95,7 +356,13 @@ const DashboardOverview = ({ printerData, setActiveTab }) => {
                             </div>
                         </div>
                         <div className="relative z-10 mt-4 sm:mt-8">
-                            <div className="text-2xl sm:text-5xl font-black text-dark tracking-tight mb-1 sm:mb-2">{stat.value}</div>
+                            {statsLoading && (stat.label !== 'Note Moyenne') ? (
+                                <div className="flex items-center h-12">
+                                    <Loader2 className="animate-spin text-primary" size={24} />
+                                </div>
+                            ) : (
+                                <div className="text-2xl sm:text-5xl font-black text-dark tracking-tight mb-1 sm:mb-2">{stat.value}</div>
+                            )}
                             <div className="flex items-center gap-1.5 sm:gap-2 text-[8px] sm:text-[10px] font-mono font-bold text-dark/30 uppercase tracking-widest">
                                 <TrendingUp size={10} className="text-green-500 sm:w-3 sm:h-3" />
                                 {stat.sub}
@@ -105,104 +372,74 @@ const DashboardOverview = ({ printerData, setActiveTab }) => {
                 ))}
             </div>
 
-            {/* Analyse des Clics WhatsApp Section (données réelles) */}
-            <div className="bg-white border border-dark/5 rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-12 shadow-xl shadow-dark/5 space-y-8 animate-in fade-in duration-500">
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+            {/* Actions Rapides & Code QR de Vitrine (côte à côte) */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Actions Rapides */}
+                <div className="bg-[#3D0B37] rounded-[2rem] p-8 sm:p-10 text-[#F5F5DC] relative overflow-hidden shadow-xl border border-primary/5 flex flex-col justify-between min-h-[300px]">
+                    <div className="absolute top-0 right-0 w-[40%] h-full bg-gradient-to-l from-primary/10 to-transparent pointer-events-none"></div>
                     <div>
-                        <h3 className="font-black text-xl sm:text-2xl tracking-tight mb-2">Analyse des Clics WhatsApp</h3>
-                        <p className="text-dark/40 text-sm">Clics réels sur vos boutons de contact, enregistrés sur votre page publique.</p>
+                        <h3 className="text-xl sm:text-2xl font-black mb-2 tracking-tight">Actions Rapides</h3>
+                        <p className="text-[#F5F5DC]/60 text-xs sm:text-sm font-medium leading-relaxed">
+                            Accédez instantanément aux raccourcis pour enrichir votre vitrine en ligne et augmenter vos opportunités.
+                        </p>
                     </div>
-                    <div className="flex bg-dark/5 p-1 rounded-2xl w-full md:w-auto overflow-x-auto">
-                        {[
-                            { id: 'today', label: 'Jour' },
-                            { id: 'week', label: 'Semaine' },
-                            { id: 'month', label: 'Mois' },
-                            { id: 'year', label: 'Année' }
-                        ].map((filter) => (
-                            <button
-                                key={filter.id}
-                                onClick={() => setPeriodFilter(filter.id)}
-                                className={`px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider transition-all whitespace-nowrap flex-1 md:flex-none
-                                    ${periodFilter === filter.id ? 'bg-primary text-white shadow-md' : 'text-dark/50 hover:text-dark'}`}
+                    <div className="grid grid-cols-3 gap-3 mt-6 sm:mt-10 relative z-10">
+                        <button onClick={() => setActiveTab('services')} className="bg-[#F5F5DC] text-[#3D0B37] py-3.5 px-3 rounded-xl font-black text-[9px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-transform flex items-center justify-center gap-1 shadow-md">
+                            + Service
+                        </button>
+                        <button onClick={() => setActiveTab('portfolio')} className="bg-white/10 hover:bg-white/20 text-white py-3.5 px-3 rounded-xl font-black text-[9px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-transform flex items-center justify-center gap-1">
+                            + Projet
+                        </button>
+                        <button onClick={() => setActiveTab('marketplace')} className="bg-accent text-white py-3.5 px-3 rounded-xl font-black text-[9px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-transform flex items-center justify-center gap-1 shadow-md">
+                            + Produit
+                        </button>
+                    </div>
+                </div>
+
+                {/* Code QR de Vitrine */}
+                <div className="bg-white border border-dark/5 rounded-[2rem] p-8 sm:p-10 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-6 min-h-[300px]">
+                    <div className="flex-1 space-y-4 text-left">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
+                                <QrCode size={16} />
+                            </div>
+                            <h3 className="font-black text-lg sm:text-xl tracking-tight">Code QR de Vitrine</h3>
+                        </div>
+                        <p className="text-dark/50 text-xs leading-relaxed font-medium">
+                            Téléchargez le code QR officiel de votre boutique en ligne. Vous pouvez l'intégrer à vos propres affiches ou supports publicitaires.
+                        </p>
+                        <div className="flex flex-col gap-2 pt-2">
+                            <button 
+                                onClick={handleDownloadPNG}
+                                className="bg-primary hover:bg-primary/90 text-[#FAF8F5] py-3.5 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-transform flex items-center justify-center gap-2 shadow-lg w-full"
                             >
-                                {filter.label}
+                                <Download size={14} /> Télécharger Image (PNG)
                             </button>
-                        ))}
-                    </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
-                    <div className="bg-[#25D366]/5 rounded-[2rem] p-6 sm:p-8 border border-[#25D366]/10 flex flex-col justify-between min-h-[150px]">
-                        <div>
-                            <span className="text-[10px] font-black uppercase tracking-widest text-[#25D366]">Clics sur la période</span>
-                            <h4 className="text-3xl sm:text-4xl font-black text-dark mt-2">{periodClicks} clic{periodClicks > 1 ? 's' : ''}</h4>
-                        </div>
-                        <div className="mt-4 pt-4 border-t border-dark/5">
-                            <span className="text-[10px] font-black uppercase tracking-widest text-dark/40 block">Moyenne / {avgUnit}</span>
-                            <h4 className="text-xl font-black text-dark/70 mt-1">{(periodClicks / Math.max(1, series.length || periodDays)).toFixed(1)}</h4>
-                        </div>
-                    </div>
-
-                    <div className="md:col-span-2 flex flex-col justify-between gap-6 overflow-hidden">
-                        {seriesLoading ? (
-                            <div className="flex items-center justify-center h-28 text-dark/30 gap-2">
-                                <Loader2 size={18} className="animate-spin" /> <span className="text-xs font-bold">Chargement…</span>
-                            </div>
-                        ) : periodClicks === 0 ? (
-                            <div className="flex flex-col items-center justify-center h-28 text-center text-dark/30">
-                                <MessageSquare size={22} className="mb-2 opacity-50" />
-                                <p className="text-xs font-bold">Aucun clic WhatsApp sur cette période.</p>
-                            </div>
-                        ) : (
-                            <div className="overflow-x-auto pb-2 custom-scrollbar">
-                                <div className="flex items-end justify-between h-28 px-2 pt-4 border-b border-dark/5 relative gap-1 min-w-[340px] sm:min-w-0">
-                                    <div className="absolute top-0 left-0 right-0 border-t border-dashed border-dark/5"></div>
-                                    <div className="absolute top-1/2 left-0 right-0 border-t border-dashed border-dark/5"></div>
-                                    {series.map((bar, i) => {
-                                        const value = bar.value || 0;
-                                        const percentage = maxValue > 0 ? Math.max(value > 0 ? 6 : 0, (value / maxValue) * 100) : 0;
-                                        return (
-                                            <div key={i} className="flex flex-col items-center gap-2 flex-1 group min-w-0">
-                                                <div className="relative w-full flex justify-center items-end h-20">
-                                                    <div className="absolute bottom-full mb-1 opacity-0 group-hover:opacity-100 transition-opacity bg-dark text-white text-[9px] font-bold px-2 py-1 rounded-md pointer-events-none whitespace-nowrap z-20 shadow-xl">
-                                                        {value} clic{value > 1 ? 's' : ''}
-                                                    </div>
-                                                    <div style={{ height: `${percentage}%` }} className="w-3 sm:w-6 bg-[#25D366] rounded-t-lg transition-all duration-700 hover:bg-[#128C7E] shadow-lg shadow-[#25D366]/15"></div>
-                                                </div>
-                                                <span className="text-[7px] sm:text-[9px] font-mono font-bold text-dark/40 uppercase tracking-wider truncate max-w-full">
-                                                    {formatBucketLabel(bar.ts)}
-                                                </span>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        )}
-                        <div className="flex justify-between items-center text-[10px] sm:text-xs font-bold text-dark/45 uppercase tracking-wider">
-                            <span>Période : {periodLabels[periodFilter]}</span>
-                            <span>Taux de conversion : {((totalClicks / Math.max(1, totalViews)) * 100).toFixed(1)}%</span>
+                            <button 
+                                onClick={handleDownloadPDF}
+                                disabled={isGeneratingPDF}
+                                className="bg-dark/5 hover:bg-dark/10 text-dark py-3.5 px-6 rounded-xl font-black text-[10px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-transform flex items-center justify-center gap-2 w-full disabled:opacity-50"
+                            >
+                                {isGeneratingPDF ? (
+                                    <>
+                                        <Loader2 size={14} className="animate-spin" /> Génération...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Download size={14} /> Télécharger Affiche (PDF)
+                                    </>
+                                )}
+                            </button>
                         </div>
                     </div>
-                </div>
-            </div>
-
-            {/* Actions Rapides (pleine largeur) */}
-            <div className="bg-[#3D0B37] rounded-[2rem] sm:rounded-[3rem] p-8 sm:p-12 text-[#F5F5DC] relative overflow-hidden shadow-2xl border border-primary/5">
-                <div className="absolute top-0 right-0 w-[50%] h-full bg-gradient-to-l from-primary/10 to-transparent"></div>
-                <h3 className="text-2xl sm:text-3xl font-black mb-6 tracking-tight">Actions Rapides</h3>
-                <p className="text-[#F5F5DC]/60 max-w-md mb-10 leading-relaxed text-base font-medium">
-                    Accédez instantanément aux fonctionnalités clés pour enrichir votre vitrine et augmenter vos opportunités commerciales.
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl">
-                    <button onClick={() => setActiveTab('services')} className="bg-[#F5F5DC] text-[#3D0B37] py-4 px-6 rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-transform flex items-center justify-center gap-2 shadow-xl shrink-0">
-                        + Service
-                    </button>
-                    <button onClick={() => setActiveTab('portfolio')} className="bg-white/10 hover:bg-white/20 text-white py-4 px-6 rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-transform flex items-center justify-center gap-2">
-                        + Réalisation
-                    </button>
-                    <button onClick={() => setActiveTab('marketplace')} className="bg-accent text-white py-4 px-6 rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-105 active:scale-95 transition-transform flex items-center justify-center gap-2 shadow-xl">
-                        + Produit
-                    </button>
+                    
+                    <div className="shrink-0 bg-white p-3 rounded-2xl border border-dark/10 shadow-md flex items-center justify-center w-36 h-36">
+                        <img 
+                            src={qrCodeUrl} 
+                            alt="Code QR" 
+                            className="w-full h-full object-contain" 
+                        />
+                    </div>
                 </div>
             </div>
         </div>

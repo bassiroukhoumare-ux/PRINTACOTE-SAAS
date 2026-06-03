@@ -1,14 +1,30 @@
-import React, { useEffect, useState } from 'react';
-import { MapPin, Star, MessageCircle, Phone, ArrowLeft, CheckCircle, Image as ImageIcon, ExternalLink, Globe, User, Send, CreditCard, X } from 'lucide-react';
+import React, { useEffect, useState, useRef } from 'react';
+import { MapPin, Star, MessageCircle, Phone, ArrowLeft, CheckCircle, Image as ImageIcon, ExternalLink, Globe, User, Send, CreditCard, X, Store } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { updateSEO } from '../lib/seo';
 
 const PrinterDetailPage = ({ id, setPage }) => {
     const [printer, setPrinter] = useState(null);
     const [loading, setLoading] = useState(true);
     const [reviews, setReviews] = useState([]);
-    const [newReview, setNewReview] = useState({ rating: 5, text: '' });
+    const [newReview, setNewReview] = useState({ rating: 5, text: '', firstName: '', lastName: '' });
     const [activeImage, setActiveImage] = useState(null);
     const [toast, setToast] = useState(null);
+    const [products, setProducts] = useState([]);
+
+    const boutiqueRef = useRef(null);
+
+    const scrollToBoutique = () => {
+        boutiqueRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    const handleContactProduct = (product) => {
+        supabase.rpc('increment_printer_clicks', { printer_id: id }).then(undefined, err => console.warn(err));
+        const rawPhone = printer?.whatsapp || '221709465891';
+        const cleanPhone = rawPhone.replace(/[^0-9]/g, '');
+        const message = `Bonjour! Je suis intéressé(e) par votre produit "${product.name}" (${product.promo_price || product.price} FCFA) vu sur Printacoté. Est-il disponible ?`;
+        window.open(`https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`, '_blank');
+    };
 
     useEffect(() => {
         if (toast) {
@@ -33,6 +49,15 @@ const PrinterDetailPage = ({ id, setPage }) => {
     useEffect(() => {
         if (id) {
             fetchPrinter();
+            const fetchProducts = async () => {
+                const { data } = await supabase
+                    .from('products')
+                    .select('*')
+                    .eq('printer_id', id)
+                    .eq('status', 'En ligne');
+                setProducts(data || []);
+            };
+            fetchProducts();
         } else {
             setLoading(false);
         }
@@ -49,6 +74,14 @@ const PrinterDetailPage = ({ id, setPage }) => {
 
             if (!error && data) {
                 setPrinter(data);
+                
+                // Dynamic SEO metadata
+                updateSEO({
+                    title: `${data.name} — Imprimeur à ${data.city} | Printacoté`,
+                    description: data.description || `Découvrez l'atelier ${data.name} à ${data.city} sur Printacoté. Consultez leurs réalisations, spécialités offset/numérique, boutique de consommables et contactez-les.`,
+                    imageUrl: data.logo_url || data.cover_url || "/og-image.png",
+                    url: `/imprimerie-detail?id=${data.id}`
+                });
                 
                 // Track profile view in the background
                 supabase.rpc('increment_printer_views', { printer_id: id }).then(undefined, e => {
@@ -77,10 +110,17 @@ const PrinterDetailPage = ({ id, setPage }) => {
     };
 
     const handlePublishReview = async () => {
-        if (!newReview.text) return;
+        if (!newReview.firstName?.trim() || !newReview.lastName?.trim()) {
+            setToast({ message: "Veuillez renseigner votre prénom et votre nom pour laisser un avis.", type: 'error' });
+            return;
+        }
+        if (!newReview.text?.trim()) {
+            setToast({ message: "Veuillez écrire un commentaire.", type: 'error' });
+            return;
+        }
         const review = {
             id: reviews.length + 1,
-            author: "Client Anonyme",
+            author: `${newReview.firstName.trim()} ${newReview.lastName.trim()}`,
             rating: newReview.rating,
             text: newReview.text,
             date: new Date().toLocaleDateString('fr-FR')
@@ -106,7 +146,7 @@ const PrinterDetailPage = ({ id, setPage }) => {
                 reviews: updatedReviews,
                 rating: averageRating
             });
-            setNewReview({ rating: 5, text: '' });
+            setNewReview({ rating: 5, text: '', firstName: '', lastName: '' });
             setToast({ message: "Votre avis a été publié avec succès !", type: 'success' });
         } else {
             setToast({ message: "Erreur lors de la publication de l'avis : " + error.message, type: 'error' });
@@ -227,6 +267,15 @@ const PrinterDetailPage = ({ id, setPage }) => {
                                       <Phone size={20} />
                                       Appeler
                                   </button>
+                                  {products && products.length > 0 && (
+                                      <button 
+                                          onClick={scrollToBoutique}
+                                          className="flex-1 sm:flex-none bg-primary text-[#F5F5DC] px-8 py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:scale-105 transition-transform shadow-xl border border-white/10"
+                                      >
+                                          <Store size={20} />
+                                          Ma Boutique
+                                      </button>
+                                  )}
                               </div>
 
                             <div className="space-y-6">
@@ -283,6 +332,75 @@ const PrinterDetailPage = ({ id, setPage }) => {
                                  )}
                              </div>
                         </div>
+
+                         {/* Boutique en Ligne Section */}
+                         {products && products.length > 0 && (
+                             <div ref={boutiqueRef} className="bg-white rounded-[3rem] p-6 sm:p-10 md:p-16 border border-primary/10 shadow-2xl space-y-6 sm:space-y-10 scroll-mt-24">
+                                 <div className="flex items-center justify-between">
+                                     <h3 className="text-2xl sm:text-3xl font-black text-primary flex items-center gap-4">
+                                         <Store size={24} className="sm:size-8 text-primary" />
+                                         Boutique & Consommables
+                                     </h3>
+                                 </div>
+                                 <div className="grid grid-cols-2 gap-4 sm:gap-8">
+                                     {products.map((product) => (
+                                         <div key={product.id} className="group bg-white rounded-[1.5rem] sm:rounded-[2.5rem] overflow-hidden border border-primary/10 hover:shadow-2xl transition-all duration-500 flex flex-col justify-between h-full">
+                                             <div>
+                                                 <div className="relative aspect-[4/3] overflow-hidden bg-primary/5">
+                                                     <img 
+                                                         src={product.images?.[0] || 'https://images.unsplash.com/photo-1585776245991-cf89dd7fc53e?q=80&w=1000'} 
+                                                         alt={product.name} 
+                                                         className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                                                     />
+                                                     {product.discount && (
+                                                         <div className="absolute top-3 left-3 sm:top-6 sm:left-6 bg-red-500 text-white px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl text-[10px] sm:text-xs font-black shadow-xl">
+                                                             -{product.discount}%
+                                                         </div>
+                                                     )}
+                                                 </div>
+                                                 <div className="p-4 sm:p-8 pb-0">
+                                                     <div className="flex flex-col sm:flex-row justify-between items-start gap-1 sm:gap-4 mb-2 sm:mb-3">
+                                                         <h4 className="text-sm sm:text-lg font-black text-primary group-hover:text-accent transition-colors line-clamp-2 leading-tight">
+                                                             {product.name}
+                                                         </h4>
+                                                         <div className="text-left sm:text-right shrink-0">
+                                                             {product.promo_price ? (
+                                                                 <>
+                                                                     <div className="text-primary font-black text-xs sm:text-base">{product.promo_price} FCFA</div>
+                                                                     <div className="text-[8px] sm:text-[10px] text-dark/30 line-through font-bold">{product.price} FCFA</div>
+                                                                 </>
+                                                             ) : (
+                                                                 <div className="text-primary font-black text-xs sm:text-base">{product.price} FCFA</div>
+                                                             )}
+                                                         </div>
+                                                     </div>
+                                                     <div className="text-[8px] sm:text-[9px] font-black uppercase tracking-widest text-accent mb-2 sm:mb-3">
+                                                         {product.options?.category || 'Consommable'}
+                                                     </div>
+                                                     <p className="text-primary/60 text-[10px] sm:text-xs font-medium mb-3 sm:mb-6 line-clamp-2 sm:line-clamp-3 leading-relaxed">
+                                                         {product.description}
+                                                     </p>
+                                                 </div>
+                                             </div>
+                                             <div className="p-4 sm:p-8 pt-0">
+                                                 <div className="flex items-center justify-between py-2 sm:py-4 border-t border-primary/5 text-[8px] sm:text-[10px] font-bold text-dark/45 mb-3 sm:mb-6">
+                                                     <span>Stock : {product.options?.quantity || 'En stock'}</span>
+                                                     <span>Format : {product.options?.format || 'Standard'}</span>
+                                                 </div>
+                                                 <button 
+                                                     onClick={() => handleContactProduct(product)}
+                                                     className="w-full bg-[#25D366] text-white py-2.5 sm:py-3.5 px-3 sm:px-4 rounded-lg sm:rounded-xl font-bold flex items-center justify-center gap-1.5 sm:gap-2 hover:scale-[1.02] active:scale-[0.98] transition-transform text-[9px] sm:text-xs uppercase tracking-wider shadow-md"
+                                                 >
+                                                     <MessageCircle size={14} className="sm:w-4 sm:h-4" />
+                                                     <span className="hidden sm:inline">Commander sur WhatsApp</span>
+                                                     <span className="sm:hidden">Commander</span>
+                                                 </button>
+                                             </div>
+                                         </div>
+                                     ))}
+                                 </div>
+                             </div>
+                         )}
 
                         {/* Localization Section */}
                         <div className="bg-white rounded-[3rem] p-10 md:p-16 border border-primary/10 shadow-2xl space-y-10">
@@ -345,6 +463,24 @@ const PrinterDetailPage = ({ id, setPage }) => {
                                                 </button>
                                             ))}
                                         </div>
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            <input 
+                                                type="text" 
+                                                required
+                                                placeholder="Votre prénom" 
+                                                value={newReview.firstName || ''}
+                                                onChange={(e) => setNewReview({...newReview, firstName: e.target.value})}
+                                                className="w-full bg-white border border-primary/10 rounded-xl px-4 py-3 text-primary focus:outline-none focus:border-primary transition-all text-sm font-bold shadow-sm"
+                                            />
+                                            <input 
+                                                type="text" 
+                                                required
+                                                placeholder="Votre nom" 
+                                                value={newReview.lastName || ''}
+                                                onChange={(e) => setNewReview({...newReview, lastName: e.target.value})}
+                                                className="w-full bg-white border border-primary/10 rounded-xl px-4 py-3 text-primary focus:outline-none focus:border-primary transition-all text-sm font-bold shadow-sm"
+                                            />
+                                        </div>
                                         <textarea 
                                             value={newReview.text}
                                             onChange={(e) => setNewReview({...newReview, text: e.target.value})}
@@ -379,6 +515,18 @@ const PrinterDetailPage = ({ id, setPage }) => {
                                                 <p className="text-primary/70 font-medium leading-relaxed">
                                                     {rev.text}
                                                 </p>
+                                                {rev.reply && (
+                                                    <div className="mt-4 bg-[#FAF8F5] border border-primary/5 rounded-2xl p-5 pl-6 relative">
+                                                        <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#C9A84C] rounded-l-2xl"></div>
+                                                        <div className="flex items-center justify-between mb-2">
+                                                            <span className="text-[10px] font-black uppercase tracking-wider text-[#C9A84C]">Réponse de l'imprimeur</span>
+                                                            <span className="text-[9px] font-bold text-primary/30 uppercase tracking-widest">{rev.replyDate || rev.date}</span>
+                                                        </div>
+                                                        <p className="text-primary/70 text-xs font-semibold leading-relaxed">
+                                                            {rev.reply}
+                                                        </p>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     ))}

@@ -20,6 +20,8 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 3. La liste admin renvoie aussi le badge.
+-- (DROP nécessaire car on ajoute une colonne au type de retour.)
+DROP FUNCTION IF EXISTS public.admin_get_printers_list();
 CREATE OR REPLACE FUNCTION public.admin_get_printers_list()
 RETURNS TABLE (
     id UUID, created_at TIMESTAMPTZ, name TEXT, first_name TEXT, last_name TEXT,

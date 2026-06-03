@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { compressImage } from '../lib/image';
 import { useRef } from 'react';
 import {
     LayoutDashboard, User, Wrench, Image as ImageIcon,
@@ -12,6 +13,7 @@ import DashboardProfile from './dashboard/DashboardProfile';
 import DashboardServices from './dashboard/DashboardServices';
 import DashboardPortfolio from './dashboard/DashboardPortfolio';
 import DashboardMarketplace from './dashboard/DashboardMarketplace';
+import DashboardReviews from './dashboard/DashboardReviews';
 import SubscriptionPanel from '../components/SubscriptionPanel';
 import { getSubscriptionState } from '../lib/subscription';
 
@@ -117,9 +119,11 @@ const DashboardPage = ({ setPage, user }) => {
     }, [notifications]);
 
     useEffect(() => {
+        if (!user?.id) return;
         // Simulate a new notification after 15 seconds
         const timer = setTimeout(() => {
-            const hasTriggered = sessionStorage.getItem('simulated_notif_triggered');
+            const key = `simulated_notif_triggered_${user.id}`;
+            const hasTriggered = localStorage.getItem(key);
             if (!hasTriggered) {
                 const newNotif = {
                     id: Date.now().toString(),
@@ -131,11 +135,11 @@ const DashboardPage = ({ setPage, user }) => {
                 };
                 setNotifications(prev => [newNotif, ...prev]);
                 showToast("Nouveau message disponible dans vos notifications", "info");
-                sessionStorage.setItem('simulated_notif_triggered', 'true');
+                localStorage.setItem(key, 'true');
             }
         }, 15000);
         return () => clearTimeout(timer);
-    }, [notifications]);
+    }, [notifications, user?.id]);
 
     // Onboarding Upload States & Refs
     const logoRef = useRef(null);
@@ -439,13 +443,16 @@ const DashboardPage = ({ setPage, user }) => {
             return;
         }
 
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${printerData.id}/onboarding_${type}_${Date.now()}.${fileExt}`;
-        
         try {
+            const maxDimension = type === 'logo' ? 400 : 1400;
+            const compressedFile = await compressImage(file, maxDimension, maxDimension, 0.85);
+
+            const fileExt = compressedFile.name.split('.').pop();
+            const fileName = `${printerData.id}/onboarding_${type}_${Date.now()}.${fileExt}`;
+            
             const { error } = await supabase.storage
                 .from('public-assets')
-                .upload(fileName, file, { cacheControl: '3600', upsert: true });
+                .upload(fileName, compressedFile, { cacheControl: '3600', upsert: true });
             if (error) throw error;
             
             const { data: { publicUrl } } = supabase.storage
@@ -564,6 +571,7 @@ const DashboardPage = ({ setPage, user }) => {
         { id: 'services', label: 'Mes Services', icon: Wrench },
         { id: 'portfolio', label: 'Portfolio', icon: ImageIcon },
         { id: 'marketplace', label: 'Ma Boutique', icon: Store },
+        { id: 'reviews', label: 'Avis Clients', icon: Star },
         { id: 'support', label: 'Contact Support', icon: MessageCircle },
     ];
 
@@ -883,7 +891,7 @@ const DashboardPage = ({ setPage, user }) => {
                     >
                         <item.icon size={22} strokeWidth={activeTab === item.id ? 2.5 : 2} />
                         <span className="text-[8px] font-black uppercase tracking-wider">
-                            {item.id === 'overview' ? 'Accueil' : item.id === 'profile' ? 'Profil' : item.id === 'services' ? 'Services' : item.id === 'portfolio' ? 'Portfolio' : 'Boutique'}
+                            {item.id === 'overview' ? 'Accueil' : item.id === 'profile' ? 'Profil' : item.id === 'services' ? 'Services' : item.id === 'portfolio' ? 'Portfolio' : item.id === 'marketplace' ? 'Boutique' : 'Avis'}
                         </span>
                     </button>
                 ))}
@@ -1007,6 +1015,7 @@ const DashboardPage = ({ setPage, user }) => {
                         {activeTab === 'services' && <DashboardServices printerData={printerData} onUpdate={fetchPrinterData} autoOpenModal={autoOpenModal} setAutoOpenModal={setAutoOpenModal} showToast={showToast} showConfirm={showConfirm} />}
                         {activeTab === 'portfolio' && <DashboardPortfolio printerData={printerData} onUpdate={fetchPrinterData} autoOpenModal={autoOpenModal} setAutoOpenModal={setAutoOpenModal} showToast={showToast} showConfirm={showConfirm} />}
                         {activeTab === 'marketplace' && <DashboardMarketplace printerData={printerData} onUpdate={fetchPrinterData} autoOpenModal={autoOpenModal} setAutoOpenModal={setAutoOpenModal} showToast={showToast} showConfirm={showConfirm} />}
+                        {activeTab === 'reviews' && <DashboardReviews printerData={printerData} onUpdate={fetchPrinterData} showToast={showToast} />}
                         {activeTab === 'support' && (
                             <div className="bg-white border border-dark/5 rounded-[3rem] p-10 md:p-12 shadow-2xl relative overflow-hidden animate-in fade-in duration-500">
                                 <div className="absolute top-0 right-0 w-[50%] h-full bg-gradient-to-l from-primary/5 to-transparent pointer-events-none"></div>

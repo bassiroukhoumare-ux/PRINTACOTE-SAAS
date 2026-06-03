@@ -15,7 +15,8 @@ import PrinterDetailPage from './pages/PrinterDetailPage';
 import NewsPage from './pages/NewsPage';
 import RgpdPage from './pages/RgpdPage';
 import AdminPage from './pages/AdminPage';
-import { CheckCircle2 } from 'lucide-react';
+import { CheckCircle2, ShieldCheck } from 'lucide-react';
+import { updateSEO } from './lib/seo';
 
 
 
@@ -54,9 +55,16 @@ const Layout = ({ children, setPage, currentPage, user }) => {
                             <ul className="space-y-4 font-bold text-sm">
                                 <li><button onClick={() => setPage('terms')} className="hover:text-accent transition-colors">Conditions d'utilisation</button></li>
                                 <li><button onClick={() => setPage('privacy')} className="hover:text-accent transition-colors">Confidentialité</button></li>
+                                <li>
+                                    <button onClick={() => setPage('rgpd')} className="hover:text-accent transition-colors flex items-center gap-2">
+                                        <ShieldCheck size={16} className="text-accent" />
+                                        <span>RGPD & Protection</span>
+                                    </button>
+                                </li>
                                 <li><button className="hover:text-accent transition-colors">Contactez-nous</button></li>
                             </ul>
                         </div>
+
                     </div>
                     
                     <div className="pt-8 border-t border-[#3D0B37]/5 flex justify-center items-center">
@@ -107,22 +115,50 @@ const pathToPage = {
 const App = () => {
     const getInitialPage = () => {
         const path = window.location.pathname;
+        const params = new URLSearchParams(window.location.search);
+        if (path === '/imprimerie-detail' && (params.get('id') || params.get('printer'))) {
+            return 'printer_detail';
+        }
         return pathToPage[path] || 'home';
     };
 
     const [page, setPage] = useState(getInitialPage);
     const [user, setUser] = useState(null);
-    const [selectedPrinterId, setSelectedPrinterId] = useState(null);
+    const [selectedPrinterId, setSelectedPrinterId] = useState(() => {
+        const params = new URLSearchParams(window.location.search);
+        return params.get('id') || params.get('printer') || null;
+    });
     const [showSuccessToast, setShowSuccessToast] = useState(false);
 
     // Sync state change to URL
     useEffect(() => {
         const currentPath = window.location.pathname;
         const targetPath = pageToPath[page] || '/accueil';
-        if (currentPath !== targetPath) {
-            window.history.pushState(null, '', targetPath);
+        const params = new URLSearchParams(window.location.search);
+        
+        if (page === 'printer_detail' && selectedPrinterId) {
+            params.set('id', selectedPrinterId);
+            const searchStr = params.toString();
+            if (currentPath !== targetPath || window.location.search !== `?${searchStr}`) {
+                window.history.replaceState(null, '', `${targetPath}?${searchStr}`);
+            }
+        } else if (page === 'news') {
+            const articleId = params.get('article');
+            if (articleId) {
+                params.set('article', articleId);
+                window.history.replaceState(null, '', `${targetPath}?${params.toString()}`);
+            } else {
+                if (currentPath !== targetPath) {
+                    window.history.pushState(null, '', targetPath);
+                }
+            }
+        } else {
+            // Clear parameter query strings on other pages
+            if (currentPath !== targetPath || window.location.search !== '') {
+                window.history.pushState(null, '', targetPath);
+            }
         }
-    }, [page]);
+    }, [page, selectedPrinterId]);
 
     // Handle browser back/forward buttons
     useEffect(() => {
@@ -210,6 +246,61 @@ const App = () => {
 
     useEffect(() => {
         window.scrollTo(0, 0);
+        
+        // Dynamic SEO for static pages
+        const defaultDesc = "Découvrez Printacoté, la plateforme de référence qui connecte les clients à l'imprimeur idéal près de chez eux, tout en permettant aux imprimeurs locaux de prospérer et d'étendre leur visibilité.";
+        const defaultImg = "/og-image.png";
+        
+        if (page === 'home') {
+            updateSEO({
+                title: "Printacoté — Trouvez l'imprimeur idéal près de chez vous",
+                description: defaultDesc,
+                imageUrl: defaultImg,
+                url: "/"
+            });
+        } else if (page === 'printers') {
+            updateSEO({
+                title: "Annuaire des Imprimeurs — Printacoté",
+                description: "Trouvez et contactez les meilleurs imprimeurs professionnels et ateliers d'impression à Dakar et dans tout le Sénégal.",
+                imageUrl: defaultImg,
+                url: "/imprimerie"
+            });
+        } else if (page === 'marketplace') {
+            updateSEO({
+                title: "Boutique & Marketplace — Printacoté",
+                description: "Achetez et revendez du matériel d'impression professionnel, consommables et papiers sur la marketplace de Printacoté.",
+                imageUrl: defaultImg,
+                url: "/maquette_place"
+            });
+        } else if (page === 'login') {
+            updateSEO({
+                title: "Connexion Espace Pro — Printacoté",
+                description: "Connectez-vous à votre espace professionnel pour gérer votre imprimerie en ligne.",
+                imageUrl: defaultImg,
+                url: "/login"
+            });
+        } else if (page === 'register') {
+            updateSEO({
+                title: "Inscription Imprimerie — Printacoté",
+                description: "Rejoignez Printacoté, créez votre vitrine en ligne gratuitement et recevez des demandes de devis de clients.",
+                imageUrl: defaultImg,
+                url: "/inscription"
+            });
+        } else if (page === 'dashboard') {
+            updateSEO({
+                title: "Tableau de Bord — Printacoté",
+                description: "Gérer votre vitrine, vos services, votre portfolio et vos produits sur votre tableau de bord Printacoté.",
+                imageUrl: defaultImg,
+                url: "/dashboard"
+            });
+        } else if (page === 'admin') {
+            updateSEO({
+                title: "Console d'Administration — Printacoté",
+                description: "Salle de contrôle d'administration système Printacoté.",
+                imageUrl: defaultImg,
+                url: "/admin21"
+            });
+        }
     }, [page]);
 
     return (
@@ -217,7 +308,7 @@ const App = () => {
             {page === 'home' && <HomePage setPage={setPage} />}
             {page === 'printers' && <PrintersPage setPage={setPage} setSelectedPrinterId={setSelectedPrinterId} />}
             {page === 'printer_detail' && <PrinterDetailPage id={selectedPrinterId} setPage={setPage} />}
-            {page === 'news' && <NewsPage setPage={setPage} />}
+            {page === 'news' && <NewsPage setPage={setPage} setSelectedPrinterId={setSelectedPrinterId} />}
             {page === 'marketplace' && <MaquettePlace setPage={setPage} />}
             {page === 'login' && <LoginPage setPage={setPage} setUser={setUser} />}
             {page === 'register' && <RegisterPage setPage={setPage} />}

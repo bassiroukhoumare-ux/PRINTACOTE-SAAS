@@ -96,3 +96,40 @@
 .prose-news a { color: #3D0B37; font-weight: 700; text-decoration: underline; }
 .prose-news img { max-width: 100%; border-radius: 1.5rem; margin: 1.5rem 0; }
 .prose-news h2[style*="center"], .prose-news p[style*="center"] { text-align: center; }
+
+/* Remplacement CSS des couleurs de texte invisibles (fond clair public / fond sombre admin) */
+.prose-news [style*="color:#FAF8F5"],
+.prose-news [style*="color: #FAF8F5"],
+.prose-news [style*="color:#faf8f5"],
+.prose-news [style*="color: #faf8f5"],
+.prose-news [style*="color:rgb(250, 248, 245)"],
+.prose-news [style*="color: rgb(250, 248, 245)"],
+.prose-news [style*="color:rgb(255, 255, 255)"],
+.prose-news [style*="color: rgb(255, 255, 255)"],
+.prose-news [style*="color:#ffffff"],
+.prose-news [style*="color:#FFF"],
+.prose-news [style*="color:#fff"],
+.prose-news [style*="color:white"],
+.prose-news [style*="color: white"],
+.prose-news [style*="color:rgb(255,255,255)"],
+.prose-news [style*="color:rgb(250,248,245)"],
+.prose-news font[color="#ffffff"],
+.prose-news font[color="#fff"],
+.prose-news font[color="#FAF8F5"],
+.prose-news font[color="#faf8f5"],
+.prose-news font[color="white"] {
+  color: rgba(61, 11, 55, 0.75) !important;
+}
+
+.rte-content [style*="color:#0D0D12"],
+.rte-content [style*="color: #0D0D12"],
+.rte-content [style*="color:#0d0d12"],
+.rte-content [style*="color: #0d0d12"],
+.rte-content [style*="color:rgb(13, 13, 18)"],
+.rte-content [style*="color: rgb(13, 13, 18)"],
+.rte-content [style*="color:rgb(0, 0, 0)"],
+.rte-content [style*="color: rgb(0, 0, 0)"],
+.rte-content [style*="color:#000000"],
+.rte-content [style*="color:#000"] {
+  color: #FAF8F5 !important;
+}
