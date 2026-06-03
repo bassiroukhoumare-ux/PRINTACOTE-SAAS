@@ -4,6 +4,29 @@ import { supabase } from '../lib/supabase';
 
 const SUPPORT_WHATSAPP = '221709465891'; // Numéro de support officiel Printacoté
 
+const getDeviceDetails = () => {
+    const ua = navigator.userAgent;
+    let device = "Ordinateur";
+    if (/Mobi|Android|iPhone|iPad|iPod/i.test(ua)) {
+        device = "Mobile / Tablette";
+    }
+    
+    let os = "Système inconnu";
+    if (/Windows/i.test(ua)) os = "Windows";
+    else if (/Macintosh|Mac OS X/i.test(ua)) os = "macOS";
+    else if (/Android/i.test(ua)) os = "Android";
+    else if (/iPhone|iPad|iPod/i.test(ua)) os = "iOS";
+    else if (/Linux/i.test(ua)) os = "Linux";
+    
+    let browser = "Navigateur inconnu";
+    if (/Chrome/i.test(ua)) browser = "Chrome";
+    else if (/Safari/i.test(ua) && !/Chrome/i.test(ua)) browser = "Safari";
+    else if (/Firefox/i.test(ua)) browser = "Firefox";
+    else if (/Edge/i.test(ua)) browser = "Edge";
+    
+    return `${device} (${os} - ${browser})`;
+};
+
 const LoginPage = ({ setPage, setUser }) => {
     const [view, setView] = useState('login'); // 'login' | 'forgot' | 'verify'
     const [email, setEmail] = useState('');
@@ -63,12 +86,35 @@ const LoginPage = ({ setPage, setUser }) => {
         // Generate a 6-digit verification code
         const code = Math.floor(100000 + Math.random() * 900000).toString();
 
+        // Retrieve device and location metadata
+        const deviceDetails = getDeviceDetails();
+        let clientIp = 'Inconnu';
+        let clientLocation = 'Inconnue';
+
+        try {
+            const ipPromise = fetch('https://ipapi.co/json/').then(r => r.json());
+            const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000));
+            const ipData = await Promise.race([ipPromise, timeoutPromise]);
+            if (ipData && ipData.ip) {
+                clientIp = ipData.ip;
+                clientLocation = `${ipData.city || ''}, ${ipData.region || ''}, ${ipData.country_name || ''}`.replace(/^, |, $/, '').trim();
+                if (!clientLocation) {
+                    clientLocation = ipData.country_name || 'Inconnue';
+                }
+            }
+        } catch (err) {
+            console.warn("Could not fetch client metadata:", err.message);
+        }
+
         let emailSent = false;
         try {
             // Call Supabase stored procedure / RPC to send custom HTML recovery email via Resend
             const { error: rpcError } = await supabase.rpc('send_recovery_email', {
                 email_to: email,
-                recovery_code: code
+                recovery_code: code,
+                client_ip: clientIp,
+                client_location: clientLocation,
+                client_device: deviceDetails
             });
             
             if (!rpcError) {

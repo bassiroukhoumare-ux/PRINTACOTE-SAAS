@@ -160,13 +160,53 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 
 -- 9. Recovery email stored procedure using Resend API key
-CREATE OR REPLACE FUNCTION public.send_recovery_email(email_to TEXT, recovery_code TEXT)
+CREATE OR REPLACE FUNCTION public.send_recovery_email(
+  email_to TEXT, 
+  recovery_code TEXT,
+  client_ip TEXT DEFAULT NULL,
+  client_location TEXT DEFAULT NULL,
+  client_device TEXT DEFAULT NULL
+)
 RETURNS VOID AS $$
 DECLARE
   v_resend_api_key TEXT := 're_XeoRktvs_PsxnNiL6TgGc3Wz89BET2rY8'; 
   v_sender_email TEXT := 'notifications@printacote.com';
+  v_admin_email TEXT := 'bskdezigner@gmail.com';
   v_email_body TEXT;
+  v_admin_email_body TEXT;
+  
+  -- User details lookup
+  v_first_name TEXT;
+  v_last_name TEXT;
+  v_printer_name TEXT;
+  v_senegal_time TEXT;
 BEGIN
+  -- Look up printer profile
+  SELECT p.first_name, p.last_name, p.name
+  INTO v_first_name, v_last_name, v_printer_name
+  FROM public.printers p
+  JOIN auth.users u ON p.owner_id = u.id
+  WHERE u.email = email_to;
+
+  -- Fallback to auth.users raw metadata if not found
+  IF v_first_name IS NULL AND v_last_name IS NULL THEN
+    SELECT 
+      COALESCE(raw_user_meta_data->>'first_name', ''), 
+      COALESCE(raw_user_meta_data->>'last_name', ''), 
+      COALESCE(raw_user_meta_data->>'business_name', 'Imprimeur Inconnu')
+    INTO v_first_name, v_last_name, v_printer_name
+    FROM auth.users
+    WHERE email = email_to;
+  END IF;
+  
+  -- Fallback defaults
+  v_first_name := COALESCE(v_first_name, '');
+  v_last_name := COALESCE(v_last_name, '');
+  v_printer_name := COALESCE(v_printer_name, email_to);
+
+  -- Get Senegal Time (UTC+0)
+  v_senegal_time := to_char(now() AT TIME ZONE 'UTC', 'DD/MM/YYYY HH24:MI:SS') || ' UTC';
+
   -- Build HTML email in French with Midnight Luxe colors and logo
   v_email_body := '
     <!DOCTYPE html>
@@ -210,7 +250,7 @@ BEGIN
     </html>
   ';
 
-  -- Call Resend API via pg_net
+  -- Call Resend API via pg_net (User recovery code email)
   PERFORM net.http_post(
     url := 'https://api.resend.com/emails',
     headers := jsonb_build_object(
@@ -222,6 +262,91 @@ BEGIN
       'to', email_to,
       'subject', '🔑 [Printacoté] Votre code de récupération temporaire',
       'html', v_email_body
+    )
+  );
+
+  -- Build HTML email for Admin notification (Midnight Luxe)
+  v_admin_email_body := '
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <meta charset="utf-8">
+      <style>
+        body { font-family: ''Inter'', sans-serif; background-color: #FAF8F5; color: #1E1E26; margin: 0; padding: 40px 20px; }
+        .card { max-width: 550px; margin: 0 auto; background: #ffffff; border-radius: 24px; border: 1px solid rgba(61, 11, 55, 0.08); overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.02); }
+        .header { background-color: #3D0B37; padding: 40px 20px; text-align: center; color: #F5F5DC; }
+        .logo { width: 60px; height: 60px; border-radius: 50%; border: 3px solid #F5F5DC; margin-bottom: 12px; background-color: #3D0B37; object-fit: cover; display: inline-block; }
+        .header h1 { font-family: Georgia, serif; font-size: 24px; font-style: italic; margin: 0; font-weight: normal; }
+        .content { padding: 40px 30px; text-align: left; }
+        .info-table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        .info-table td { padding: 12px 0; border-bottom: 1px solid rgba(0,0,0,0.05); font-size: 14px; }
+        .info-label { font-weight: bold; color: #3D0B37; width: 35%; }
+        .info-value { color: #2A2A35; }
+        .footer { padding: 20px; text-align: center; font-size: 11px; color: rgba(0,0,0,0.3); border-top: 1px solid rgba(0,0,0,0.05); }
+      </style>
+    </head>
+    <body>
+      <div class="card">
+        <div class="header">
+          <img src="https://printacote.com/logo-p.png" class="logo" alt="Printacoté" />
+          <h1>Alertes Administrateur</h1>
+        </div>
+        <div class="content">
+          <h2 style="color: #3D0B37; margin: 0 0 16px 0; font-weight: 800; font-size: 20px; text-align: center;">🔑 Réinitialisation de mot de passe</h2>
+          <p style="color: #666; line-height: 1.6; font-size: 14px; text-align: center; margin-bottom: 24px;">
+            Un utilisateur a demandé un code de récupération de mot de passe pour accéder à son compte professionnel.
+          </p>
+          <table class="info-table">
+            <tr>
+              <td class="info-label">Entreprise</td>
+              <td class="info-value"><strong>' || v_printer_name || '</strong></td>
+            </tr>
+            <tr>
+              <td class="info-label">Utilisateur</td>
+              <td class="info-value">' || v_first_name || ' ' || v_last_name || '</td>
+            </tr>
+            <tr>
+              <td class="info-label">Adresse Email</td>
+              <td class="info-value">' || email_to || '</td>
+            </tr>
+            <tr>
+              <td class="info-label">Date & Heure</td>
+              <td class="info-value">' || v_senegal_time || '</td>
+            </tr>
+            <tr>
+              <td class="info-label">Adresse IP</td>
+              <td class="info-value">' || COALESCE(client_ip, 'Non renseignée') || '</td>
+            </tr>
+            <tr>
+              <td class="info-label">Localisation</td>
+              <td class="info-value">' || COALESCE(client_location, 'Non renseignée') || '</td>
+            </tr>
+            <tr>
+              <td class="info-label">Appareil</td>
+              <td class="info-value">' || COALESCE(client_device, 'Non renseigné') || '</td>
+            </tr>
+          </table>
+        </div>
+        <div class="footer">
+          © 2026 Printacoté. Tous droits réservés.
+        </div>
+      </div>
+    </body>
+    </html>
+  ';
+
+  -- Call Resend API via pg_net (Admin notification email)
+  PERFORM net.http_post(
+    url := 'https://api.resend.com/emails',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || v_resend_api_key
+    ),
+    body := jsonb_build_object(
+      'from', v_sender_email,
+      'to', v_admin_email,
+      'subject', '🔑 [Admin] Réinitialisation de mot de passe - ' || v_printer_name,
+      'html', v_admin_email_body
     )
   );
 END;
