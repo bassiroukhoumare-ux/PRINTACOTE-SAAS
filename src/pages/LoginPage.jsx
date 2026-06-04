@@ -252,7 +252,7 @@ const LoginPage = ({ setPage, setUser }) => {
                         )}
                     </div>
                     <div className="mt-12">
-                        <img src="/logo-p.png" alt="Logo" className="h-12 w-auto brightness-200 opacity-20" />
+                        <img src="/logo.png" alt="Logo" className="h-12 w-auto brightness-200 opacity-90" />
                     </div>
                 </div>
 

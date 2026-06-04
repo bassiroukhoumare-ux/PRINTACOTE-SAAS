@@ -227,7 +227,7 @@ BEGIN
     <body>
       <div class="card">
         <div class="header">
-          <img src="https://printacote.com/logo-p.png" class="logo" alt="Printacoté" />
+          <img src="https://printacote.com/logo.png" class="logo" alt="Printacoté" />
           <h1>Printacoté</h1>
         </div>
         <div class="content">
@@ -288,7 +288,7 @@ BEGIN
     <body>
       <div class="card">
         <div class="header">
-          <img src="https://printacote.com/logo-p.png" class="logo" alt="Printacoté" />
+          <img src="https://printacote.com/logo.png" class="logo" alt="Printacoté" />
           <h1>Alertes Administrateur</h1>
         </div>
         <div class="content">

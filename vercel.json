@@ -1,5 +1,23 @@
 {
+  "functions": {
+    "api/*.js": {
+      "includeFiles": "dist/index.html"
+    }
+  },
   "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
+    {
+      "source": "/actualites",
+      "has": [
+        {
+          "type": "query",
+          "key": "article"
+        }
+      ],
+      "destination": "/api/actualites"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
   ]
 }

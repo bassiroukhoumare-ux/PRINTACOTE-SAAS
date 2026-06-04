@@ -230,6 +230,9 @@ const App = () => {
                 // Only redirect if on login/register, or if verifying email (hash has type=signup)
                 if (page === 'login' || page === 'register' || hash.includes('type=signup')) {
                     setPage('dashboard');
+                    if (page === 'register' || hash.includes('type=signup')) {
+                        localStorage.setItem('just_registered', 'true');
+                    }
                     if (hash.includes('type=signup')) {
                         setShowSuccessToast(true);
                         // Clean up hash from URL to keep it pristine

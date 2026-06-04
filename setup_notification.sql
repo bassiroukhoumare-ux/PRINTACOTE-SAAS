@@ -96,7 +96,7 @@ BEGIN
         <div class="card">
           <!-- En-tête -->
           <div class="header" style="text-align: center;">
-            <img src="https://printacote.com/logo-p.png" alt="Printacote" width="80" height="80" style="border-radius: 50%; border: 3px solid #F5F5DC; margin-bottom: 15px; background-color: #3D0B37; object-fit: cover; display: inline-block;" />
+            <img src="https://printacote.com/logo.png" alt="Printacote" width="80" height="80" style="border-radius: 50%; border: 3px solid #F5F5DC; margin-bottom: 15px; background-color: #3D0B37; object-fit: cover; display: inline-block;" />
             <h1 style="margin-top: 0;">Nouveau produit en ligne</h1>
             <p>Notification Marketplace</p>
           </div>

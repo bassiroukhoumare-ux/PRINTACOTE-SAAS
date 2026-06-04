@@ -120,25 +120,33 @@ const DashboardPage = ({ setPage, user }) => {
 
     useEffect(() => {
         if (!user?.id) return;
-        // Simulate a new notification after 15 seconds
-        const timer = setTimeout(() => {
-            const key = `simulated_notif_triggered_${user.id}`;
-            const hasTriggered = localStorage.getItem(key);
-            if (!hasTriggered) {
-                const newNotif = {
-                    id: Date.now().toString(),
-                    title: 'Message d\'administration',
-                    message: 'Votre boutique a passé avec succès les vérifications préliminaires.',
-                    time: 'À l\'instant',
-                    read: false,
-                    type: 'success'
-                };
-                setNotifications(prev => [newNotif, ...prev]);
-                showToast("Nouveau message disponible dans vos notifications", "info");
-                localStorage.setItem(key, 'true');
-            }
-        }, 15000);
-        return () => clearTimeout(timer);
+
+        const justRegistered = localStorage.getItem('just_registered') === 'true';
+        const justResetPassword = localStorage.getItem('force_password_change') === 'true';
+
+        if (justRegistered || justResetPassword) {
+            // Simulate a new notification after 15 seconds
+            const timer = setTimeout(() => {
+                const key = `simulated_notif_triggered_${user.id}`;
+                const hasTriggered = localStorage.getItem(key);
+                if (!hasTriggered) {
+                    const newNotif = {
+                        id: Date.now().toString(),
+                        title: 'Message d\'administration',
+                        message: 'Votre boutique a passé avec succès les vérifications préliminaires.',
+                        time: 'À l\'instant',
+                        read: false,
+                        type: 'success'
+                    };
+                    setNotifications(prev => [newNotif, ...prev]);
+                    showToast("Nouveau message disponible dans vos notifications", "info");
+                    localStorage.setItem(key, 'true');
+                }
+                // Clear the flag so it doesn't trigger again
+                localStorage.removeItem('just_registered');
+            }, 15000);
+            return () => clearTimeout(timer);
+        }
     }, [notifications, user?.id]);
 
     // Onboarding Upload States & Refs
