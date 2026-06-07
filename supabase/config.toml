@@ -23,3 +23,12 @@ verify_jwt = true
 # PayTech appelle le webhook (IPN) sans token utilisateur -> pas de vérification JWT
 [functions.paytech-webhook]
 verify_jwt = false
+
+# GeniusPay checkout exige un utilisateur connecté
+[functions.geniuspay-checkout]
+verify_jwt = true
+
+# GeniusPay appelle le webhook sans token utilisateur -> pas de vérification JWT.
+# La sécurité repose sur la signature HMAC X-Webhook-Signature.
+[functions.geniuspay-webhook]
+verify_jwt = false
