@@ -54,3 +54,47 @@ n'importe quel numéro, code OTP simulé `123456`.
 
 Vérifier qu'un abonnement n'est accordé qu'**une seule fois** même si le webhook
 est rejoué (dédup `processed_events` + garde `WHERE status = 'pending'`).
+
+---
+
+## GeniusPay (passerelle active)
+
+GeniusPay est la passerelle proposée côté front. Les fonctions Moneroo/PayTech
+restent déployables mais ne sont plus invoquées par l'UI.
+
+### Secrets (jamais commités)
+
+```bash
+supabase secrets set GENIUSPAY_API_KEY="pk_sandbox_xxx"
+supabase secrets set GENIUSPAY_API_SECRET="sk_sandbox_xxx"
+supabase secrets set GENIUSPAY_WEBHOOK_SECRET="whsec_xxx"
+# SITE_URL déjà défini ; sinon :
+supabase secrets set SITE_URL="https://printacote.com"
+```
+
+Passage en production : remplacer `pk_sandbox_`/`sk_sandbox_` par `pk_live_`/`sk_live_`.
+
+### Déploiement
+
+```bash
+supabase functions deploy geniuspay-checkout
+supabase functions deploy geniuspay-webhook
+```
+
+### Webhook GeniusPay
+
+Dans le dashboard GeniusPay (ou via `POST /webhooks`), enregistrer l'URL :
+
+```
+https://<ref-du-projet>.supabase.co/functions/v1/geniuspay-webhook
+```
+
+abonnée à `payment.success`, `payment.failed`, `payment.cancelled`, `payment.expired`.
+Le secret renvoyé (`whsec_...`) doit correspondre à `GENIUSPAY_WEBHOOK_SECRET`.
+
+### Vérification
+
+Lancer un paiement de test (plan 1 mois, 150 FCFA) depuis l'onglet « Facturation »
+du dashboard, payer en sandbox, puis vérifier que `subscription_payments` passe
+`pending → completed` et que `printers.subscription_ends_at` est prolongé. Re-livrer
+le webhook (bouton « Tester ») doit répondre `deduped` sans double prolongation.

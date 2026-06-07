@@ -8,3 +8,6 @@ inspect_products.cjs
 inspect_products_join.cjs
 apply_migrations.cjs
 fix_admin_schema.sql
+
+# Runbook de déploiement (contient des secrets en clair)
+RUNBOOK_GENIUSPAY.md
