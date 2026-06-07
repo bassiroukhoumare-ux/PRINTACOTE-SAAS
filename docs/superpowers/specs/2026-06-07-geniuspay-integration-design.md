@@ -116,7 +116,11 @@ GeniusPay est une **3ᵉ passerelle clonée sur ce patron**.
 6. **`src/lib/subscription.js`** — `PLANS` reste la source UX ; vérifier l'alignement exact
    avec le catalogue serveur GeniusPay (mêmes `id`/`months`/`amount`).
 
-7. **`supabase/functions/README.md`** — documenter les secrets et le déploiement GeniusPay.
+7. **`src/pages/DashboardPage.jsx`** — ré-afficher l'onglet « Facturation » (filtré au
+   commit `b5d8a9a`) pour que le `SubscriptionPanel` soit joignable et déclenche un
+   paiement. **Sans** réactiver le paywall plein écran ni le blocage `hasAccess`.
+
+8. **`supabase/functions/README.md`** — documenter les secrets et le déploiement GeniusPay.
 
 ### Secrets (jamais commités — `supabase secrets set`)
 
