@@ -52,7 +52,10 @@ Deno.serve(async (req) => {
   }
 
   // 3. Anti-rejeu : timestamp < 5 min.
-  const ts = parseInt(timestamp, 10);
+  let ts = parseInt(timestamp, 10);
+  if (ts > 9999999999) {
+    ts = Math.floor(ts / 1000);
+  }
   if (!Number.isFinite(ts) || Math.abs(Date.now() / 1000 - ts) > 300) {
     console.error("Timestamp webhook trop ancien ou invalide");
     return new Response("Timestamp invalide", { status: 400 });
@@ -77,12 +80,16 @@ Deno.serve(async (req) => {
 
   const admin = createClient(SUPABASE_URL, SERVICE_KEY);
 
-  // 5. Déduplication (sur l'id de livraison du webhook).
+  // 5. Déduplication (lecture seule initiale pour éviter d'ignorer les futurs retries en cas d'échec temporaire/processing).
   const eventId = payload.id || `${reference}-${event}`;
-  const { error: dedupErr } = await admin
+  const { data: existingEvent } = await admin
     .from("processed_events")
-    .insert({ provider: "geniuspay", event_id: eventId });
-  if (dedupErr) {
+    .select("event_id")
+    .eq("provider", "geniuspay")
+    .eq("event_id", eventId)
+    .maybeSingle();
+
+  if (existingEvent) {
     console.log(`Événement GeniusPay déjà traité: ${eventId}`);
     return ok({ received: true, deduped: true });
   }
@@ -106,6 +113,10 @@ Deno.serve(async (req) => {
         .eq("id", payment.id)
         .eq("status", "pending");
     }
+    // L'état est final (ignoré/échoué), on peut marquer comme traité.
+    await admin
+      .from("processed_events")
+      .insert({ provider: "geniuspay", event_id: eventId });
     return ok({ received: true, ignored: event });
   }
 
@@ -121,6 +132,11 @@ Deno.serve(async (req) => {
       })
       .eq("id", payment.id)
       .eq("status", "pending");
+    
+    // État final (échec montant), on marquer comme traité.
+    await admin
+      .from("processed_events")
+      .insert({ provider: "geniuspay", event_id: eventId });
     return ok({ received: true, amountMismatch: true });
   }
 
@@ -141,6 +157,11 @@ Deno.serve(async (req) => {
     console.error("Erreur RPC complete_subscription_payment :", rpcErr);
     return new Response("Erreur interne", { status: 500 });
   }
+
+  // 11. Insérer dans processed_events UNIQUEMENT après succès.
+  await admin
+    .from("processed_events")
+    .insert({ provider: "geniuspay", event_id: eventId });
 
   return ok({ received: true, activated: success });
 });
