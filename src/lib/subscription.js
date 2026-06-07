@@ -4,15 +4,55 @@
 // Formules prépayées. `amount` en francs XOF entiers. DOIT rester aligné avec
 // le catalogue serveur dans supabase/functions/_shared/moneroo.ts (PLANS).
 export const PLANS = [
-  { id: '1m', months: 1, label: '1 mois', amount: 200 },
-  { id: '3m', months: 3, label: '3 mois', amount: 12000, badge: 'Économisez 20%' },
-  { id: '6m', months: 6, label: '6 mois', amount: 20000, badge: 'Meilleure offre', best: true },
+  { id: '1m',  months: 1,  label: '1 mois', amount: 200,   cadence: 'tous les mois' },
+  { id: '3m',  months: 3,  label: '3 mois', amount: 18659, cadence: 'tous les 3 mois', badge: 'Populaire' },
+  { id: '1an', months: 12, label: '1 an',   amount: 75000, cadence: 'tous les ans', badge: 'Meilleure offre', best: true },
 ];
 
 export const PLANS_BY_ID = Object.fromEntries(PLANS.map((p) => [p.id, p]));
 
 export function formatFcfa(amount) {
   return `${Number(amount).toLocaleString('fr-FR')} FCFA`;
+}
+
+// ── Multi-devises (affichage indicatif uniquement ; le paiement reste en XOF) ──
+// L'euro est FIXE par la parité du FCFA (1 € = 655,957 FCFA). Le dollar est un
+// taux fixe approximatif, ajustable ici sans clé API.
+export const CURRENCY_RATES = { XOF: 1, EUR: 1 / 655.957, USD: 1 / 600 };
+export const CURRENCIES = [
+  { code: 'XOF', symbol: 'FCFA' },
+  { code: 'EUR', symbol: '€' },
+  { code: 'USD', symbol: '$' },
+];
+
+export function convertFromXof(amountXof, code) {
+  return Number(amountXof) * (CURRENCY_RATES[code] ?? 1);
+}
+
+export function formatMoney(amountXof, code = 'XOF') {
+  const symbol = (CURRENCIES.find((c) => c.code === code) || CURRENCIES[0]).symbol;
+  const value = convertFromXof(amountXof, code);
+  if (code === 'XOF') return `${Math.round(value).toLocaleString('fr-FR')} ${symbol}`;
+  return `${value.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ${symbol}`;
+}
+
+// ── Palier (gratuit vs abonné) ──
+// Un imprimeur est "abonné" tant que son abonnement n'est pas expiré.
+// Les comptes de démonstration ont un accès complet.
+export function isSubscriber(printer) {
+  if (!printer || printer.isMock) return true;
+  return !!printer.subscription_ends_at && new Date(printer.subscription_ends_at) > new Date();
+}
+
+export const FREE_LIMITS = {
+  maxServices: 3, maxPortfolio: 3, maxProducts: 2, canSocialLinks: false, canSeeStats: false,
+};
+const PRO_LIMITS = {
+  maxServices: Infinity, maxPortfolio: Infinity, maxProducts: Infinity, canSocialLinks: true, canSeeStats: true,
+};
+
+export function getTierLimits(printer) {
+  return isSubscriber(printer) ? PRO_LIMITS : FREE_LIMITS;
 }
 
 const DAY_MS = 1000 * 60 * 60 * 24;

@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Check, Loader2, Crown, ShieldCheck } from 'lucide-react';
-import { PLANS, formatFcfa, getSubscriptionState } from '../lib/subscription';
+import { PLANS, formatMoney, getSubscriptionState, CURRENCIES } from '../lib/subscription';
 
 // Grille des formules + lancement du checkout GeniusPay.
-// Utilisé dans l'onglet "Facturation" du dashboard.
-const SubscriptionPanel = ({ printerData, user, showToast, dark = false }) => {
+// Utilisé dans l'onglet "Facturation" du dashboard et l'overlay d'upgrade.
+const SubscriptionPanel = ({ printerData, user, showToast, dark = false, reason = null }) => {
     const [loadingPlan, setLoadingPlan] = useState(null);
+    const [currency, setCurrency] = useState('XOF');
     const sub = getSubscriptionState(printerData);
 
     const handleSubscribe = async (planId) => {
@@ -56,9 +57,22 @@ const SubscriptionPanel = ({ printerData, user, showToast, dark = false }) => {
                     Choisissez votre formule
                 </h2>
                 <p className={`mt-3 text-base font-medium ${dark ? 'text-white/50' : 'text-dark/50'}`}>
-                    Un paiement unique débloque l'accès complet à votre espace professionnel
-                    pour toute la durée choisie. Sans engagement, sans renouvellement automatique.
+                    {reason || "Un paiement unique débloque l'accès complet à votre espace professionnel pour toute la durée choisie. Sans engagement, sans renouvellement automatique."}
                 </p>
+
+                <div className="mt-6 inline-flex rounded-2xl bg-dark/5 p-1">
+                    {CURRENCIES.map((c) => (
+                        <button
+                            key={c.code}
+                            type="button"
+                            onClick={() => setCurrency(c.code)}
+                            className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest transition-all
+                                ${currency === c.code ? 'bg-primary text-white shadow' : 'text-dark/40 hover:text-dark/70'}`}
+                        >
+                            {c.symbol}
+                        </button>
+                    ))}
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
@@ -86,11 +100,10 @@ const SubscriptionPanel = ({ printerData, user, showToast, dark = false }) => {
                             <div className="mb-6">
                                 <h3 className="text-sm font-black uppercase tracking-widest opacity-70">{plan.label}</h3>
                                 <div className="mt-3 flex items-baseline gap-1">
-                                    <span className="text-4xl font-black tracking-tight">{plan.amount.toLocaleString('fr-FR')}</span>
-                                    <span className="text-sm font-bold opacity-60">FCFA</span>
+                                    <span className="text-4xl font-black tracking-tight">{formatMoney(plan.amount, currency)}</span>
                                 </div>
                                 <p className="text-xs font-bold opacity-50 mt-1">
-                                    soit ~{formatFcfa(monthly)}/mois
+                                    facturé {plan.cadence} · soit ~{formatMoney(monthly, currency)}/mois
                                 </p>
                             </div>
 
@@ -129,9 +142,14 @@ const SubscriptionPanel = ({ printerData, user, showToast, dark = false }) => {
                 })}
             </div>
 
-            <div className={`flex items-center justify-center gap-2 text-xs font-bold ${dark ? 'text-white/40' : 'text-dark/40'}`}>
-                <ShieldCheck size={16} className="opacity-50" />
-                Paiement sécurisé via GeniusPay — Mobile Money (Wave, Orange, MTN, Moov) & carte bancaire.
+            <div className="space-y-2 text-center">
+                <div className={`flex items-center justify-center gap-2 text-xs font-bold ${dark ? 'text-white/40' : 'text-dark/40'}`}>
+                    <ShieldCheck size={16} className="opacity-50" />
+                    Paiement sécurisé via GeniusPay — Mobile Money (Wave, Orange, MTN, Moov) & carte bancaire.
+                </div>
+                <p className={`text-[11px] font-medium ${dark ? 'text-white/30' : 'text-dark/30'}`}>
+                    Paiement unique pour la période choisie · renouvellement manuel (rappel avant expiration) · prix affichés en {currency}, débité en FCFA.
+                </p>
             </div>
 
             {sub.planId && sub.status === 'active' && (

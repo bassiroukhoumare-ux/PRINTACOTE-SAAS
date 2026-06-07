@@ -15,7 +15,8 @@ import DashboardPortfolio from './dashboard/DashboardPortfolio';
 import DashboardMarketplace from './dashboard/DashboardMarketplace';
 import DashboardReviews from './dashboard/DashboardReviews';
 import SubscriptionPanel from '../components/SubscriptionPanel';
-import { getSubscriptionState } from '../lib/subscription';
+import UpgradeOverlay from '../components/UpgradeOverlay';
+import { getSubscriptionState, getTierLimits } from '../lib/subscription';
 
 const DashboardPage = ({ setPage, user }) => {
     const [activeTab, setActiveTab] = useState('overview');
@@ -684,6 +685,10 @@ const DashboardPage = ({ setPage, user }) => {
         { id: 'support', label: 'Contact Support', icon: MessageCircle },
     ];
 
+    const [upgradeReason, setUpgradeReason] = useState(null);
+    const limits = getTierLimits(printerData);
+    const requireUpgrade = (reason) => setUpgradeReason(reason);
+
     if (loading) {
         return (
             <div className="min-h-screen bg-background flex items-center justify-center">
@@ -1241,14 +1246,24 @@ const DashboardPage = ({ setPage, user }) => {
 
                     {/* Tab Content */}
                     <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
-                        {activeTab === 'overview' && <DashboardOverview printerData={printerData} setActiveTab={triggerTabWithModal} />}
-                        {activeTab === 'profile' && <DashboardProfile printerData={printerData} onUpdate={fetchPrinterData} showToast={showToast} />}
-                        {activeTab === 'services' && <DashboardServices printerData={printerData} onUpdate={fetchPrinterData} autoOpenModal={autoOpenModal} setAutoOpenModal={setAutoOpenModal} showToast={showToast} showConfirm={showConfirm} />}
-                        {activeTab === 'portfolio' && <DashboardPortfolio printerData={printerData} onUpdate={fetchPrinterData} autoOpenModal={autoOpenModal} setAutoOpenModal={setAutoOpenModal} showToast={showToast} showConfirm={showConfirm} />}
-                        {activeTab === 'marketplace' && <DashboardMarketplace printerData={printerData} onUpdate={fetchPrinterData} autoOpenModal={autoOpenModal} setAutoOpenModal={setAutoOpenModal} showToast={showToast} showConfirm={showConfirm} />}
+                        {activeTab === 'overview' && <DashboardOverview printerData={printerData} setActiveTab={triggerTabWithModal} limits={limits} requireUpgrade={requireUpgrade} />}
+                        {activeTab === 'profile' && <DashboardProfile printerData={printerData} onUpdate={fetchPrinterData} showToast={showToast} limits={limits} requireUpgrade={requireUpgrade} />}
+                        {activeTab === 'services' && <DashboardServices printerData={printerData} onUpdate={fetchPrinterData} autoOpenModal={autoOpenModal} setAutoOpenModal={setAutoOpenModal} showToast={showToast} showConfirm={showConfirm} limits={limits} requireUpgrade={requireUpgrade} />}
+                        {activeTab === 'portfolio' && <DashboardPortfolio printerData={printerData} onUpdate={fetchPrinterData} autoOpenModal={autoOpenModal} setAutoOpenModal={setAutoOpenModal} showToast={showToast} showConfirm={showConfirm} limits={limits} requireUpgrade={requireUpgrade} />}
+                        {activeTab === 'marketplace' && <DashboardMarketplace printerData={printerData} onUpdate={fetchPrinterData} autoOpenModal={autoOpenModal} setAutoOpenModal={setAutoOpenModal} showToast={showToast} showConfirm={showConfirm} limits={limits} requireUpgrade={requireUpgrade} />}
                         {activeTab === 'reviews' && <DashboardReviews printerData={printerData} onUpdate={fetchPrinterData} showToast={showToast} />}
                         {activeTab === 'billing' && (
                             <SubscriptionPanel printerData={printerData} user={user} showToast={showToast} />
+                        )}
+
+                        {upgradeReason && (
+                            <UpgradeOverlay
+                                reason={upgradeReason}
+                                printerData={printerData}
+                                user={user}
+                                showToast={showToast}
+                                onClose={() => setUpgradeReason(null)}
+                            />
                         )}
                         {activeTab === 'support' && (
                             <div className="bg-white border border-dark/5 rounded-[3rem] p-10 md:p-12 shadow-2xl relative overflow-hidden animate-in fade-in duration-500">

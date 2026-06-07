@@ -7,9 +7,9 @@ const FETCH_TIMEOUT_MS = 15_000;
 // ── Catalogue serveur des formules (source de vérité anti-fraude) ────
 // DOIT rester aligné avec src/lib/subscription.js et _shared/paytech.ts.
 export const PLANS: Record<string, { months: number; amount: number }> = {
-  "1m": { months: 1, amount: 200 }, // Prix de test (min GeniusPay = 200 FCFA)
-  "3m": { months: 3, amount: 12000 },
-  "6m": { months: 6, amount: 20000 },
+  "1m":  { months: 1,  amount: 200 },   // Prix de test (min GeniusPay = 200 FCFA)
+  "3m":  { months: 3,  amount: 18659 },
+  "1an": { months: 12, amount: 75000 },
 };
 
 export type InitiateGeniusPayParams = {
