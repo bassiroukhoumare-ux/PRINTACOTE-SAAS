@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Plus, Wrench, X, Save, Loader2, CreditCard } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
-const DashboardServices = ({ printerData, onUpdate, autoOpenModal, setAutoOpenModal, showToast, showConfirm }) => {
+const DashboardServices = ({ printerData, onUpdate, autoOpenModal, setAutoOpenModal, showToast, showConfirm, limits, requireUpgrade }) => {
     const [loading, setLoading] = useState(false);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [newService, setNewService] = useState({ name: '', description: '', price: '', quantity: '' });
@@ -17,6 +17,12 @@ const DashboardServices = ({ printerData, onUpdate, autoOpenModal, setAutoOpenMo
 
     const handleAddService = async (e) => {
         e.preventDefault();
+        const count = printerData?.services?.length || 0;
+        if (limits && count >= limits.maxServices) {
+            setIsModalOpen(false);
+            requireUpgrade?.('services');
+            return;
+        }
         setLoading(true);
         
         const finalService = {
@@ -88,8 +94,12 @@ const DashboardServices = ({ printerData, onUpdate, autoOpenModal, setAutoOpenMo
                     <h2 className="text-4xl font-black tracking-tight mb-2">Services & Expertises</h2>
                     <p className="text-dark/40 text-lg">Définissez ce que vous savez faire le mieux.</p>
                 </div>
-                <button 
-                    onClick={() => setIsModalOpen(true)}
+                <button
+                    onClick={() => {
+                        const count = printerData?.services?.length || 0;
+                        if (limits && count >= limits.maxServices) { requireUpgrade?.('services'); return; }
+                        setIsModalOpen(true);
+                    }}
                     className="bg-primary text-white px-8 py-4 rounded-2xl font-bold flex items-center gap-3 shadow-2xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
                 >
                     <Plus size={20} /> Ajouter un service

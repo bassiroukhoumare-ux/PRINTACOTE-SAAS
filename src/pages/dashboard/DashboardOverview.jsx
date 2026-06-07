@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Star, TrendingUp, MessageSquare, Eye, Loader2, QrCode, Download } from 'lucide-react';
+import { Star, TrendingUp, MessageSquare, Eye, Loader2, QrCode, Download, Lock } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 
-const DashboardOverview = ({ printerData, setActiveTab }) => {
+const DashboardOverview = ({ printerData, setActiveTab, limits, requireUpgrade }) => {
     const [periodFilter, setPeriodFilter] = useState('all');
     const [realStats, setRealStats] = useState(null);
     const [viewsSeries, setViewsSeries] = useState([]);
@@ -346,8 +346,20 @@ const DashboardOverview = ({ printerData, setActiveTab }) => {
 
             {/* Stats Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 sm:gap-8">
-                {stats.map((stat, i) => (
+                {stats.map((stat, i) => {
+                    const locked = limits && !limits.canSeeStats && (i === 0 || i === 1);
+                    return (
                     <div key={i} className="bg-white border border-dark/5 rounded-[1.5rem] sm:rounded-[2.5rem] p-5 sm:p-10 flex flex-col justify-between min-h-[150px] sm:min-h-[220px] hover:shadow-2xl transition-all duration-500 group relative overflow-hidden">
+                        {locked && (
+                            <button
+                                type="button"
+                                onClick={() => requireUpgrade?.('stats')}
+                                className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2 rounded-[inherit] bg-white/60 backdrop-blur-md text-center"
+                            >
+                                <Lock size={22} className="text-primary" />
+                                <span className="text-[11px] font-black uppercase tracking-widest text-primary">Abonnés</span>
+                            </button>
+                        )}
                         <div className="absolute top-0 right-0 w-32 h-32 bg-dark/5 rounded-full blur-3xl group-hover:scale-150 transition-transform duration-700"></div>
                         <div className="flex justify-between items-start relative z-10">
                             <span className="text-dark/40 text-[10px] sm:text-xs font-black uppercase tracking-[0.2em]">{stat.label}</span>
@@ -369,7 +381,8 @@ const DashboardOverview = ({ printerData, setActiveTab }) => {
                             </div>
                         </div>
                     </div>
-                ))}
+                    );
+                })}
             </div>
 
             {/* Actions Rapides & Code QR de Vitrine (côte à côte) */}

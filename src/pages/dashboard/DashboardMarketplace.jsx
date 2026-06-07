@@ -3,7 +3,7 @@ import { Plus, Store, ShoppingBag, X, Trash2, Loader2, DollarSign, Tag, Archive,
 import { supabase } from '../../lib/supabase';
 import { compressImage } from '../../lib/image';
 
-const DashboardMarketplace = ({ printerData, onUpdate, autoOpenModal, setAutoOpenModal, showToast, showConfirm }) => {
+const DashboardMarketplace = ({ printerData, onUpdate, autoOpenModal, setAutoOpenModal, showToast, showConfirm, limits, requireUpgrade }) => {
     const [products, setProducts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [actionLoading, setActionLoading] = useState(false);
@@ -35,6 +35,7 @@ const DashboardMarketplace = ({ printerData, onUpdate, autoOpenModal, setAutoOpe
     const [customCategory, setCustomCategory] = useState('');
 
     const openAddModal = () => {
+        if (limits && products.length >= limits.maxProducts) { requireUpgrade?.('produits'); return; }
         setEditingProduct(null);
         setNewProduct({
             name: '',

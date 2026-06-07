@@ -3,7 +3,7 @@ import { Camera, Save, Loader2, MapPin, Phone, Globe, Info, Lock } from 'lucide-
 import { supabase } from '../../lib/supabase';
 import { compressImage } from '../../lib/image';
 
-const DashboardProfile = ({ printerData, onUpdate, showToast }) => {
+const DashboardProfile = ({ printerData, onUpdate, showToast, limits, requireUpgrade }) => {
     const [loading, setLoading] = useState(false);
     const [uploadingImage, setUploadingImage] = useState(false);
     const logoInputRef = useRef(null);
@@ -186,6 +186,12 @@ const DashboardProfile = ({ printerData, onUpdate, showToast }) => {
             payload.name_last_modified_at = new Date().toISOString();
         }
         
+        if (limits && !limits.canSocialLinks) {
+            delete payload.facebook;
+            delete payload.instagram;
+            delete payload.tiktok;
+        }
+
         if (printerData?.isMock) {
             const updatedPrinter = { ...printerData, ...payload };
             localStorage.setItem(`mock_printer_${printerData.id}`, JSON.stringify(updatedPrinter));
@@ -391,12 +397,24 @@ const DashboardProfile = ({ printerData, onUpdate, showToast }) => {
                 </div>
 
                 {/* Social Networks */}
-                <div className="bg-white border border-dark/5 rounded-[3rem] p-10 space-y-6 shadow-xl shadow-dark/5">
+                <div className="bg-white border border-dark/5 rounded-[3rem] p-10 space-y-6 shadow-xl shadow-dark/5 relative overflow-hidden">
                     <div className="flex items-center gap-3 mb-4">
                         <Globe size={18} className="text-primary" />
                         <h3 className="font-bold">Réseaux Sociaux</h3>
                     </div>
-                    
+
+                    {limits && !limits.canSocialLinks && (
+                        <button
+                            type="button"
+                            onClick={() => requireUpgrade?.('social')}
+                            className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-3 bg-white/70 backdrop-blur-sm text-center px-6"
+                        >
+                            <Lock size={28} className="text-primary" />
+                            <span className="font-black text-dark">Réservé aux abonnés</span>
+                            <span className="text-xs font-bold text-primary underline">Débloquer avec un abonnement</span>
+                        </button>
+                    )}
+
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="space-y-2">
                             <label className="text-[10px] font-black uppercase tracking-widest text-dark/30 ml-2">Facebook (Lien complet)</label>

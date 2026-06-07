@@ -3,10 +3,16 @@ import { Plus, Image as ImageIcon, X, Loader2, Eye } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { compressImage } from '../../lib/image';
 
-const DashboardPortfolio = ({ printerData, onUpdate, autoOpenModal, setAutoOpenModal, showToast, showConfirm }) => {
+const DashboardPortfolio = ({ printerData, onUpdate, autoOpenModal, setAutoOpenModal, showToast, showConfirm, limits, requireUpgrade }) => {
     const [uploading, setUploading] = useState(false);
     const fileInputRef = useRef(null);
     const [activeImage, setActiveImage] = useState(null);
+
+    const handleAddClick = () => {
+        const count = printerData?.portfolio?.length || 0;
+        if (limits && count >= limits.maxPortfolio) { requireUpgrade?.('portfolio'); return; }
+        fileInputRef.current?.click();
+    };
 
     useEffect(() => {
         if (autoOpenModal) {
@@ -144,8 +150,8 @@ const DashboardPortfolio = ({ printerData, onUpdate, autoOpenModal, setAutoOpenM
                     accept="image/*" 
                     className="hidden" 
                 />
-                <button 
-                    onClick={() => fileInputRef.current?.click()}
+                <button
+                    onClick={handleAddClick}
                     disabled={uploading}
                     className="bg-primary text-white px-8 py-4 rounded-2xl font-bold flex items-center gap-3 shadow-2xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50"
                 >
@@ -179,8 +185,8 @@ const DashboardPortfolio = ({ printerData, onUpdate, autoOpenModal, setAutoOpenM
                         <ImageIcon size={64} className="mx-auto text-dark/10 mb-8" />
                         <h3 className="text-2xl font-black text-dark/40 mb-4 tracking-tight">Votre portfolio est vide</h3>
                         <p className="text-dark/30 max-w-sm mx-auto">Une vitrine visuelle augmente vos chances d'obtenir des commandes de 40%.</p>
-                        <button 
-                            onClick={() => fileInputRef.current?.click()}
+                        <button
+                            onClick={handleAddClick}
                             className="mt-8 px-8 py-4 bg-dark/5 text-dark font-bold rounded-2xl hover:bg-dark/10 transition-all"
                         >
                             Commencer à uploader
