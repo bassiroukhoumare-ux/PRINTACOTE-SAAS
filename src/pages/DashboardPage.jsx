@@ -6,7 +6,7 @@ import {
     LayoutDashboard, User, Wrench, Image as ImageIcon,
     Store, CreditCard, LogOut, Menu, X, Eye, Star,
     MessageCircle, Plus, ChevronRight, Bell, CheckCircle2, Loader2, AlertCircle,
-    Crown, Clock
+    Crown, Clock, Phone, MapPin, Globe
 } from 'lucide-react';
 import DashboardOverview from './dashboard/DashboardOverview';
 import DashboardProfile from './dashboard/DashboardProfile';
@@ -159,6 +159,24 @@ const DashboardPage = ({ setPage, user }) => {
     const [onboardingServiceDesc, setOnboardingServiceDesc] = useState('');
     const [onboardingServicePrice, setOnboardingServicePrice] = useState('');
     const [onboardingServiceLoading, setOnboardingServiceLoading] = useState(false);
+
+    // Étape « Informations de l'entreprise » de l'onboarding (surtout pour les
+    // inscriptions via Google, où ces champs ne sont pas fournis).
+    const [bizFirstName, setBizFirstName] = useState('');
+    const [bizLastName, setBizLastName] = useState('');
+    const [bizWhatsapp, setBizWhatsapp] = useState('');
+    const [bizCountry, setBizCountry] = useState('Sénégal');
+    const [bizName, setBizName] = useState('');
+    const [bizLocation, setBizLocation] = useState('');
+    const [bizInfoLoading, setBizInfoLoading] = useState(false);
+    const [bizSeeded, setBizSeeded] = useState(false);
+
+    // Écran de fin d'onboarding : on n'entre dans le dashboard qu'après un clic
+    // explicite sur « Accéder à mon espace ». wasIncompleteRef garantit que seul
+    // celui qui vient de terminer l'onboarding voit cet écran (pas les comptes
+    // déjà complets qui rechargent leur dashboard).
+    const wasIncompleteRef = useRef(false);
+    const [enteredSpace, setEnteredSpace] = useState(false);
 
     const showToast = (message, type = 'success') => {
         setToast({ message, type });
@@ -473,7 +491,7 @@ const DashboardPage = ({ setPage, user }) => {
                     .update({ logo_url: publicUrl })
                     .eq('id', printerData.id);
                 if (!dbErr) {
-                    await fetchPrinterData();
+                    setPrinterData(prev => ({ ...prev, logo_url: publicUrl }));
                     showToast("Photo de profil mise à jour !", "success");
                 }
             } else if (type === 'cover') {
@@ -482,7 +500,7 @@ const DashboardPage = ({ setPage, user }) => {
                     .update({ cover_url: publicUrl })
                     .eq('id', printerData.id);
                 if (!dbErr) {
-                    await fetchPrinterData();
+                    setPrinterData(prev => ({ ...prev, cover_url: publicUrl }));
                     showToast("Bannière de couverture mise à jour !", "success");
                 }
             } else if (type === 'portfolio') {
@@ -492,7 +510,7 @@ const DashboardPage = ({ setPage, user }) => {
                     .update({ portfolio: updatedPortfolio })
                     .eq('id', printerData.id);
                 if (!dbErr) {
-                    await fetchPrinterData();
+                    setPrinterData(prev => ({ ...prev, portfolio: updatedPortfolio }));
                     showToast("Première réalisation ajoutée !", "success");
                 }
             }
@@ -562,7 +580,7 @@ const DashboardPage = ({ setPage, user }) => {
             .update({ services: updatedServices })
             .eq('id', printerData.id);
         if (!error) {
-            await fetchPrinterData();
+            setPrinterData(prev => ({ ...prev, services: updatedServices }));
             showToast("Premier service ajouté avec succès !", "success");
             setOnboardingServiceName('');
             setOnboardingServiceDesc('');
@@ -571,6 +589,61 @@ const DashboardPage = ({ setPage, user }) => {
             showToast("Erreur lors de l'ajout : " + error.message, "error");
         }
         setOnboardingServiceLoading(false);
+    };
+
+    // Pré-remplit le formulaire d'infos entreprise à partir des données déjà
+    // présentes (prénom/nom Google éventuels, pays par défaut...).
+    useEffect(() => {
+        if (printerData && !bizSeeded) {
+            setBizFirstName(printerData.first_name || '');
+            setBizLastName(printerData.last_name || '');
+            setBizWhatsapp(printerData.whatsapp || '');
+            setBizCountry(printerData.country || 'Sénégal');
+            setBizName(printerData.name && printerData.name !== 'Mon Imprimerie' ? printerData.name : '');
+            setBizLocation(printerData.city || '');
+            setBizSeeded(true);
+        }
+    }, [printerData, bizSeeded]);
+
+    const handleSaveBusinessInfo = async (e) => {
+        e.preventDefault();
+        if (!bizFirstName.trim() || !bizLastName.trim() || !bizWhatsapp.trim() ||
+            !bizCountry.trim() || !bizName.trim() || !bizLocation.trim()) {
+            showToast("Veuillez remplir tous les champs.", "error");
+            return;
+        }
+        setBizInfoLoading(true);
+
+        const updates = {
+            first_name: bizFirstName.trim(),
+            last_name: bizLastName.trim(),
+            whatsapp: bizWhatsapp.trim(),
+            country: bizCountry.trim(),
+            name: bizName.trim(),
+            city: bizLocation.trim(),
+        };
+
+        if (printerData?.isMock || user?.isMock) {
+            const updated = { ...printerData, ...updates };
+            setPrinterData(updated);
+            localStorage.setItem(`mock_printer_${user.id}`, JSON.stringify(updated));
+            showToast("Informations enregistrées (Mode Démo) !", "success");
+            setBizInfoLoading(false);
+            return;
+        }
+
+        const { error } = await supabase
+            .from('printers')
+            .update(updates)
+            .eq('id', printerData.id);
+        if (!error) {
+            // Mise à jour locale immédiate (pas de re-fetch réseau) : plus rapide.
+            setPrinterData(prev => ({ ...prev, ...updates }));
+            showToast("Informations de l'entreprise enregistrées !", "success");
+        } else {
+            showToast("Erreur lors de l'enregistrement : " + error.message, "error");
+        }
+        setBizInfoLoading(false);
     };
 
     const menuItems = [
@@ -592,13 +665,16 @@ const DashboardPage = ({ setPage, user }) => {
     }
 
     // Force onboarding checker
+    const hasBusinessInfo = printerData?.whatsapp && printerData.whatsapp.trim() !== '' &&
+        printerData?.name && printerData.name !== 'Mon Imprimerie';
     const hasCustomLogo = printerData?.logo_url && !printerData.logo_url.includes('ui-avatars.com');
     const hasCustomCover = printerData?.cover_url && printerData.cover_url !== 'https://images.unsplash.com/photo-1562664347-4950157077a9?q=80&w=2500&auto=format&fit=crop';
     const hasServices = printerData?.services && printerData.services.length > 0;
     const hasPortfolio = printerData?.portfolio && printerData.portfolio.length > 0;
-    const isProfileComplete = hasCustomLogo && hasCustomCover && hasServices && hasPortfolio;
+    const isProfileComplete = hasBusinessInfo && hasCustomLogo && hasCustomCover && hasServices && hasPortfolio;
 
     if (!isProfileComplete) {
+        wasIncompleteRef.current = true;
         return (
             <div className="min-h-screen bg-[#0F0F13] flex flex-col text-[#FAF8F5] font-sans selection:bg-[#C9A84C] selection:text-[#0F0F13]">
                 <div className="noise-overlay opacity-5 pointer-events-none"></div>
@@ -639,6 +715,89 @@ const DashboardPage = ({ setPage, user }) => {
                                 Pour garantir le sérieux et la qualité de la plateforme, vous devez configurer ces 4 éléments avant d'accéder au tableau de bord complet et d'activer votre vitrine.
                             </p>
                         </div>
+
+                        {/* Step 0 : Informations de l'entreprise (surtout inscriptions Google) */}
+                        {!hasBusinessInfo && (
+                            <form onSubmit={handleSaveBusinessInfo} className="space-y-4 p-6 bg-[#C9A84C]/10 border border-[#C9A84C]/30 rounded-2xl">
+                                <div className="flex items-center gap-3 mb-2">
+                                    <div className="w-8 h-8 rounded-full bg-[#C9A84C] text-[#0F0F13] flex items-center justify-center shrink-0">
+                                        <User size={16} />
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold text-base text-white">Informations de votre imprimerie</h4>
+                                        <p className="text-xs text-[#FAF8F5]/45">Renseignez les coordonnées indispensables pour que les clients puissent vous trouver et vous contacter.</p>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="relative">
+                                        <User className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" size={15} />
+                                        <input
+                                            required placeholder="Prénom"
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:border-[#C9A84C]/50 text-xs font-bold text-[#FAF8F5]"
+                                            value={bizFirstName} onChange={(e) => setBizFirstName(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="relative">
+                                        <User className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" size={15} />
+                                        <input
+                                            required placeholder="Nom"
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:border-[#C9A84C]/50 text-xs font-bold text-[#FAF8F5]"
+                                            value={bizLastName} onChange={(e) => setBizLastName(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div className="relative">
+                                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" size={15} />
+                                        <input
+                                            type="tel" required placeholder="WhatsApp (Ex: +221770000000)"
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:border-[#C9A84C]/50 text-xs font-bold text-[#FAF8F5]"
+                                            value={bizWhatsapp} onChange={(e) => setBizWhatsapp(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="relative">
+                                        <Globe className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30 z-10" size={15} />
+                                        <select
+                                            required
+                                            className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:border-[#C9A84C]/50 text-xs font-bold text-[#FAF8F5] appearance-none"
+                                            value={bizCountry} onChange={(e) => setBizCountry(e.target.value)}
+                                        >
+                                            {["Sénégal", "Côte d'Ivoire", "Mali", "Guinée", "Bénin", "Burkina Faso", "Cameroun", "Gabon", "Togo", "Niger", "Mauritanie", "France", "USA", "Canada", "Autre"].map(c => (
+                                                <option key={c} value={c} className="bg-[#0F0F13] text-white">{c}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="relative">
+                                    <Store className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" size={15} />
+                                    <input
+                                        required placeholder="Nom de l'imprimerie"
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:border-[#C9A84C]/50 text-xs font-bold text-[#FAF8F5]"
+                                        value={bizName} onChange={(e) => setBizName(e.target.value)}
+                                    />
+                                </div>
+
+                                <div className="relative">
+                                    <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-white/30" size={15} />
+                                    <input
+                                        required placeholder="Localisation exacte (adresse ou lien Google Maps)"
+                                        className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:border-[#C9A84C]/50 text-xs font-bold text-[#FAF8F5]"
+                                        value={bizLocation} onChange={(e) => setBizLocation(e.target.value)}
+                                    />
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={bizInfoLoading}
+                                    className="bg-[#C9A84C] text-[#0F0F13] px-6 py-3 rounded-xl font-bold text-xs uppercase tracking-wider hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                                >
+                                    {bizInfoLoading ? <Loader2 className="animate-spin" size={14} /> : "Enregistrer mes informations"}
+                                </button>
+                            </form>
+                        )}
 
                         {/* Onboarding Checklist */}
                         <div className="space-y-6">
@@ -827,6 +986,42 @@ const DashboardPage = ({ setPage, user }) => {
                         </div>
                     </div>
                 )}
+            </div>
+        );
+    }
+
+    // Écran de fin d'onboarding : affiché une fois tous les champs remplis, avant
+    // d'entrer dans le tableau de bord (uniquement pour qui vient de terminer).
+    if (wasIncompleteRef.current && !enteredSpace) {
+        return (
+            <div className="min-h-screen bg-[#0F0F13] flex flex-col items-center justify-center text-[#FAF8F5] font-sans p-6 selection:bg-[#C9A84C] selection:text-[#0F0F13]">
+                <div className="noise-overlay opacity-5 pointer-events-none"></div>
+                <div className="absolute top-0 right-0 w-[40rem] h-[40rem] bg-[#C9A84C]/5 rounded-full blur-[120px] pointer-events-none"></div>
+
+                <div className="relative z-10 max-w-xl w-full text-center space-y-8 animate-in fade-in zoom-in-95 duration-500">
+                    <div className="w-24 h-24 mx-auto rounded-[2rem] bg-[#C9A84C] text-[#0F0F13] flex items-center justify-center shadow-2xl shadow-[#C9A84C]/20">
+                        <CheckCircle2 size={48} className="stroke-[2]" />
+                    </div>
+
+                    <div>
+                        <span className="text-[10px] font-black text-[#C9A84C] uppercase tracking-[0.3em] mb-3 block">Profil complet</span>
+                        <h2 className="text-4xl md:text-5xl font-black tracking-tight leading-tight">
+                            Tout est prêt, <br />
+                            <span className="italic font-serif text-[#C9A84C]">bienvenue !</span>
+                        </h2>
+                        <p className="text-[#FAF8F5]/60 text-sm leading-relaxed font-medium mt-4 max-w-md mx-auto">
+                            Votre vitrine est configurée. Vous pouvez maintenant accéder à votre espace pour gérer votre imprimerie.
+                        </p>
+                    </div>
+
+                    <button
+                        onClick={() => setEnteredSpace(true)}
+                        className="w-full bg-[#C9A84C] text-[#0F0F13] py-6 rounded-2xl font-black text-lg shadow-2xl shadow-[#C9A84C]/20 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
+                    >
+                        Accéder à mon espace
+                        <ChevronRight size={24} />
+                    </button>
+                </div>
             </div>
         );
     }
