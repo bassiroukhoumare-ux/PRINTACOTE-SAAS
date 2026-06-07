@@ -310,6 +310,33 @@ const DashboardPage = ({ setPage, user }) => {
         }
     }, [activeTab, printerData]);
 
+    // Retour de la passerelle de paiement GeniusPay : on re-poll les données
+    // quelques fois pour capter l'activation déclenchée par le webhook.
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const payment = params.get('payment');
+        if (!payment || printerData?.isMock) return;
+
+        setActiveTab('billing');
+        if (payment === 'return') {
+            showToast?.('Paiement en cours de validation…', 'success');
+            let tries = 0;
+            const interval = setInterval(() => {
+                tries += 1;
+                fetchPrinterData?.();
+                if (tries >= 5) clearInterval(interval);
+            }, 3000);
+            // Nettoyer l'URL pour éviter de re-déclencher au refresh.
+            window.history.replaceState({}, '', '/dashboard');
+            return () => clearInterval(interval);
+        }
+        if (payment === 'cancel') {
+            showToast?.('Paiement annulé.', 'error');
+            window.history.replaceState({}, '', '/dashboard');
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [printerData?.isMock]);
+
     // Sync support messages to notifications in background
     useEffect(() => {
         if (!printerData?.id || printerData.isMock) return;
@@ -653,6 +680,7 @@ const DashboardPage = ({ setPage, user }) => {
         { id: 'portfolio', label: 'Portfolio', icon: ImageIcon },
         { id: 'marketplace', label: 'Ma Boutique', icon: Store },
         { id: 'reviews', label: 'Avis Clients', icon: Star },
+        { id: 'billing', label: 'Facturation', icon: CreditCard },
         { id: 'support', label: 'Contact Support', icon: MessageCircle },
     ];
 
@@ -1219,6 +1247,9 @@ const DashboardPage = ({ setPage, user }) => {
                         {activeTab === 'portfolio' && <DashboardPortfolio printerData={printerData} onUpdate={fetchPrinterData} autoOpenModal={autoOpenModal} setAutoOpenModal={setAutoOpenModal} showToast={showToast} showConfirm={showConfirm} />}
                         {activeTab === 'marketplace' && <DashboardMarketplace printerData={printerData} onUpdate={fetchPrinterData} autoOpenModal={autoOpenModal} setAutoOpenModal={setAutoOpenModal} showToast={showToast} showConfirm={showConfirm} />}
                         {activeTab === 'reviews' && <DashboardReviews printerData={printerData} onUpdate={fetchPrinterData} showToast={showToast} />}
+                        {activeTab === 'billing' && (
+                            <SubscriptionPanel printerData={printerData} user={user} showToast={showToast} />
+                        )}
                         {activeTab === 'support' && (
                             <div className="bg-white border border-dark/5 rounded-[3rem] p-10 md:p-12 shadow-2xl relative overflow-hidden animate-in fade-in duration-500">
                                 <div className="absolute top-0 right-0 w-[50%] h-full bg-gradient-to-l from-primary/5 to-transparent pointer-events-none"></div>

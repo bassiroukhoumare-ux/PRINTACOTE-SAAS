@@ -3,8 +3,8 @@ import { supabase } from '../lib/supabase';
 import { Check, Loader2, Crown, ShieldCheck } from 'lucide-react';
 import { PLANS, formatFcfa, getSubscriptionState } from '../lib/subscription';
 
-// Grille des formules + lancement du checkout Moneroo.
-// Utilisé à la fois dans l'onglet "Facturation" et dans le paywall.
+// Grille des formules + lancement du checkout GeniusPay.
+// Utilisé dans l'onglet "Facturation" du dashboard.
 const SubscriptionPanel = ({ printerData, user, showToast, dark = false }) => {
     const [loadingPlan, setLoadingPlan] = useState(null);
     const sub = getSubscriptionState(printerData);
@@ -16,12 +16,12 @@ const SubscriptionPanel = ({ printerData, user, showToast, dark = false }) => {
         }
         setLoadingPlan(planId);
         try {
-            const { data, error } = await supabase.functions.invoke('moneroo-checkout', {
+            const { data, error } = await supabase.functions.invoke('geniuspay-checkout', {
                 body: { plan: planId },
             });
             if (error) throw error;
             if (!data?.checkoutUrl) throw new Error("Réponse de paiement invalide.");
-            // Redirection vers la page de paiement hébergée Moneroo.
+            // Redirection vers la page de checkout hébergée GeniusPay.
             window.location.href = data.checkoutUrl;
         } catch (err) {
             console.error(err);
@@ -130,8 +130,8 @@ const SubscriptionPanel = ({ printerData, user, showToast, dark = false }) => {
             </div>
 
             <div className={`flex items-center justify-center gap-2 text-xs font-bold ${dark ? 'text-white/40' : 'text-dark/40'}`}>
-                <img src="https://paytech.sn/assets/srcs/img/logo_paytech.png" className="h-4 w-auto grayscale opacity-50" alt="PayTech" />
-                Paiement sécurisé via PayTech — Mobile Money (Wave, Orange Money…) & carte bancaire.
+                <ShieldCheck size={16} className="opacity-50" />
+                Paiement sécurisé via GeniusPay — Mobile Money (Wave, Orange, MTN, Moov) & carte bancaire.
             </div>
 
             {sub.planId && sub.status === 'active' && (
