@@ -6,6 +6,10 @@
   },
   "rewrites": [
     {
+      "source": "/webhook",
+      "destination": "https://noohddkwlgszijenwsxr.supabase.co/functions/v1/geniuspay-webhook"
+    },
+    {
       "source": "/actualites",
       "has": [
         {
