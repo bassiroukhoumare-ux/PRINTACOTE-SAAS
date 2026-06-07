@@ -7,7 +7,7 @@ const FETCH_TIMEOUT_MS = 15_000;
 // ── Catalogue serveur des formules (source de vérité anti-fraude) ────
 // DOIT rester aligné avec src/lib/subscription.js et _shared/paytech.ts.
 export const PLANS: Record<string, { months: number; amount: number }> = {
-  "1m": { months: 1, amount: 150 }, // Prix de test temporaire à 150 FCFA
+  "1m": { months: 1, amount: 200 }, // Prix de test (min GeniusPay = 200 FCFA)
   "3m": { months: 3, amount: 12000 },
   "6m": { months: 6, amount: 20000 },
 };
@@ -75,17 +75,17 @@ export async function initiateGeniusPayPayment(
     return { ok: false, error: `Erreur réseau GeniusPay : ${(err as Error).message}` };
   }
 
-  let parsed: { success?: boolean; data?: { reference?: string; checkout_url?: string; payment_url?: string }; message?: string };
+  let parsed: { success?: boolean; data?: { reference?: string; checkout_url?: string; payment_url?: string }; message?: string; error?: { code?: string; message?: string } };
   try {
     parsed = (await res.json()) as typeof parsed;
   } catch {
-    return { ok: false, error: `GeniusPay a répondu ${res.status} (non-JSON)` };
+    return { ok: false, error: `GeniusPay a répondu ${res.status} (non-JSON ; montant < 200 FCFA ou clés invalides ?)` };
   }
 
   const data = parsed.data;
   const checkoutUrl = data?.checkout_url || data?.payment_url;
   if (!parsed.success || !data?.reference || !checkoutUrl) {
-    return { ok: false, error: parsed.message || `GeniusPay a répondu success=${parsed.success}` };
+    return { ok: false, error: parsed.error?.message || parsed.message || `GeniusPay a répondu success=${parsed.success}` };
   }
 
   return { ok: true, reference: data.reference, checkoutUrl };

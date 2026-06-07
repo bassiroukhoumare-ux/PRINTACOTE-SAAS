@@ -4,7 +4,7 @@
 // Formules prépayées. `amount` en francs XOF entiers. DOIT rester aligné avec
 // le catalogue serveur dans supabase/functions/_shared/moneroo.ts (PLANS).
 export const PLANS = [
-  { id: '1m', months: 1, label: '1 mois', amount: 150 },
+  { id: '1m', months: 1, label: '1 mois', amount: 200 },
   { id: '3m', months: 3, label: '3 mois', amount: 12000, badge: 'Économisez 20%' },
   { id: '6m', months: 6, label: '6 mois', amount: 20000, badge: 'Meilleure offre', best: true },
 ];
