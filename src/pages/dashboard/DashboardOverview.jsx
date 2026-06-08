@@ -403,7 +403,7 @@ const DashboardOverview = ({ printerData, setActiveTab, limits, requireUpgrade }
                         <button onClick={() => setActiveTab('portfolio')} className="bg-white/10 hover:bg-white/20 text-white py-3.5 px-3 rounded-xl font-black text-[9px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-transform flex items-center justify-center gap-1">
                             + Projet
                         </button>
-                        <button onClick={() => setActiveTab('marketplace')} className="bg-accent text-white py-3.5 px-3 rounded-xl font-black text-[9px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-transform flex items-center justify-center gap-1 shadow-md">
+                        <button onClick={() => setActiveTab('marketplace')} className="bg-accent text-[#3D0B37] py-3.5 px-3 rounded-xl font-black text-[9px] uppercase tracking-widest hover:scale-105 active:scale-95 transition-transform flex items-center justify-center gap-1 shadow-md">
                             + Produit
                         </button>
                     </div>

@@ -28,6 +28,35 @@ const getDeviceDetails = () => {
     return `${device} (${os} - ${browser})`;
 };
 
+const getLockoutState = (email) => {
+    if (!email) return { attempts: 0, lockoutUntil: 0, indefiniteLock: false };
+    const stateKey = `lockout_${email.toLowerCase().trim()}`;
+    const stored = localStorage.getItem(stateKey);
+    if (!stored) return { attempts: 0, lockoutUntil: 0, indefiniteLock: false };
+    try {
+        const parsed = JSON.parse(stored);
+        return {
+            attempts: Number(parsed.attempts) || 0,
+            lockoutUntil: Number(parsed.lockoutUntil) || 0,
+            indefiniteLock: !!parsed.indefiniteLock
+        };
+    } catch {
+        return { attempts: 0, lockoutUntil: 0, indefiniteLock: false };
+    }
+};
+
+const saveLockoutState = (email, state) => {
+    if (!email) return;
+    const stateKey = `lockout_${email.toLowerCase().trim()}`;
+    localStorage.setItem(stateKey, JSON.stringify(state));
+};
+
+const clearLockoutState = (email) => {
+    if (!email) return;
+    const stateKey = `lockout_${email.toLowerCase().trim()}`;
+    localStorage.removeItem(stateKey);
+};
+
 const LoginPage = ({ setPage, setUser }) => {
     const [view, setView] = useState('login'); // 'login' | 'forgot' | 'verify'
     const [email, setEmail] = useState('');
@@ -39,12 +68,51 @@ const LoginPage = ({ setPage, setUser }) => {
     // OTP / Recovery simulation states
     const [recoveryCode, setRecoveryCode] = useState('');
     const [enteredCode, setEnteredCode] = useState('');
-    const [demoMode, setDemoMode] = useState(false);
     const [codeTimestamp, setCodeTimestamp] = useState(null);
     const [limitReached, setLimitReached] = useState(false);
 
+    const [lockoutTimeLeft, setLockoutTimeLeft] = useState(0);
+
+    React.useEffect(() => {
+        const checkLockout = () => {
+            const lockout = getLockoutState(email);
+            const now = Date.now();
+            if (lockout.lockoutUntil > now) {
+                setLockoutTimeLeft(Math.ceil((lockout.lockoutUntil - now) / 1000));
+            } else {
+                setLockoutTimeLeft(0);
+            }
+        };
+
+        checkLockout();
+        const interval = setInterval(checkLockout, 1000);
+        return () => clearInterval(interval);
+    }, [email]);
+
+    const lockoutState = getLockoutState(email);
+    const isLockedIndefinitely = lockoutState.indefiniteLock;
+    const isLockedTemporarily = lockoutTimeLeft > 0;
+
     const handleLogin = async (e) => {
         e.preventDefault();
+        
+        // Safety check
+        const lockout = getLockoutState(email);
+        const now = Date.now();
+        
+        if (lockout.indefiniteLock) {
+            setError("Votre compte a été suspendu pour des raisons de sécurité suite à de multiples tentatives de connexion infructueuses. Veuillez contacter le support pour réactiver votre accès.");
+            return;
+        }
+        
+        if (lockout.lockoutUntil > now) {
+            const secondsLeft = Math.ceil((lockout.lockoutUntil - now) / 1000);
+            const mins = Math.floor(secondsLeft / 60);
+            const secs = secondsLeft % 60;
+            setError(`Trop de tentatives de connexion infructueuses. Veuillez patienter encore ${mins} minute(s) et ${secs} seconde(s) avant de réessayer.`);
+            return;
+        }
+
         setLoading(true);
         setError('');
 
@@ -54,9 +122,27 @@ const LoginPage = ({ setPage, setUser }) => {
         });
 
         if (error) {
-            setError(error.message);
             setLoading(false);
+            
+            const newLockout = { ...lockout };
+            newLockout.attempts += 1;
+            
+            if (newLockout.attempts === 2) {
+                newLockout.lockoutUntil = Date.now() + 15 * 60 * 1000; // 15 min lock
+                setError("Mot de passe incorrect (2ème essai). Pour des raisons de sécurité, votre compte est temporairement bloqué pendant 15 minutes.");
+            } else if (newLockout.attempts === 3) {
+                newLockout.lockoutUntil = Date.now() + 60 * 60 * 1000; // 1 hr lock
+                setError("Mot de passe incorrect (3ème essai). Votre compte est temporairement bloqué pendant 1 heure.");
+            } else if (newLockout.attempts >= 4) {
+                newLockout.indefiniteLock = true;
+                setError("Compte bloqué de manière sécurisée après de nombreuses tentatives de connexion infructueuses. Veuillez contacter le support.");
+            } else {
+                setError("Mot de passe incorrect. Il vous reste 1 essai avant blocage temporaire.");
+            }
+            
+            saveLockoutState(email, newLockout);
         } else {
+            clearLockoutState(email);
             setPage('dashboard');
         }
     };
@@ -122,46 +208,62 @@ const LoginPage = ({ setPage, setUser }) => {
         }
 
         let emailSent = false;
+        let rpcErrorMessage = '';
+
         try {
-            // Call Supabase stored procedure / RPC to send custom HTML recovery email via Resend
+            // Try 7-argument RPC (standard migration)
             const { error: rpcError } = await supabase.rpc('send_recovery_email', {
                 email_to: email,
                 recovery_code: code,
                 client_ip: clientIp,
                 client_location: clientLocation,
-                client_device: deviceDetails
+                client_device: deviceDetails,
+                p_resend_api_key: import.meta.env.VITE_RESEND_API_KEY || null,
+                p_sender_email: import.meta.env.VITE_SENDER_EMAIL || 'onboarding@resend.dev'
             });
             
             if (!rpcError) {
                 emailSent = true;
             } else {
-                console.warn("RPC recovery email failed, using screen fallback:", rpcError.message);
+                console.warn("RPC recovery email call (7 args) failed:", rpcError.message);
+                rpcErrorMessage = rpcError.message;
+                
+                // Fallback to original 2-argument signature if schema doesn't match new signature (code: PGRST202)
+                if (rpcError.code === 'PGRST202') {
+                    console.log("Attempting fallback to 2-argument RPC...");
+                    const { error: fallbackError } = await supabase.rpc('send_recovery_email', {
+                        email_to: email,
+                        recovery_code: code
+                    });
+                    
+                    if (!fallbackError) {
+                        emailSent = true;
+                    } else {
+                        rpcErrorMessage = fallbackError.message;
+                    }
+                }
             }
         } catch (err) {
             console.warn("RPC recovery email call error:", err.message);
+            rpcErrorMessage = err.message;
         }
 
         if (emailSent) {
             setSuccessMessage(`Un e-mail de récupération contenant votre code de vérification à 6 chiffres a été envoyé à l'adresse ${email}.`);
             setRecoveryCode(code);
-            setDemoMode(false);
             setCodeTimestamp(now);
             
             // Track the request
             requests.push(now);
             localStorage.setItem(localRequestsKey, JSON.stringify(requests));
+            setView('verify');
         } else {
-            setSuccessMessage(`[DÉMO FALLBACK] La fonction SQL d'envoi n'est pas installée sur Supabase. Votre code de récupération est :`);
-            setRecoveryCode(code);
-            setDemoMode(true);
-            setCodeTimestamp(now);
-            
-            // Still register in demo to let them test the limit rule
-            requests.push(now);
-            localStorage.setItem(localRequestsKey, JSON.stringify(requests));
+            if (rpcErrorMessage && (rpcErrorMessage.toLowerCase().includes("existe pas") || rpcErrorMessage.toLowerCase().includes("not exist"))) {
+                setError("L'adresse email saisie n'est associée à aucun compte d'imprimerie.");
+            } else {
+                setError("Impossible d'envoyer l'e-mail de récupération. Veuillez vérifier la connexion ou contacter le support.");
+            }
         }
-
-        setView('verify');
         setLoading(false);
     };
 
@@ -283,45 +385,75 @@ const LoginPage = ({ setPage, setUser }) => {
 
                     {/* VIEW 1: Standard Login */}
                     {view === 'login' && (
-                        <form onSubmit={handleLogin} className="space-y-6">
-                            <div className="space-y-2">
-                                <label className="text-xs font-black uppercase tracking-widest text-dark/30 ml-2">Email Professionnel</label>
-                                <div className="relative group">
-                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-dark/20 group-focus-within:text-primary transition-colors" size={18} />
-                                    <input 
-                                        type="email" 
-                                        required
-                                        placeholder="nom@votreimprimerie.com"
-                                        className="w-full bg-dark/5 border border-transparent rounded-2xl pl-12 pr-6 py-4 focus:outline-none focus:bg-white focus:border-primary/30 transition-all font-bold"
-                                        value={email}
-                                        onChange={(e) => setEmail(e.target.value)}
-                                    />
+                        isLockedIndefinitely ? (
+                            <div className="space-y-6 text-center animate-in fade-in duration-500">
+                                <div className="bg-red-500/10 border border-red-500/20 text-red-600 p-6 rounded-[2rem] flex flex-col gap-2 text-xs font-semibold leading-relaxed">
+                                    <ShieldAlert size={28} className="text-red-500 mx-auto mb-2 animate-bounce" />
+                                    <span className="font-black uppercase tracking-wider text-[10px]">Sécurité : Compte suspendu</span>
+                                    <p>Votre compte a été suspendu pour des raisons de sécurité suite à de multiples tentatives de connexion infructueuses. Veuillez contacter le support pour réactiver votre accès.</p>
                                 </div>
+                                <button 
+                                    type="button" 
+                                    onClick={() => {
+                                        window.open(`https://wa.me/${SUPPORT_WHATSAPP}?text=Bonjour%20Support%20Printacoté,%20mon%20compte%20a%20été%20suspendu%20suite%20à%20de%20nombreuses%20tentatives%20de%20connexion%20infructueuses.%20Mon%20adresse%20email%20est%20:%20${email}`, '_blank');
+                                    }}
+                                    className="w-full bg-[#25D366] text-white py-5 rounded-2xl font-black text-lg shadow-xl shadow-green-500/15 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3"
+                                >
+                                    <MessageCircle size={20} /> Débloquer mon compte sur WhatsApp
+                                </button>
+                                <button 
+                                    type="button"
+                                    onClick={() => {
+                                        setEmail('');
+                                        setError('');
+                                    }}
+                                    className="text-xs font-bold text-dark/40 hover:text-primary transition-colors block mx-auto"
+                                >
+                                    Essayer une autre adresse e-mail
+                                </button>
                             </div>
-
-                            <div className="space-y-2">
-                                <label className="text-xs font-black uppercase tracking-widest text-dark/30 ml-2">Mot de passe</label>
-                                <div className="relative group">
-                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-dark/20 group-focus-within:text-primary transition-colors" size={18} />
-                                    <input 
-                                        type="password" 
-                                        required
-                                        placeholder="••••••••"
-                                        className="w-full bg-dark/5 border border-transparent rounded-2xl pl-12 pr-6 py-4 focus:outline-none focus:bg-white focus:border-primary/30 transition-all font-bold"
-                                        value={password}
-                                        onChange={(e) => setPassword(e.target.value)}
-                                    />
+                        ) : (
+                            <form onSubmit={handleLogin} className="space-y-6">
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black uppercase tracking-widest text-dark/30 ml-2">Email Professionnel</label>
+                                    <div className="relative group">
+                                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-dark/20 group-focus-within:text-primary transition-colors" size={18} />
+                                        <input 
+                                            type="email" 
+                                            required
+                                            placeholder="nom@votreimprimerie.com"
+                                            className="w-full bg-dark/5 border border-transparent rounded-2xl pl-12 pr-6 py-4 focus:outline-none focus:bg-white focus:border-primary/30 transition-all font-bold"
+                                            value={email}
+                                            onChange={(e) => setEmail(e.target.value)}
+                                        />
+                                    </div>
                                 </div>
-                            </div>
 
-                            <button 
-                                type="submit" 
-                                disabled={loading}
-                                className="w-full bg-[#F5F5DC] text-[#3D0B37] py-5 rounded-2xl font-black text-lg shadow-xl shadow-black/10 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
-                            >
-                                {loading ? <Loader2 className="animate-spin" /> : <>Se connecter <ArrowRight size={20} /></>}
-                            </button>
-                        </form>
+                                <div className="space-y-2">
+                                    <label className="text-xs font-black uppercase tracking-widest text-dark/30 ml-2">Mot de passe</label>
+                                    <div className="relative group">
+                                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-dark/20 group-focus-within:text-primary transition-colors" size={18} />
+                                        <input 
+                                            type="password" 
+                                            required
+                                            disabled={isLockedTemporarily}
+                                            placeholder="••••••••"
+                                            className="w-full bg-dark/5 border border-transparent rounded-2xl pl-12 pr-6 py-4 focus:outline-none focus:bg-white focus:border-primary/30 transition-all font-bold disabled:opacity-50"
+                                            value={password}
+                                            onChange={(e) => setPassword(e.target.value)}
+                                        />
+                                    </div>
+                                </div>
+
+                                <button 
+                                    type="submit" 
+                                    disabled={loading || isLockedTemporarily}
+                                    className="w-full bg-[#F5F5DC] text-[#3D0B37] py-5 rounded-2xl font-black text-lg shadow-xl shadow-black/10 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-3"
+                                >
+                                    {loading ? <Loader2 className="animate-spin" /> : <>Se connecter <ArrowRight size={20} /></>}
+                                </button>
+                            </form>
+                        )
                     )}
 
                     {/* Connexion Google (OAuth) — uniquement sur la vue login */}
@@ -407,29 +539,6 @@ const LoginPage = ({ setPage, setUser }) => {
                                 <div className="bg-[#FAF8F5] border border-[#3D0B37]/10 p-4 rounded-2xl flex items-start gap-3 text-xs text-[#3D0B37] font-medium leading-relaxed">
                                     <CheckCircle2 size={16} className="shrink-0 text-primary mt-0.5" />
                                     <span>{successMessage}</span>
-                                </div>
-                            )}
-
-                            {/* Demo Recovery Display Banner */}
-                            {demoMode && recoveryCode && (
-                                <div className="bg-amber-50 border-2 border-dashed border-amber-200 p-6 rounded-[2rem] flex flex-col gap-2 text-xs text-amber-800 font-medium leading-relaxed animate-pulse">
-                                    <div className="flex items-center gap-2">
-                                        <ShieldAlert size={16} className="text-amber-600" />
-                                        <span className="font-black uppercase tracking-wider text-[10px] text-amber-700">Mode Démo • Code de Récupération</span>
-                                    </div>
-                                    <p>Si la messagerie SMTP de Supabase n'est pas activée, copiez-collez ce code temporaire simulé :</p>
-                                    <div className="flex items-center justify-between bg-white border border-amber-200 rounded-xl px-4 py-3 mt-1 shadow-sm">
-                                        <span className="font-mono text-lg font-black text-amber-900 tracking-widest">{recoveryCode}</span>
-                                        <button 
-                                            type="button" 
-                                            onClick={() => {
-                                                setEnteredCode(recoveryCode);
-                                            }}
-                                            className="text-[10px] font-black uppercase text-amber-700 bg-amber-100 hover:bg-amber-200 px-3 py-1.5 rounded-lg transition-colors"
-                                        >
-                                            Saisir auto.
-                                        </button>
-                                    </div>
                                 </div>
                             )}
 

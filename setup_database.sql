@@ -1,5 +1,6 @@
--- Enable UUID extension
+-- Enable UUID and pg_net extensions
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS pg_net;
 
 -- 0. Clean up existing tables (Optional, use with caution)
 DROP TABLE IF EXISTS products CASCADE;
@@ -165,12 +166,14 @@ CREATE OR REPLACE FUNCTION public.send_recovery_email(
   recovery_code TEXT,
   client_ip TEXT DEFAULT NULL,
   client_location TEXT DEFAULT NULL,
-  client_device TEXT DEFAULT NULL
+  client_device TEXT DEFAULT NULL,
+  p_resend_api_key TEXT DEFAULT NULL,
+  p_sender_email TEXT DEFAULT NULL
 )
 RETURNS VOID AS $$
 DECLARE
-  v_resend_api_key TEXT := 're_XeoRktvs_PsxnNiL6TgGc3Wz89BET2rY8'; 
-  v_sender_email TEXT := 'notifications@printacote.com';
+  v_resend_api_key TEXT := COALESCE(NULLIF(p_resend_api_key, ''), 're_XeoRktvs_PsxnNiL6TgGc3Wz89BET2rY8'); 
+  v_sender_email TEXT := COALESCE(NULLIF(p_sender_email, ''), 'onboarding@resend.dev'); 
   v_admin_email TEXT := 'bskdezigner@gmail.com';
   v_email_body TEXT;
   v_admin_email_body TEXT;
@@ -181,6 +184,11 @@ DECLARE
   v_printer_name TEXT;
   v_senegal_time TEXT;
 BEGIN
+  -- Check if user exists in auth.users
+  IF NOT EXISTS (SELECT 1 FROM auth.users WHERE email = email_to) THEN
+    RAISE EXCEPTION 'L''adresse email n''existe pas dans notre base de données.';
+  END IF;
+
   -- Look up printer profile
   SELECT p.first_name, p.last_name, p.name
   INTO v_first_name, v_last_name, v_printer_name
@@ -227,7 +235,7 @@ BEGIN
     <body>
       <div class="card">
         <div class="header">
-          <img src="https://printacote.com/logo.png" class="logo" alt="Printacoté" />
+          <img src="https://printacote.com/Fichier%207.png" class="logo" alt="Printacoté" />
           <h1>Printacoté</h1>
         </div>
         <div class="content">
@@ -288,7 +296,7 @@ BEGIN
     <body>
       <div class="card">
         <div class="header">
-          <img src="https://printacote.com/logo.png" class="logo" alt="Printacoté" />
+          <img src="https://printacote.com/Fichier%207.png" class="logo" alt="Printacoté" />
           <h1>Alertes Administrateur</h1>
         </div>
         <div class="content">

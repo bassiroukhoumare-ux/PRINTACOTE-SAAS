@@ -1,10 +1,10 @@
 -- =====================================================================
--- Printacote — Abonnements (essai 7 jours + formules prépayées Moneroo)
+-- Printacote — Abonnements (essai 14 jours + formules prépayées Moneroo)
 -- À exécuter dans l'éditeur SQL de Supabase APRÈS setup_database.sql.
 --
 -- Modèle : Moneroo ne gère pas le prélèvement récurrent. On vend un
 -- accès PRÉPAYÉ de 1 / 3 / 6 mois via un paiement unique. À l'inscription,
--- l'imprimeur bénéficie de 7 jours d'essai gratuit. Le webhook Moneroo
+-- l'imprimeur bénéficie de 14 jours d'essai gratuit. Le webhook Moneroo
 -- prolonge l'abonnement à la confirmation du paiement.
 -- =====================================================================
 
@@ -16,15 +16,15 @@ ALTER TABLE printers ADD COLUMN IF NOT EXISTS subscription_status  TEXT DEFAULT 
 ALTER TABLE printers ADD COLUMN IF NOT EXISTS subscription_ends_at TIMESTAMPTZ;
 ALTER TABLE printers ADD COLUMN IF NOT EXISTS subscription_plan    TEXT;                   -- '1m' | '3m' | '6m'
 
--- Backfill : on offre 7 jours d'essai à partir de maintenant aux comptes
+-- Backfill : on offre 14 jours d'essai à partir de maintenant aux comptes
 -- existants (évite de les bloquer dès la mise en ligne du module).
 UPDATE printers
-SET trial_ends_at = now() + interval '7 days',
+SET trial_ends_at = now() + interval '14 days',
     subscription_status = 'trial'
 WHERE trial_ends_at IS NULL;
 
 -- ---------------------------------------------------------------------
--- 2. Trigger d'inscription : démarrer l'essai de 7 jours
+-- 2. Trigger d'inscription : démarrer l'essai de 14 jours
 --    (réécriture de handle_new_user pour ajouter trial_ends_at)
 -- ---------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.handle_new_user()
@@ -47,7 +47,7 @@ BEGIN
     5.0,
     0,
     'Désactivé',
-    now() + interval '7 days',   -- 7 jours d'essai gratuit
+    now() + interval '14 days',   -- 14 jours d'essai gratuit
     'trial'
   );
   RETURN NEW;

@@ -18,6 +18,10 @@ const RegisterPage = ({ setPage }) => {
     const [error, setError] = useState('');
     const [success, setSuccess] = useState(false);
     
+    // Checkbox states for terms and info confirmation
+    const [acceptTerms, setAcceptTerms] = useState(false);
+    const [confirmInfoCorrect, setConfirmInfoCorrect] = useState(false);
+    
     // Country Selector State
     const [isCountryMenuOpen, setIsCountryMenuOpen] = useState(false);
     const [countrySearch, setCountrySearch] = useState('');
@@ -33,6 +37,12 @@ const RegisterPage = ({ setPage }) => {
 
     const handleRegister = async (e) => {
         e.preventDefault();
+        
+        if (!acceptTerms || !confirmInfoCorrect) {
+            setError("Vous devez accepter les conditions d'utilisation et confirmer l'exactitude de vos informations.");
+            return;
+        }
+
         setLoading(true);
         setError('');
         const finalCountry = showCustomCountryInput ? customCountry : country;
@@ -333,8 +343,36 @@ const RegisterPage = ({ setPage }) => {
                             </div>
                         </div>
 
+                        <div className="space-y-3 pt-2 text-left">
+                            <label className="flex items-start gap-3 cursor-pointer group">
+                                <input 
+                                    type="checkbox" 
+                                    required
+                                    className="mt-1 accent-[#3D0B37] h-4 w-4 rounded border-dark/25 focus:ring-[#3D0B37]"
+                                    checked={acceptTerms} 
+                                    onChange={(e) => setAcceptTerms(e.target.checked)} 
+                                />
+                                <span className="text-xs text-dark/60 font-medium group-hover:text-dark transition-colors">
+                                    J'accepte les <button type="button" onClick={() => setPage('terms')} className="font-bold underline text-[#3D0B37] hover:text-[#3D0B37]/80">conditions d'utilisation</button> et la <button type="button" onClick={() => setPage('privacy')} className="font-bold underline text-[#3D0B37] hover:text-[#3D0B37]/80">politique de confidentialité</button>.*
+                                </span>
+                            </label>
+                            
+                            <label className="flex items-start gap-3 cursor-pointer group">
+                                <input 
+                                    type="checkbox" 
+                                    required
+                                    className="mt-1 accent-[#3D0B37] h-4 w-4 rounded border-dark/25 focus:ring-[#3D0B37]"
+                                    checked={confirmInfoCorrect} 
+                                    onChange={(e) => setConfirmInfoCorrect(e.target.checked)} 
+                                />
+                                <span className="text-xs text-dark/60 font-medium group-hover:text-dark transition-colors">
+                                    Je certifie que toutes les informations saisies sont correctes. En cas de fausse information, je comprends que mon compte sera banni.*
+                                </span>
+                            </label>
+                        </div>
+
                         <button 
-                            type="submit" disabled={loading}
+                            type="submit" disabled={loading || !acceptTerms || !confirmInfoCorrect}
                             className="w-full bg-[#3D0B37] text-[#F5F5DC] py-4 rounded-xl font-black text-sm shadow-xl shadow-black/10 hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-3 mt-4"
                         >
                             {loading ? <Loader2 className="animate-spin" /> : <>Créer mon compte <ArrowRight size={18} /></>}

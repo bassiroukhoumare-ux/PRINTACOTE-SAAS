@@ -68,7 +68,7 @@ BEGIN
     <body>
       <div class="card">
         <div class="header">
-          <img src="https://printacote.com/logo.png" class="logo" alt="Printacoté" />
+          <img src="https://printacote.com/Fichier%207.png" class="logo" alt="Printacoté" />
           <h1>Rapport d''activité</h1>
         </div>
         <div class="content">

@@ -5,7 +5,8 @@ import {
     Store, Mail, LogOut, Shield, ShieldAlert, KeyRound,
     Search, Trash2, CheckCircle2, XCircle, Send, Plus, Users2,
     Loader2, Megaphone, Menu, Pencil, Save, Star, Sparkles,
-    Eye, Newspaper, UserCheck, Clock, PauseCircle, PlayCircle, ArrowLeft, Video, Bell
+    Eye, Newspaper, UserCheck, Clock, PauseCircle, PlayCircle, ArrowLeft, Video, Bell,
+    CreditCard, Calendar, Link as LinkIcon
 } from 'lucide-react';
 import gsap from 'gsap';
 import RichTextEditor from '../components/RichTextEditor';
@@ -88,6 +89,21 @@ const AdminPage = ({ setPage }) => {
 
     // Confirmation de déconnexion
     const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+    // Dynamic Pricing & Subscription States
+    const [pricingPlans, setPricingPlans] = useState([
+        { id: '1m', months: 1, label: '1 mois', amount: 200, cadence: 'tous les mois', link: '', features: ['Profil public visible dans l\'annuaire', 'Boutique & marketplace actives', 'Portfolio et services illimités', 'Statistiques de visites & contacts'] },
+        { id: '3m', months: 3, label: '3 mois', amount: 18659, cadence: 'tous les 3 mois', badge: 'Populaire', link: '', features: ['Profil public visible dans l\'annuaire', 'Boutique & marketplace actives', 'Portfolio et services illimités', 'Statistiques de visites & contacts'] },
+        { id: '1an', months: 12, label: '1 an', amount: 75000, cadence: 'tous les ans', badge: 'Meilleure offre', best: true, link: '', features: ['Profil public visible dans l\'annuaire', 'Boutique & marketplace actives', 'Portfolio et services illimités', 'Statistiques de visites & contacts'] }
+    ]);
+    const [loadingPricing, setLoadingPricing] = useState(false);
+    const [selectedPrinterForSub, setSelectedPrinterForSub] = useState(null);
+    const [subForm, setSubForm] = useState({
+        status: 'active',
+        endsAt: '',
+        trialEndsAt: '',
+        plan: '1m'
+    });
 
     // Messagerie : recherche d'imprimeur à contacter
     const [messageSearch, setMessageSearch] = useState('');
@@ -389,6 +405,23 @@ const AdminPage = ({ setPage }) => {
                     const localBanner = localStorage.getItem('publicity_banner');
                     setBannerSettings(localBanner ? normalize(JSON.parse(localBanner)) : normalize({}));
                 }
+            } else if (activeTab === 'pricing') {
+                const { data: printersData, error: printersErr } = await supabase.rpc('admin_get_printers_list');
+                if (printersErr) {
+                    const { data: directPt } = await supabase.from('printers').select('*').order('name', { ascending: true });
+                    setPrinters(directPt || []);
+                } else {
+                    setPrinters(printersData || []);
+                }
+
+                const { data: settingsData } = await supabase
+                    .from('system_settings')
+                    .select('value')
+                    .eq('key', 'subscription_plans')
+                    .maybeSingle();
+                if (settingsData && settingsData.value) {
+                    setPricingPlans(settingsData.value);
+                }
             }
         } catch (err) {
             console.error("Error fetching admin data:", err);
@@ -403,16 +436,23 @@ const AdminPage = ({ setPage }) => {
     // Attribue (ou retire) un badge de profil à un imprimeur.
     const handleSetBadge = async (printerId, badge) => {
         try {
-            const { error } = await supabase.rpc('admin_set_printer_badge', {
+            let { error } = await supabase.rpc('admin_set_printer_badge', {
                 p_printer_id: printerId,
                 p_badge: badge || null
             });
-            if (error) throw error;
+            if (error) {
+                console.warn("RPC admin_set_printer_badge failed, trying direct update:", error.message);
+                const { error: updateError } = await supabase
+                    .from('printers')
+                    .update({ badge: badge || null })
+                    .eq('id', printerId);
+                if (updateError) throw updateError;
+            }
             showToast(badge ? `Badge « ${badge} » attribué.` : "Badge retiré.", "success");
             fetchAdminData();
         } catch (err) {
             console.error("Error setting badge:", err);
-            showToast("Impossible de modifier le badge (migration SQL requise).", "error");
+            showToast("Impossible de modifier le badge.", "error");
         }
     };
 
@@ -1026,6 +1066,69 @@ const AdminPage = ({ setPage }) => {
         }
     };
 
+    const handleSavePricingPlans = async (e) => {
+        e.preventDefault();
+        setLoadingPricing(true);
+        try {
+            const { error } = await supabase.rpc('admin_set_setting', {
+                p_key: 'subscription_plans',
+                p_value: pricingPlans
+            });
+            if (error) {
+                const { error: tableError } = await supabase
+                    .from('system_settings')
+                    .upsert({ key: 'subscription_plans', value: pricingPlans });
+                if (tableError) throw tableError;
+            }
+            showToast("Tarifs d'abonnement enregistrés avec succès !", "success");
+        } catch (err) {
+            console.error("Erreur sauvegarde tarifs:", err);
+            showToast("Erreur lors de la sauvegarde des tarifs.", "error");
+        } finally {
+            setLoadingPricing(false);
+        }
+    };
+
+    const handleUpdatePrinterSubscription = async (e) => {
+        e.preventDefault();
+        if (!selectedPrinterForSub) return;
+        setActionLoading(true);
+        try {
+            const endsAtVal = subForm.endsAt && subForm.endsAt.trim() !== '' ? new Date(subForm.endsAt).toISOString() : null;
+            const trialEndsAtVal = subForm.trialEndsAt && subForm.trialEndsAt.trim() !== '' ? new Date(subForm.trialEndsAt).toISOString() : null;
+
+            let { error } = await supabase.rpc('admin_update_printer_subscription', {
+                p_printer_id: selectedPrinterForSub.id,
+                p_status: subForm.status,
+                p_ends_at: endsAtVal,
+                p_trial_ends_at: trialEndsAtVal,
+                p_plan: subForm.plan
+            });
+            if (error) {
+                console.warn("RPC admin_update_printer_subscription failed, trying direct update:", error.message);
+                const { error: updateError } = await supabase
+                    .from('printers')
+                    .update({
+                        subscription_status: subForm.status,
+                        subscription_ends_at: endsAtVal,
+                        trial_ends_at: trialEndsAtVal,
+                        subscription_plan: subForm.plan,
+                        status: subForm.status === 'active' ? 'En ligne' : undefined
+                    })
+                    .eq('id', selectedPrinterForSub.id);
+                if (updateError) throw updateError;
+            }
+            showToast(`Abonnement de "${selectedPrinterForSub.name}" mis à jour !`, "success");
+            setSelectedPrinterForSub(null);
+            fetchAdminData();
+        } catch (err) {
+            console.error("Erreur mise à jour abonnement:", err);
+            showToast("Erreur lors de la modification de l'abonnement.", "error");
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     const handleSaveBannerSettings = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -1356,6 +1459,15 @@ const AdminPage = ({ setPage }) => {
                                 <Megaphone size={18} />
                                 <span>Publicité</span>
                             </button>
+
+                            <button
+                                onClick={() => { setActiveTab('pricing'); setIsMobileMenuOpen(false); }}
+                                className={`w-full flex items-center gap-4 px-6 py-4 rounded-[1.5rem] font-bold text-xs uppercase tracking-wider transition-all
+                                    ${activeTab === 'pricing' ? 'bg-[#C9A84C] text-[#0F0F13] shadow-xl shadow-[#C9A84C]/10' : 'text-white/50 hover:bg-white/5'}`}
+                            >
+                                <CreditCard size={18} />
+                                <span>Abonnements</span>
+                            </button>
                         </nav>
 
                         <div className="pt-6 border-t border-white/5">
@@ -1457,6 +1569,15 @@ const AdminPage = ({ setPage }) => {
                         <Megaphone size={18} />
                         <span>Publicité</span>
                     </button>
+
+                    <button
+                        onClick={() => setActiveTab('pricing')}
+                        className={`w-full flex items-center gap-4 px-6 py-4 rounded-[1.5rem] font-bold text-xs uppercase tracking-wider transition-all group
+                            ${activeTab === 'pricing' ? 'bg-[#C9A84C] text-[#0F0F13] shadow-xl shadow-[#C9A84C]/10' : 'text-white/50 hover:bg-white/5 hover:text-white'}`}
+                    >
+                        <CreditCard size={18} />
+                        <span>Abonnements</span>
+                    </button>
                 </nav>
 
                 <div className="p-8 border-t border-white/5">
@@ -1489,6 +1610,7 @@ const AdminPage = ({ setPage }) => {
                                 {activeTab === 'support' && "Support & Messagerie"}
                                 {activeTab === 'news' && "Actualités & Blog"}
                                 {activeTab === 'advertising' && "Bannière Publicitaire"}
+                                {activeTab === 'pricing' && "Gestion des Tarifs & Abonnements"}
                             </h1>
                         </div>
                         <div className="flex items-center gap-3">
@@ -2581,6 +2703,290 @@ const AdminPage = ({ setPage }) => {
                                     </form>
                                 </div>
                             )}
+
+                            {/* TAB 8: PRICING & SUBSCRIPTIONS */}
+                            {activeTab === 'pricing' && (
+                                <div className="space-y-10">
+                                    <div className="bg-[#111116] border border-white/5 rounded-[2.5rem] p-8 md:p-10 space-y-8 shadow-2xl">
+                                        <div>
+                                            <h3 className="text-xl font-black uppercase tracking-wider text-white/80">Configuration des Tarifs & Abonnements</h3>
+                                            <p className="text-xs text-white/40 mt-1">Configurez les formules d'abonnements visibles par les imprimeurs, modifiez leurs prix, caractéristiques et liens de paiement direct.</p>
+                                        </div>
+
+                                        <form onSubmit={handleSavePricingPlans} className="space-y-8">
+                                            <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+                                                {pricingPlans.map((plan, index) => (
+                                                    <div key={plan.id} className="bg-white/2 border border-white/5 rounded-[2rem] p-6 space-y-6 relative">
+                                                        {plan.badge && (
+                                                            <span className="absolute -top-3 left-6 px-3 py-1 bg-[#C9A84C] text-[#0F0F13] rounded-full text-[9px] font-black uppercase tracking-wider">
+                                                                {plan.badge}
+                                                            </span>
+                                                        )}
+                                                        <div>
+                                                            <span className="text-[9px] font-black uppercase tracking-wider text-white/30 block mb-1">Formule ID : {plan.id}</span>
+                                                            <h4 className="font-bold text-white text-base">Plan {plan.label}</h4>
+                                                        </div>
+
+                                                        <div className="space-y-4 font-sans">
+                                                            <div className="space-y-1.5">
+                                                                <label className="text-[9px] font-black uppercase tracking-wider text-white/40 ml-2">Nom de la formule</label>
+                                                                <input
+                                                                    type="text"
+                                                                    required
+                                                                    value={plan.label}
+                                                                    onChange={(e) => {
+                                                                        const updated = [...pricingPlans];
+                                                                        updated[index].label = e.target.value;
+                                                                        setPricingPlans(updated);
+                                                                    }}
+                                                                    className="w-full bg-[#111116] border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold text-white focus:outline-none focus:border-[#C9A84C]/45"
+                                                                />
+                                                            </div>
+
+                                                            <div className="space-y-1.5">
+                                                                <label className="text-[9px] font-black uppercase tracking-wider text-white/40 ml-2">Montant (FCFA)</label>
+                                                                <input
+                                                                    type="number"
+                                                                    required
+                                                                    value={plan.amount}
+                                                                    onChange={(e) => {
+                                                                        const updated = [...pricingPlans];
+                                                                        updated[index].amount = Number(e.target.value);
+                                                                        setPricingPlans(updated);
+                                                                    }}
+                                                                    className="w-full bg-[#111116] border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold text-white focus:outline-none focus:border-[#C9A84C]/45"
+                                                                />
+                                                            </div>
+
+                                                            <div className="space-y-1.5">
+                                                                <label className="text-[9px] font-black uppercase tracking-wider text-white/40 ml-2">Durée (Mois)</label>
+                                                                <input
+                                                                    type="number"
+                                                                    required
+                                                                    value={plan.months}
+                                                                    onChange={(e) => {
+                                                                        const updated = [...pricingPlans];
+                                                                        updated[index].months = Number(e.target.value);
+                                                                        setPricingPlans(updated);
+                                                                    }}
+                                                                    className="w-full bg-[#111116] border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold text-white focus:outline-none focus:border-[#C9A84C]/45"
+                                                                />
+                                                            </div>
+
+                                                            <div className="space-y-1.5">
+                                                                <label className="text-[9px] font-black uppercase tracking-wider text-white/40 ml-2">Cadence de facturation</label>
+                                                                <input
+                                                                    type="text"
+                                                                    required
+                                                                    value={plan.cadence}
+                                                                    onChange={(e) => {
+                                                                        const updated = [...pricingPlans];
+                                                                        updated[index].cadence = e.target.value;
+                                                                        setPricingPlans(updated);
+                                                                    }}
+                                                                    className="w-full bg-[#111116] border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold text-white focus:outline-none focus:border-[#C9A84C]/45"
+                                                                />
+                                                            </div>
+
+                                                            <div className="space-y-1.5">
+                                                                <label className="text-[9px] font-black uppercase tracking-wider text-[#C9A84C] ml-2">Badge (Facultatif)</label>
+                                                                <input
+                                                                    type="text"
+                                                                    value={plan.badge || ''}
+                                                                    onChange={(e) => {
+                                                                        const updated = [...pricingPlans];
+                                                                        updated[index].badge = e.target.value;
+                                                                        setPricingPlans(updated);
+                                                                    }}
+                                                                    placeholder="Ex: Populaire, Recommandé"
+                                                                    className="w-full bg-[#111116] border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold text-white focus:outline-none focus:border-[#C9A84C]/45"
+                                                                />
+                                                            </div>
+
+                                                            <div className="space-y-1.5">
+                                                                <label className="text-[9px] font-black uppercase tracking-wider text-white/40 ml-2">Lien de paiement Wave / Stripe / Orange Money</label>
+                                                                <input
+                                                                    type="url"
+                                                                    value={plan.link || ''}
+                                                                    onChange={(e) => {
+                                                                        const updated = [...pricingPlans];
+                                                                        updated[index].link = e.target.value;
+                                                                        setPricingPlans(updated);
+                                                                    }}
+                                                                    placeholder="https://wave.com/pay/... ou lien Stripe"
+                                                                    className="w-full bg-[#111116] border border-white/10 focus:border-[#C9A84C]/45 rounded-xl px-4 py-2.5 text-xs font-bold text-white focus:outline-none"
+                                                                />
+                                                            </div>
+
+                                                            <div className="space-y-2">
+                                                                <label className="text-[9px] font-black uppercase tracking-wider text-white/40 ml-2 block">Caractéristiques</label>
+                                                                <div className="space-y-2">
+                                                                    {(plan.features || []).map((feat, fIdx) => (
+                                                                        <div key={fIdx} className="flex items-center gap-2">
+                                                                            <input
+                                                                                type="text"
+                                                                                required
+                                                                                value={feat}
+                                                                                onChange={(e) => {
+                                                                                    const updated = [...pricingPlans];
+                                                                                    updated[index].features[fIdx] = e.target.value;
+                                                                                    setPricingPlans(updated);
+                                                                                }}
+                                                                                className="flex-1 bg-[#111116] border border-white/10 rounded-xl px-3 py-1.5 text-[11px] font-medium text-white focus:outline-none focus:border-[#C9A84C]/45"
+                                                                            />
+                                                                            <button
+                                                                                type="button"
+                                                                                onClick={() => {
+                                                                                    const updated = [...pricingPlans];
+                                                                                    updated[index].features.splice(fIdx, 1);
+                                                                                    setPricingPlans(updated);
+                                                                                }}
+                                                                                className="p-1.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-lg hover:bg-red-500/20 hover:scale-105 transition-all"
+                                                                            >
+                                                                                <Trash2 size={12} />
+                                                                            </button>
+                                                                        </div>
+                                                                    ))}
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            const updated = [...pricingPlans];
+                                                                            if (!updated[index].features) updated[index].features = [];
+                                                                            updated[index].features.push('Nouvelle caractéristique');
+                                                                            setPricingPlans(updated);
+                                                                        }}
+                                                                        className="w-full py-2 bg-white/5 border border-dashed border-white/10 hover:border-white/20 rounded-xl text-[10px] font-black uppercase tracking-wider text-white/50 hover:text-white"
+                                                                    >
+                                                                        Ajouter une caractéristique
+                                                                    </button>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+
+                                            <div className="flex justify-end pt-4">
+                                                <button
+                                                    type="submit"
+                                                    disabled={loadingPricing}
+                                                    className="px-8 py-4 bg-[#C9A84C] text-[#0F0F13] rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-[1.03] active:scale-95 transition-all shadow-xl shadow-[#C9A84C]/25 flex items-center gap-2"
+                                                >
+                                                    {loadingPricing ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                                                    Enregistrer les Tarifs
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+
+                                    {/* Imprimateurs subscriptions list */}
+                                    <div className="bg-[#111116] border border-white/5 rounded-[2.5rem] p-8 md:p-10 space-y-6 shadow-2xl">
+                                        <div>
+                                            <h3 className="text-xl font-black uppercase tracking-wider text-white/80">Abonnements des Imprimeurs</h3>
+                                            <p className="text-xs text-white/40 mt-1">Gerez manuellement le statut d'abonnement, les dates de fin d'essai et d'accès des ateliers de la plateforme.</p>
+                                        </div>
+
+                                        {/* Search Input */}
+                                        <div className="relative max-w-md w-full">
+                                            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-white/30">
+                                                <Search size={16} />
+                                            </div>
+                                            <input 
+                                                type="text"
+                                                placeholder="Rechercher par nom, ville ou e-mail..."
+                                                value={searchQuery}
+                                                onChange={(e) => setSearchQuery(e.target.value)}
+                                                className="w-full bg-[#111116] border border-white/5 rounded-2xl pl-12 pr-4 py-3 text-sm focus:outline-none focus:border-[#C9A84C]/40 text-white font-bold"
+                                            />
+                                        </div>
+
+                                        {filteredPrinters.length === 0 ? (
+                                            <p className="text-xs text-white/45 font-bold text-center py-6">Aucun imprimeur trouvé.</p>
+                                        ) : (
+                                            <div className="overflow-x-auto rounded-2xl border border-white/5">
+                                                <table className="w-full text-left text-sm text-white/85 border-collapse">
+                                                    <thead>
+                                                        <tr className="bg-white/5 border-b border-white/5 text-[10px] font-black uppercase tracking-wider text-white/40">
+                                                            <th className="p-4">Imprimerie</th>
+                                                            <th className="p-4">Statut</th>
+                                                            <th className="p-4">Formule</th>
+                                                            <th className="p-4">Fin de l'essai</th>
+                                                            <th className="p-4">Fin d'abonnement</th>
+                                                            <th className="p-4 text-right">Action</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        {filteredPrinters.map(p => {
+                                                            const isSubActive = p.subscription_ends_at && new Date(p.subscription_ends_at) > new Date();
+                                                            const isTrialActive = p.trial_ends_at && new Date(p.trial_ends_at) > new Date();
+                                                            let statusBadge = (
+                                                                <span className="px-2.5 py-1 rounded-full text-[9px] font-black uppercase border border-red-500/20 bg-red-500/10 text-red-400">
+                                                                    Expiré
+                                                                </span>
+                                                            );
+                                                            if (p.subscription_status === 'active' || isSubActive) {
+                                                                statusBadge = (
+                                                                    <span className="px-2.5 py-1 rounded-full text-[9px] font-black uppercase border border-green-500/20 bg-green-500/10 text-green-400">
+                                                                        Actif
+                                                                    </span>
+                                                                );
+                                                            } else if (isTrialActive) {
+                                                                statusBadge = (
+                                                                    <span className="px-2.5 py-1 rounded-full text-[9px] font-black uppercase border border-amber-500/20 bg-amber-500/10 text-amber-400">
+                                                                        Essai
+                                                                    </span>
+                                                                );
+                                                            }
+
+                                                            return (
+                                                                <tr key={p.id} className="border-b border-white/5 hover:bg-white/[0.01] transition-colors">
+                                                                    <td className="p-4">
+                                                                        <div className="flex items-center gap-3">
+                                                                            {p.logo_url && (
+                                                                                <img src={p.logo_url} alt="" className="w-8 h-8 rounded-lg object-cover bg-white/10" />
+                                                                            )}
+                                                                            <div>
+                                                                                <p className="font-bold text-white text-xs">{p.name}</p>
+                                                                                <span className="text-[9px] text-white/30">{p.city} · {p.email}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    </td>
+                                                                    <td className="p-4">{statusBadge}</td>
+                                                                    <td className="p-4">
+                                                                        <span className="font-mono text-xs uppercase text-white/70">{p.subscription_plan || 'Aucune'}</span>
+                                                                    </td>
+                                                                    <td className="p-4 text-xs font-medium text-white/60">
+                                                                        {p.trial_ends_at ? new Date(p.trial_ends_at).toLocaleDateString('fr-FR') : '-'}
+                                                                    </td>
+                                                                    <td className="p-4 text-xs font-medium text-white/60">
+                                                                        {p.subscription_ends_at ? new Date(p.subscription_ends_at).toLocaleDateString('fr-FR') : '-'}
+                                                                    </td>
+                                                                    <td className="p-4 text-right">
+                                                                        <button
+                                                                            onClick={() => {
+                                                                                setSelectedPrinterForSub(p);
+                                                                                setSubForm({
+                                                                                    status: p.subscription_status || 'expired',
+                                                                                    endsAt: p.subscription_ends_at ? new Date(p.subscription_ends_at).toISOString().slice(0, 10) : '',
+                                                                                    trialEndsAt: p.trial_ends_at ? new Date(p.trial_ends_at).toISOString().slice(0, 10) : '',
+                                                                                    plan: p.subscription_plan || '1m'
+                                                                                });
+                                                                            }}
+                                                                            className="px-3 py-1.5 bg-[#C9A84C]/10 text-[#C9A84C] hover:bg-[#C9A84C]/25 border border-[#C9A84C]/20 rounded-xl text-[10px] font-black uppercase tracking-wider transition-all"
+                                                                        >
+                                                                            Gérer
+                                                                        </button>
+                                                                    </td>
+                                                                </tr>
+                                                            );
+                                                        })}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
@@ -3105,6 +3511,105 @@ const AdminPage = ({ setPage }) => {
                                 Fermer
                             </button>
                         </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Manual Subscription management Modal */}
+            {selectedPrinterForSub && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/75 backdrop-blur-md animate-in fade-in duration-300">
+                    <div className="bg-[#111116] border border-white/10 rounded-[3rem] w-full max-w-lg overflow-hidden shadow-2xl p-8 relative flex flex-col text-white font-sans">
+                        <div className="absolute inset-0 pointer-events-none noise-overlay opacity-[0.03] bg-white"></div>
+                        
+                        <div className="flex justify-between items-center mb-6">
+                            <div>
+                                <h3 className="text-xl font-black font-serif text-[#FAF8F5]">Abonnement de {selectedPrinterForSub.name}</h3>
+                                <p className="text-xs text-white/40 mt-1 font-bold uppercase tracking-wider">Modifier manuellement les statuts et dates d'accès</p>
+                            </div>
+                            <button 
+                                onClick={() => setSelectedPrinterForSub(null)}
+                                className="p-2 rounded-xl bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-colors"
+                            >
+                                <XCircle size={20} />
+                            </button>
+                        </div>
+
+                        <form onSubmit={handleUpdatePrinterSubscription} className="space-y-4">
+                            <div className="space-y-1.5">
+                                <label className="text-[9px] font-black uppercase tracking-wider text-white/40 ml-2">Statut de l'abonnement</label>
+                                <select
+                                    value={subForm.status}
+                                    onChange={(e) => {
+                                        const newStatus = e.target.value;
+                                        let newEndsAt = subForm.endsAt;
+                                        if (newStatus === 'active' && !subForm.endsAt) {
+                                            const planMonths = subForm.plan === '1m' ? 1 : subForm.plan === '3m' ? 3 : 12;
+                                            const d = new Date();
+                                            d.setMonth(d.getMonth() + planMonths);
+                                            newEndsAt = d.toISOString().slice(0, 10);
+                                        }
+                                        setSubForm({ ...subForm, status: newStatus, endsAt: newEndsAt });
+                                    }}
+                                    className="w-full bg-[#111116] border border-white/10 text-sm font-bold text-white rounded-xl px-4 py-3 focus:outline-none focus:border-[#C9A84C]/45"
+                                >
+                                    <option value="trial" className="bg-[#111116]">Essai gratuit (Trial)</option>
+                                    <option value="active" className="bg-[#111116]">Actif (Payé)</option>
+                                    <option value="expired" className="bg-[#111116]">Expiré</option>
+                                </select>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-[9px] font-black uppercase tracking-wider text-white/40 ml-2">Formule d'abonnement</label>
+                                <select
+                                    value={subForm.plan}
+                                    onChange={(e) => {
+                                        const newPlan = e.target.value;
+                                        let newEndsAt = subForm.endsAt;
+                                        if (subForm.status === 'active') {
+                                            const planMonths = newPlan === '1m' ? 1 : newPlan === '3m' ? 3 : 12;
+                                            const d = new Date();
+                                            d.setMonth(d.getMonth() + planMonths);
+                                            newEndsAt = d.toISOString().slice(0, 10);
+                                        }
+                                        setSubForm({ ...subForm, plan: newPlan, endsAt: newEndsAt });
+                                    }}
+                                    className="w-full bg-[#111116] border border-white/10 text-sm font-bold text-white rounded-xl px-4 py-3 focus:outline-none focus:border-[#C9A84C]/45"
+                                >
+                                    {pricingPlans.map(plan => (
+                                        <option key={plan.id} value={plan.id} className="bg-[#111116]">Plan {plan.label}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-[9px] font-black uppercase tracking-wider text-white/40 ml-2">Date de fin d'essai gratuit</label>
+                                <input
+                                    type="date"
+                                    value={subForm.trialEndsAt}
+                                    onChange={(e) => setSubForm({ ...subForm, trialEndsAt: e.target.value })}
+                                    className="w-full bg-[#111116] border border-white/10 text-sm font-bold text-white rounded-xl px-4 py-3 focus:outline-none focus:border-[#C9A84C]/45"
+                                />
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <label className="text-[9px] font-black uppercase tracking-wider text-white/40 ml-2">Date de fin d'abonnement</label>
+                                <input
+                                    type="date"
+                                    value={subForm.endsAt}
+                                    onChange={(e) => setSubForm({ ...subForm, endsAt: e.target.value })}
+                                    className="w-full bg-[#111116] border border-white/10 text-sm font-bold text-white rounded-xl px-4 py-3 focus:outline-none focus:border-[#C9A84C]/45"
+                                />
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={actionLoading}
+                                className="w-full py-4 mt-6 bg-[#C9A84C] text-[#0F0F13] rounded-2xl font-black text-xs uppercase tracking-widest hover:scale-[1.03] active:scale-95 transition-all shadow-xl shadow-[#C9A84C]/15 flex items-center justify-center gap-2"
+                            >
+                                {actionLoading ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                                Mettre à jour l'abonnement
+                            </button>
+                        </form>
                     </div>
                 </div>
             )}

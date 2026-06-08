@@ -37,11 +37,13 @@ export function formatMoney(amountXof, code = 'XOF') {
 }
 
 // ── Palier (gratuit vs abonné) ──
-// Un imprimeur est "abonné" tant que son abonnement n'est pas expiré.
+// Un imprimeur est "abonné" tant que son abonnement (incluant la période de grâce de 2 jours) ou sa période d'essai n'est pas expiré.
 // Les comptes de démonstration ont un accès complet.
 export function isSubscriber(printer) {
   if (!printer || printer.isMock) return true;
-  return !!printer.subscription_ends_at && new Date(printer.subscription_ends_at) > new Date();
+  
+  const state = getSubscriptionState(printer);
+  return state.hasAccess;
 }
 
 export const FREE_LIMITS = {
@@ -60,19 +62,21 @@ const DAY_MS = 1000 * 60 * 60 * 24;
 /**
  * Calcule l'état d'abonnement d'un imprimeur.
  * @returns {{ status: 'trial'|'active'|'expired', hasAccess: boolean,
- *   isTrial: boolean, endsAt: Date|null, daysLeft: number, planId: string|null }}
+ *   isTrial: boolean, endsAt: Date|null, daysLeft: number, planId: string|null, isGracePeriod: boolean }}
  */
 export function getSubscriptionState(printer) {
   // Les comptes de démonstration (sandbox local) ont un accès complet.
   if (!printer || printer.isMock) {
-    return { status: 'active', hasAccess: true, isTrial: false, endsAt: null, daysLeft: Infinity, planId: null };
+    return { status: 'active', hasAccess: true, isTrial: false, endsAt: null, daysLeft: Infinity, planId: null, isGracePeriod: false };
   }
 
   const now = Date.now();
+  const GRACE_PERIOD_MS = 2 * 24 * 60 * 60 * 1000; // 2 jours de grâce / intervalle
   const trialEndsAt = printer.trial_ends_at ? new Date(printer.trial_ends_at) : null;
   const subEndsAt = printer.subscription_ends_at ? new Date(printer.subscription_ends_at) : null;
 
-  const subActive = !!subEndsAt && subEndsAt.getTime() > now;
+  // Accès actif si formule + 2 jours de grâce n'est pas expirée
+  const subActive = !!subEndsAt && (subEndsAt.getTime() + GRACE_PERIOD_MS) > now;
   const trialActive = !!trialEndsAt && trialEndsAt.getTime() > now;
 
   let status, endsAt;
@@ -88,7 +92,10 @@ export function getSubscriptionState(printer) {
   }
 
   const hasAccess = subActive || trialActive;
-  const daysLeft = hasAccess && endsAt ? Math.max(0, Math.ceil((endsAt.getTime() - now) / DAY_MS)) : 0;
+  
+  // Si en période de grâce, on compte jusqu'à la fin de la grâce, sinon fin d'essai/abonnement
+  const targetTime = subActive ? (subEndsAt.getTime() + GRACE_PERIOD_MS) : (endsAt ? endsAt.getTime() : now);
+  const daysLeft = hasAccess ? Math.max(0, Math.ceil((targetTime - now) / DAY_MS)) : 0;
 
   return {
     status,
@@ -97,5 +104,6 @@ export function getSubscriptionState(printer) {
     endsAt,
     daysLeft,
     planId: printer.subscription_plan || null,
+    isGracePeriod: subActive && subEndsAt.getTime() <= now // Indique si on est dans la période de grâce
   };
 }

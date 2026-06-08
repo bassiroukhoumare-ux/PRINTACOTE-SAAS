@@ -120,6 +120,49 @@ const DashboardPage = ({ setPage, user }) => {
     }, [notifications]);
 
     useEffect(() => {
+        if (!printerData) return;
+        const sub = getSubscriptionState(printerData);
+        
+        if (sub.status === 'active' && sub.endsAt) {
+            const now = Date.now();
+            const endsAtTime = new Date(sub.endsAt).getTime();
+            const daysLeftBeforeGrace = Math.ceil((endsAtTime - now) / (1000 * 60 * 60 * 24));
+            
+            // Notification 2 jours avant l'expiration nominale
+            if (daysLeftBeforeGrace > 0 && daysLeftBeforeGrace <= 2) {
+                const notifId = `sub_expiring_${sub.endsAt}`;
+                setNotifications(prev => {
+                    if (prev.some(n => n.id === notifId)) return prev;
+                    return [{
+                        id: notifId,
+                        title: "Abonnement bientôt expiré",
+                        message: `Votre abonnement de ${sub.planId === '1m' ? '1 mois' : sub.planId === '3m' ? '3 mois' : '1 an'} arrive à terme dans ${daysLeftBeforeGrace} jour(s). Pensez à le renouveler depuis votre espace de facturation.`,
+                        time: new Date().toLocaleDateString('fr-FR'),
+                        read: false,
+                        type: 'warning'
+                    }, ...prev];
+                });
+            }
+            
+            // Notification pendant la période de grâce active
+            if (sub.isGracePeriod) {
+                const notifId = `sub_grace_${sub.endsAt}`;
+                setNotifications(prev => {
+                    if (prev.some(n => n.id === notifId)) return prev;
+                    return [{
+                        id: notifId,
+                        title: "Période de grâce active",
+                        message: `Votre abonnement a expiré, mais vous disposez d'un intervalle de grâce de 2 jours. Veuillez renouveler rapidement pour éviter la suspension de vos services.`,
+                        time: new Date().toLocaleDateString('fr-FR'),
+                        read: false,
+                        type: 'warning'
+                    }, ...prev];
+                });
+            }
+        }
+    }, [printerData]);
+
+    useEffect(() => {
         if (!user?.id) return;
 
         const justRegistered = localStorage.getItem('just_registered') === 'true';
@@ -1139,7 +1182,7 @@ const DashboardPage = ({ setPage, user }) => {
                     {/* Header */}
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-8 mb-16">
                         <div>
-                            <h1 className="text-sm font-black text-accent uppercase tracking-[0.3em] mb-4">Espace Professionnel</h1>
+                            <h1 className="text-sm font-black text-primary/75 uppercase tracking-[0.3em] mb-4">Espace Professionnel</h1>
                             <div className="flex items-center gap-6">
                                 <div className="w-20 h-20 rounded-[2rem] border-4 border-white shadow-2xl overflow-hidden bg-white">
                                     <img src={printerData?.logo_url} alt="Logo" className="w-full h-full object-cover" />
@@ -1246,6 +1289,84 @@ const DashboardPage = ({ setPage, user }) => {
 
                     {/* Tab Content */}
                     <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
+                        {/* Subscription Warning / Grace Period Banner */}
+                        {(() => {
+                            const sub = getSubscriptionState(printerData);
+                            if (!printerData || printerData.isMock) return null;
+                            
+                            if (sub.isGracePeriod) {
+                                return (
+                                    <div className="mb-8 p-6 bg-amber-500/10 border-2 border-amber-500/20 text-[#3D0B37] rounded-[2rem] flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in slide-in-from-top-4 duration-500">
+                                        <div className="flex items-center gap-4 text-left">
+                                            <div className="w-12 h-12 bg-amber-500/20 text-primary rounded-xl flex items-center justify-center shrink-0">
+                                                <Bell className="animate-bounce text-primary" size={22} />
+                                            </div>
+                                            <div>
+                                                <h4 className="font-black text-sm uppercase tracking-wider text-[#3D0B37]">Période de grâce active</h4>
+                                                <p className="text-xs text-[#3D0B37]/70 font-semibold mt-0.5">Votre abonnement a expiré, mais vous disposez d'un intervalle de grâce de 2 jours pour renouveler sans coupure de service.</p>
+                                            </div>
+                                        </div>
+                                        <button 
+                                            onClick={() => setActiveTab('billing')}
+                                            className="px-5 py-2.5 bg-amber-500 text-[#0F0F13] rounded-xl font-black text-xs uppercase tracking-wider hover:scale-105 active:scale-95 transition-all shadow-md shadow-amber-500/10 shrink-0"
+                                        >
+                                            Renouveler l'abonnement
+                                        </button>
+                                    </div>
+                                );
+                             }
+
+                             if (sub.status === 'trial') {
+                                 return (
+                                     <div className="mb-8 p-6 bg-[#C9A84C]/10 border-2 border-[#C9A84C]/20 text-[#3D0B37] rounded-[2rem] flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in slide-in-from-top-4 duration-500">
+                                         <div className="flex items-center gap-4 text-left">
+                                             <div className="w-12 h-12 bg-[#C9A84C]/25 text-[#3D0B37] rounded-xl flex items-center justify-center shrink-0">
+                                                 <Clock size={22} />
+                                             </div>
+                                             <div>
+                                                 <h4 className="font-black text-sm uppercase tracking-wider text-[#3D0B37]">Période d'essai gratuite</h4>
+                                                 <p className="text-xs text-[#3D0B37]/80 font-semibold mt-0.5">Il vous reste {sub.daysLeft} jour(s) d'essai gratuit. Profitez de toutes les fonctionnalités premium.</p>
+                                             </div>
+                                         </div>
+                                         <button 
+                                             onClick={() => setActiveTab('billing')}
+                                             className="px-5 py-2.5 bg-[#C9A84C] text-[#0F0F13] rounded-xl font-black text-xs uppercase tracking-wider hover:scale-105 active:scale-95 transition-all shadow-md shadow-[#C9A84C]/10 shrink-0"
+                                         >
+                                             S'abonner maintenant
+                                         </button>
+                                     </div>
+                                 );
+                             }
+                             
+                             if (sub.status === 'active' && sub.endsAt) {
+                                const now = Date.now();
+                                const endsAtTime = new Date(sub.endsAt).getTime();
+                                const daysLeftBeforeGrace = Math.ceil((endsAtTime - now) / (1000 * 60 * 60 * 24));
+                                if (daysLeftBeforeGrace > 0 && daysLeftBeforeGrace <= 2) {
+                                    return (
+                                        <div className="mb-8 p-6 bg-[#C9A84C]/10 border-2 border-[#C9A84C]/20 text-[#3D0B37] rounded-[2rem] flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in slide-in-from-top-4 duration-500">
+                                            <div className="flex items-center gap-4 text-left">
+                                                <div className="w-12 h-12 bg-[#C9A84C]/25 text-[#3D0B37] rounded-xl flex items-center justify-center shrink-0">
+                                                    <Clock size={22} />
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-black text-sm uppercase tracking-wider text-[#3D0B37]">Expiration proche</h4>
+                                                    <p className="text-xs text-[#3D0B37]/80 font-semibold mt-0.5">Votre formule d'abonnement se termine dans {daysLeftBeforeGrace} jour(s). Pensez à prolonger votre accès.</p>
+                                                </div>
+                                            </div>
+                                            <button 
+                                                onClick={() => setActiveTab('billing')}
+                                                className="px-5 py-2.5 bg-[#C9A84C] text-[#0F0F13] rounded-xl font-black text-xs uppercase tracking-wider hover:scale-105 active:scale-95 transition-all shadow-md shadow-[#C9A84C]/10 shrink-0"
+                                            >
+                                                Prolonger l'accès
+                                            </button>
+                                        </div>
+                                    );
+                                }
+                            }
+                            return null;
+                        })()}
+
                         {activeTab === 'overview' && <DashboardOverview printerData={printerData} setActiveTab={triggerTabWithModal} limits={limits} requireUpgrade={requireUpgrade} />}
                         {activeTab === 'profile' && <DashboardProfile printerData={printerData} onUpdate={fetchPrinterData} showToast={showToast} limits={limits} requireUpgrade={requireUpgrade} />}
                         {activeTab === 'services' && <DashboardServices printerData={printerData} onUpdate={fetchPrinterData} autoOpenModal={autoOpenModal} setAutoOpenModal={setAutoOpenModal} showToast={showToast} showConfirm={showConfirm} limits={limits} requireUpgrade={requireUpgrade} />}
@@ -1475,7 +1596,7 @@ const DashboardPage = ({ setPage, user }) => {
                                                                     : 'bg-dark/5 text-dark rounded-tr-none border border-dark/5 font-medium'
                                                             }`}>
                                                                 {!isAdmin && (
-                                                                    <span className="block text-[8px] font-black uppercase tracking-wider text-accent mb-1">
+                                                                    <span className="block text-[8px] font-black uppercase tracking-wider text-dark/70 mb-1">
                                                                         Objet: {msg.subject}
                                                                     </span>
                                                                 )}

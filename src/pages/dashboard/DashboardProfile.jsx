@@ -274,11 +274,11 @@ const DashboardProfile = ({ printerData, onUpdate, showToast, limits, requireUpg
                             </div>
                             <div 
                                 onClick={() => logoInputRef.current?.click()}
-                                className="absolute -bottom-2 -right-2 w-10 h-10 bg-accent rounded-full flex items-center justify-center text-white border-4 border-white shadow-xl z-20 cursor-pointer hover:scale-110 transition-transform"
+                                className="absolute -bottom-2 -right-2 w-10 h-10 bg-primary rounded-full flex items-center justify-center text-white border-4 border-white shadow-xl z-20 cursor-pointer hover:scale-110 transition-transform"
                             >
                                 <Camera size={16} />
                             </div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-dark/30 mt-6 text-center">Modifier Logo</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-dark/60 mt-6 text-center">Modifier Logo</p>
                         </div>
 
                         {/* Cover Upload Box */}
@@ -292,7 +292,7 @@ const DashboardProfile = ({ printerData, onUpdate, showToast, limits, requireUpg
                                     <Camera size={32} className="text-white animate-pulse" />
                                 </div>
                             </div>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-dark/30 mt-4">Modifier Bannière</p>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-dark/60 mt-4">Modifier Bannière</p>
                         </div>
                     </div>
                 </div>
@@ -306,14 +306,14 @@ const DashboardProfile = ({ printerData, onUpdate, showToast, limits, requireUpg
                         </div>
                         
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-dark/30 ml-2">Nom de l'enseigne</label>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-dark/60 ml-2">Nom de l'enseigne</label>
                             <input 
                                 name="name"
                                 value={formData.name}
                                 onChange={handleChange}
                                 disabled={isNameLocked}
-                                className={`w-full border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none transition-all font-bold 
-                                    ${isNameLocked ? 'bg-dark/5 text-dark/40 cursor-not-allowed opacity-75' : 'bg-dark/5 focus:bg-white focus:border-primary/20'}`}
+                                className={`w-full border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none transition-all font-bold text-dark
+                                    ${isNameLocked ? 'bg-dark/5 text-dark/45 cursor-not-allowed opacity-75' : 'bg-dark/5 focus:bg-white focus:border-primary/20'}`}
                             />
                             {isNameLocked && (
                                 <p className="text-[10px] text-red-500 font-bold ml-2 leading-relaxed">
@@ -323,14 +323,14 @@ const DashboardProfile = ({ printerData, onUpdate, showToast, limits, requireUpg
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-dark/30 ml-2">Description / Slogan</label>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-dark/60 ml-2">Description / Slogan</label>
                             <textarea 
                                 name="description"
                                 rows="4"
                                 value={formData.description}
                                 onChange={handleChange}
                                 placeholder="Décrivez votre expertise en quelques mots..."
-                                className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold resize-none"
+                                className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold resize-none text-dark"
                             ></textarea>
                         </div>
                     </div>
@@ -343,7 +343,7 @@ const DashboardProfile = ({ printerData, onUpdate, showToast, limits, requireUpg
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-dark/30 ml-2">Pays (Non modifiable)</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-dark/60 ml-2">Pays (Non modifiable)</label>
                                 <input 
                                     name="country"
                                     value={formData.country}
@@ -352,45 +352,45 @@ const DashboardProfile = ({ printerData, onUpdate, showToast, limits, requireUpg
                                 />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-dark/30 ml-2">Ville</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-dark/60 ml-2">Ville</label>
                                 <input 
                                     name="city"
                                     value={formData.city}
                                     onChange={handleChange}
-                                    className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold text-sm"
+                                    className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold text-sm text-dark"
                                 />
                             </div>
                         </div>
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-dark/30 ml-2">Téléphone</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-dark/60 ml-2">Téléphone</label>
                                 <input 
                                     name="phone"
                                     value={formData.phone}
                                     onChange={handleChange}
-                                    className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold text-sm"
+                                    className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold text-sm text-dark"
                                 />
                             </div>
                             <div className="space-y-2">
-                                <label className="text-[10px] font-black uppercase tracking-widest text-dark/30 ml-2">Site Web</label>
+                                <label className="text-[10px] font-black uppercase tracking-widest text-dark/60 ml-2">Site Web</label>
                                 <input 
                                     name="website"
                                     value={formData.website}
                                     onChange={handleChange}
                                     placeholder="https://..."
-                                    className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold text-sm"
+                                    className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold text-sm text-dark"
                                 />
                             </div>
                         </div>
 
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-dark/30 ml-2">Adresse physique</label>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-dark/60 ml-2">Adresse physique</label>
                             <input 
                                 name="address"
                                 value={formData.address}
                                 onChange={handleChange}
-                                className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold text-sm"
+                                className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold text-sm text-dark"
                             />
                         </div>
                     </div>
@@ -417,33 +417,33 @@ const DashboardProfile = ({ printerData, onUpdate, showToast, limits, requireUpg
 
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-dark/30 ml-2">Facebook (Lien complet)</label>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-dark/60 ml-2">Facebook (Lien complet)</label>
                             <input 
                                 name="facebook"
                                 value={formData.facebook}
                                 onChange={handleChange}
                                 placeholder="https://facebook.com/..."
-                                className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold text-sm"
+                                className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold text-sm text-dark"
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-dark/30 ml-2">Instagram (Lien complet)</label>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-dark/60 ml-2">Instagram (Lien complet)</label>
                             <input 
                                 name="instagram"
                                 value={formData.instagram}
                                 onChange={handleChange}
                                 placeholder="https://instagram.com/..."
-                                className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold text-sm"
+                                className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold text-sm text-dark"
                             />
                         </div>
                         <div className="space-y-2">
-                            <label className="text-[10px] font-black uppercase tracking-widest text-dark/30 ml-2">TikTok (Lien complet)</label>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-dark/60 ml-2">TikTok (Lien complet)</label>
                             <input 
                                 name="tiktok"
                                 value={formData.tiktok}
                                 onChange={handleChange}
                                 placeholder="https://tiktok.com/@..."
-                                className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold text-sm"
+                                className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold text-sm text-dark"
                             />
                         </div>
                     </div>
@@ -476,25 +476,25 @@ const DashboardProfile = ({ printerData, onUpdate, showToast, limits, requireUpg
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-dark/30 ml-2">Nouveau mot de passe</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-dark/60 ml-2">Nouveau mot de passe</label>
                         <input 
                             type="password"
                             required
                             disabled={isPasswordChangeLocked}
                             placeholder="Minimum 6 caractères"
-                            className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold text-sm disabled:opacity-50"
+                            className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold text-sm disabled:opacity-50 text-dark"
                             value={newPassword}
                             onChange={(e) => setNewPassword(e.target.value)}
                         />
                     </div>
                     <div className="space-y-2">
-                        <label className="text-[10px] font-black uppercase tracking-widest text-dark/30 ml-2">Confirmer le nouveau mot de passe</label>
+                        <label className="text-[10px] font-black uppercase tracking-widest text-dark/60 ml-2">Confirmer le nouveau mot de passe</label>
                         <input 
                             type="password"
                             required
                             disabled={isPasswordChangeLocked}
                             placeholder="Ressaisir le mot de passe"
-                            className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold text-sm disabled:opacity-50"
+                            className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white focus:border-primary/20 transition-all font-bold text-sm disabled:opacity-50 text-dark"
                             value={confirmPassword}
                             onChange={(e) => setConfirmPassword(e.target.value)}
                         />
