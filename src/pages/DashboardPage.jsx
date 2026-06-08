@@ -497,6 +497,74 @@ const DashboardPage = ({ setPage, user }) => {
         setStatusModalLoading(false);
     };
 
+    const handleCancelDeletion = async () => {
+        if (!window.confirm("Voulez-vous vraiment annuler la demande de suppression de votre compte et réactiver votre vitrine ?")) {
+            return;
+        }
+        setStatusModalLoading(true);
+        try {
+            if (printerData.isMock) {
+                const updated = {
+                    ...printerData,
+                    deletion_scheduled_at: null,
+                    deletion_reason: null,
+                    status: 'En ligne'
+                };
+                localStorage.setItem(`mock_printer_${user.id}`, JSON.stringify(updated));
+                setPrinterData(updated);
+                showToast("Demande de suppression annulée, votre compte est réactivé !", "success");
+            } else {
+                const { error } = await supabase
+                    .from('printers')
+                    .update({
+                        deletion_scheduled_at: null,
+                        deletion_reason: null,
+                        status: 'En ligne'
+                    })
+                    .eq('id', printerData.id);
+                if (error) throw error;
+
+                // Send email to admin about reactivation
+                try {
+                    await fetch('https://api.resend.com/emails', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': 'Bearer re_XeoRktvs_PsxnNiL6TgGc3Wz89BET2rY8',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            from: 'Printacoté <onboarding@resend.dev>',
+                            to: 'bskdezigner@gmail.com',
+                            subject: `Réactivation de compte : ${printerData.name}`,
+                            html: `
+                                <div style="font-family: sans-serif; padding: 20px; color: #333;">
+                                    <h2>Réactivation de compte Imprimeur</h2>
+                                    <p>L'imprimerie <strong>${printerData.name}</strong> a annulé sa demande de suppression de compte et réactivé ses services.</p>
+                                    <ul>
+                                        <li><strong>ID :</strong> ${printerData.id}</li>
+                                        <li><strong>Email de contact :</strong> ${user.email}</li>
+                                        <li><strong>Ville :</strong> ${printerData.city || '-'}</li>
+                                        <li><strong>Téléphone :</strong> ${printerData.phone || '-'}</li>
+                                    </ul>
+                                </div>
+                            `
+                        })
+                    });
+                } catch (emailErr) {
+                    console.warn("Erreur envoi email réactivation administrateur:", emailErr);
+                }
+
+                showToast("Demande de suppression annulée, votre compte est réactivé !", "success");
+                fetchPrinterData();
+            }
+        } catch (err) {
+            console.error("Erreur annulation suppression:", err);
+            showToast("Erreur lors de la réactivation du compte.", "error");
+        } finally {
+            setStatusModalLoading(false);
+        }
+    };
+
     const toggleSidebar = () => setIsSidebarOpen(!isSidebarOpen);
 
     const handleLogout = async () => {
@@ -1367,8 +1435,40 @@ const DashboardPage = ({ setPage, user }) => {
                             return null;
                         })()}
 
+                        {(() => {
+                            if (printerData?.deletion_scheduled_at) {
+                                const scheduledDate = new Date(printerData.deletion_scheduled_at);
+                                if (scheduledDate > new Date()) {
+                                    return (
+                                        <div className="mb-8 p-6 bg-red-500/10 border border-red-500/20 rounded-[2rem] flex flex-col md:flex-row justify-between items-start md:items-center gap-6 shadow-xl animate-in slide-in-from-top-4">
+                                            <div className="flex items-start gap-4">
+                                                <div className="w-12 h-12 rounded-2xl bg-red-500/10 text-red-500 flex items-center justify-center shrink-0">
+                                                    <AlertCircle size={22} />
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-black text-sm uppercase tracking-wider text-red-500 font-bold">Suppression planifiée</h4>
+                                                    <p className="text-xs text-red-500/80 font-semibold mt-0.5">
+                                                        Votre compte sera définitivement supprimé le {scheduledDate.toLocaleString('fr-FR')}. Votre vitrine publique est actuellement désactivée.
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <button 
+                                                onClick={handleCancelDeletion}
+                                                disabled={statusModalLoading}
+                                                className="px-5 py-2.5 bg-red-500 text-white rounded-xl font-black text-xs uppercase tracking-wider hover:scale-105 active:scale-95 transition-all shadow-md shrink-0 flex items-center gap-2"
+                                            >
+                                                {statusModalLoading ? <Loader2 className="animate-spin" size={12} /> : null}
+                                                Annuler la suppression (Réactiver)
+                                            </button>
+                                        </div>
+                                    );
+                                }
+                            }
+                            return null;
+                        })()}
+
                         {activeTab === 'overview' && <DashboardOverview printerData={printerData} setActiveTab={triggerTabWithModal} limits={limits} requireUpgrade={requireUpgrade} />}
-                        {activeTab === 'profile' && <DashboardProfile printerData={printerData} onUpdate={fetchPrinterData} showToast={showToast} limits={limits} requireUpgrade={requireUpgrade} />}
+                        {activeTab === 'profile' && <DashboardProfile printerData={printerData} onUpdate={fetchPrinterData} showToast={showToast} limits={limits} requireUpgrade={requireUpgrade} user={user} />}
                         {activeTab === 'services' && <DashboardServices printerData={printerData} onUpdate={fetchPrinterData} autoOpenModal={autoOpenModal} setAutoOpenModal={setAutoOpenModal} showToast={showToast} showConfirm={showConfirm} limits={limits} requireUpgrade={requireUpgrade} />}
                         {activeTab === 'portfolio' && <DashboardPortfolio printerData={printerData} onUpdate={fetchPrinterData} autoOpenModal={autoOpenModal} setAutoOpenModal={setAutoOpenModal} showToast={showToast} showConfirm={showConfirm} limits={limits} requireUpgrade={requireUpgrade} />}
                         {activeTab === 'marketplace' && <DashboardMarketplace printerData={printerData} onUpdate={fetchPrinterData} autoOpenModal={autoOpenModal} setAutoOpenModal={setAutoOpenModal} showToast={showToast} showConfirm={showConfirm} limits={limits} requireUpgrade={requireUpgrade} />}

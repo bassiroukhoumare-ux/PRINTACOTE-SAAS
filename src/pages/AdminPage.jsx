@@ -1153,7 +1153,8 @@ const AdminPage = ({ setPage }) => {
                 // Fallback 1: Reset views/clicks on printers
                 const { error: printersErr } = await supabase
                     .from('printers')
-                    .update({ views: 0, clicks: 0 });
+                    .update({ views: 0, clicks: 0 })
+                    .neq('id', '00000000-0000-0000-0000-000000000000');
                 if (printersErr) throw printersErr;
 
                 // Fallback 2: Delete from site_views

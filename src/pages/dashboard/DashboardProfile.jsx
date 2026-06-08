@@ -1,9 +1,9 @@
 import React, { useState, useRef } from 'react';
-import { Camera, Save, Loader2, MapPin, Phone, Globe, Info, Lock } from 'lucide-react';
+import { Camera, Save, Loader2, MapPin, Phone, Globe, Info, Lock, AlertCircle, Trash2, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { compressImage } from '../../lib/image';
 
-const DashboardProfile = ({ printerData, onUpdate, showToast, limits, requireUpgrade }) => {
+const DashboardProfile = ({ printerData, onUpdate, showToast, limits, requireUpgrade, user }) => {
     const [loading, setLoading] = useState(false);
     const [uploadingImage, setUploadingImage] = useState(false);
     const logoInputRef = useRef(null);
@@ -13,6 +13,137 @@ const DashboardProfile = ({ printerData, onUpdate, showToast, limits, requireUpg
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [passwordLoading, setPasswordLoading] = useState(false);
+
+    // Deletion states
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [confirmEmail, setConfirmEmail] = useState('');
+    const [checkUnderstand, setCheckUnderstand] = useState(false);
+    const [checkConfirm, setCheckConfirm] = useState(false);
+    const [deleteReason, setDeleteReason] = useState("Je ne trouve pas de clients");
+    const [otherReason, setOtherReason] = useState("");
+    const [deleting, setDeleting] = useState(false);
+
+    const handleDeleteAccount = async () => {
+        if (!user?.email) return;
+        if (confirmEmail.trim().toLowerCase() !== user.email.toLowerCase()) {
+            showToast("L'adresse email saisie ne correspond pas à votre compte.", "error");
+            return;
+        }
+        if (!checkUnderstand || !checkConfirm) {
+            showToast("Veuillez cocher les cases de confirmation.", "error");
+            return;
+        }
+        setDeleting(true);
+        try {
+            const deletionDate = new Date();
+            deletionDate.setHours(deletionDate.getHours() + 24);
+            const reason = deleteReason === 'Autre' ? otherReason : deleteReason;
+
+            if (printerData.isMock) {
+                const updated = {
+                    ...printerData,
+                    deletion_scheduled_at: deletionDate.toISOString(),
+                    deletion_reason: reason,
+                    status: 'Désactivé'
+                };
+                localStorage.setItem(`mock_printer_${printerData.id}`, JSON.stringify(updated));
+                onUpdate();
+                showToast("Votre compte a été programmé pour suppression définitive dans 24 heures.", "success");
+                setShowDeleteModal(false);
+            } else {
+                const { error } = await supabase
+                    .from('printers')
+                    .update({
+                        deletion_scheduled_at: deletionDate.toISOString(),
+                        deletion_reason: reason,
+                        status: 'Désactivé'
+                    })
+                    .eq('id', printerData.id);
+                if (error) throw error;
+
+                // Send email to printer (or try)
+                try {
+                    await fetch('https://api.resend.com/emails', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': 'Bearer re_XeoRktvs_PsxnNiL6TgGc3Wz89BET2rY8',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            from: 'Printacoté <onboarding@resend.dev>',
+                            to: user.email,
+                            subject: 'Confirmation de planification de suppression de compte',
+                            html: `
+                                <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 8px;">
+                                    <h2 style="color: #ea580c;">Suppression de compte planifiée</h2>
+                                    <p>Bonjour ${printerData.name || 'Imprimeur'},</p>
+                                    <p>Nous vous informons que la suppression de votre compte Printacoté a été planifiée suite à votre demande.</p>
+                                    <p>Votre vitrine publique a été <strong>désactivée immédiatement</strong> et n'est plus visible par le public.</p>
+                                    <div style="background-color: #fef2f2; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #fee2e2;">
+                                        <p style="margin: 0; color: #991b1b; font-weight: bold;">
+                                            La suppression définitive de toutes vos données aura lieu le : ${deletionDate.toLocaleString('fr-FR')} (dans 24 heures).
+                                        </p>
+                                    </div>
+                                    <p><strong>Vous avez changé d'avis ?</strong></p>
+                                    <p>Vous pouvez annuler cette procédure à tout moment durant les prochaines 24 heures en vous connectant simplement à votre tableau de bord et en clicking sur le bouton "Annuler la suppression".</p>
+                                    <p>Si vous n'intervenez pas, votre compte et l'ensemble de ses données seront définitivement et irréversiblement effacés.</p>
+                                    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
+                                    <p style="font-size: 12px; color: #666; text-align: center;">Printacoté - Le réseau des imprimeurs locaux</p>
+                                </div>
+                            `
+                        })
+                    });
+                } catch (emailErr) {
+                    console.warn("Erreur envoi email suppression imprimante:", emailErr);
+                }
+
+                // Send email to admin
+                try {
+                    await fetch('https://api.resend.com/emails', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': 'Bearer re_XeoRktvs_PsxnNiL6TgGc3Wz89BET2rY8',
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            from: 'Printacoté <onboarding@resend.dev>',
+                            to: 'bskdezigner@gmail.com',
+                            subject: `Alerte Suppression Compte : ${printerData.name}`,
+                            html: `
+                                <div style="font-family: sans-serif; padding: 20px; color: #333;">
+                                    <h2 style="color: #991b1b;">Notification Administrateur : Demande de suppression de compte</h2>
+                                    <p>L'imprimerie <strong>${printerData.name}</strong> a planifié la suppression de son compte.</p>
+                                    <p><strong>Détails du compte :</strong></p>
+                                    <ul>
+                                        <li><strong>ID :</strong> ${printerData.id}</li>
+                                        <li><strong>Email de contact :</strong> ${user.email}</li>
+                                        <li><strong>Ville / Pays :</strong> ${printerData.city || '-'} / ${printerData.country || 'Sénégal'}</li>
+                                        <li><strong>Téléphone :</strong> ${printerData.phone || '-'}</li>
+                                    </ul>
+                                    <p><strong>Raison invoquée :</strong></p>
+                                    <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; font-style: italic;">
+                                        ${reason || 'Aucune raison spécifiée.'}
+                                    </div>
+                                    <p>La suppression est planifiée au : <strong>${deletionDate.toLocaleString('fr-FR')}</strong>.</p>
+                                </div>
+                            `
+                        })
+                    });
+                } catch (emailErr) {
+                    console.warn("Erreur envoi email suppression administrateur:", emailErr);
+                }
+
+                onUpdate();
+                showToast("Votre compte a été programmé pour suppression définitive dans 24 heures.", "success");
+                setShowDeleteModal(false);
+            }
+        } catch (err) {
+            console.error("Erreur de suppression du compte:", err);
+            showToast("Erreur lors de la planification de la suppression.", "error");
+        } finally {
+            setDeleting(false);
+        }
+    };
 
     const getRemainingPasswordDays = () => {
         const lastChange = localStorage.getItem('last_password_change_date');
@@ -511,6 +642,140 @@ const DashboardProfile = ({ printerData, onUpdate, showToast, limits, requireUpg
                     </button>
                 </div>
             </form>
+
+            {/* Danger Zone (Account Deletion) */}
+            <div className="mt-12 bg-red-50 border border-red-200 rounded-[3rem] p-10 space-y-6 shadow-xl shadow-red-50">
+                <div className="flex items-center gap-3 mb-2">
+                    <AlertCircle size={22} className="text-red-600" />
+                    <h3 className="font-bold text-red-700">Zone de danger</h3>
+                </div>
+                <p className="text-sm text-red-700/80 leading-relaxed font-semibold">
+                    Vous pouvez planifier la suppression définitive de votre compte. 
+                    Votre vitrine publique sera désactivée immédiatement, et toutes vos données (profil, services, réalisations, boutique) seront définitivement effacées sous 24 heures.
+                </p>
+                <div className="flex justify-start">
+                    <button 
+                        type="button"
+                        onClick={() => {
+                            setConfirmEmail('');
+                            setCheckUnderstand(false);
+                            setCheckConfirm(false);
+                            setShowDeleteModal(true);
+                        }}
+                        className="bg-red-600 hover:bg-red-700 text-white px-8 py-4 rounded-2xl font-bold flex items-center gap-2 hover:scale-[1.02] active:scale-95 transition-all shadow-xl shadow-red-600/20 text-sm animate-pulse"
+                    >
+                        <Trash2 size={16} /> Planifier la suppression de mon compte
+                    </button>
+                </div>
+            </div>
+
+            {showDeleteModal && (
+                <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-primary/20 backdrop-blur-sm overflow-y-auto animate-in fade-in duration-300">
+                    <div className="bg-white rounded-[3rem] p-8 md:p-10 w-full max-w-lg my-8 relative z-10 shadow-2xl animate-in zoom-in-95 duration-300 max-h-[90vh] overflow-y-auto custom-scrollbar text-dark">
+                        <div className="flex justify-between items-center mb-6 shrink-0">
+                            <h3 className="text-xl font-black text-red-600 uppercase tracking-wider flex items-center gap-2 font-bold">
+                                <AlertCircle size={20} /> Suppression du compte
+                            </h3>
+                            <button onClick={() => setShowDeleteModal(false)} className="p-2 bg-dark/5 rounded-xl text-dark/60 hover:text-dark">
+                                <X size={20} />
+                            </button>
+                        </div>
+
+                        <div className="space-y-6">
+                            <div className="p-4 bg-red-50 border border-red-200 text-xs font-semibold leading-relaxed text-red-800 rounded-2xl">
+                                ⚠️ Votre vitrine sera masquée immédiatement de l'annuaire. Vous disposez d'un délai de grâce de 24 heures pour réactiver votre compte en vous y reconnectant. Passé ce délai, toutes vos données seront effacées de manière définitive et irréversible.
+                            </div>
+
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-dark/60 ml-2 block">
+                                    Veuillez saisir votre adresse e-mail pour confirmer
+                                </label>
+                                <input 
+                                    type="email"
+                                    placeholder={user?.email || "votre@email.com"}
+                                    value={confirmEmail}
+                                    onChange={(e) => setConfirmEmail(e.target.value)}
+                                    className="w-full bg-dark/5 border-2 border-transparent focus:border-red-500/20 rounded-2xl px-6 py-4 focus:outline-none focus:bg-white transition-all font-bold text-sm text-dark"
+                                />
+                            </div>
+
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black uppercase tracking-widest text-dark/60 ml-2 block">
+                                    Pourquoi souhaitez-vous supprimer votre page ? (Optionnel)
+                                </label>
+                                <select 
+                                    value={deleteReason}
+                                    onChange={(e) => setDeleteReason(e.target.value)}
+                                    className="w-full bg-dark/5 border-2 border-transparent rounded-2xl px-6 py-4 focus:outline-none focus:bg-white transition-all font-bold text-sm text-dark font-sans"
+                                >
+                                    <option value="Je ne trouve pas de clients">Je ne trouve pas de clients</option>
+                                    <option value="Le service est trop cher">Le service est trop cher</option>
+                                    <option value="J'ai trouvé une autre alternative">J'ai trouvé une autre alternative</option>
+                                    <option value="Problèmes techniques récurrents">Problèmes techniques récurrents</option>
+                                    <option value="Autre">Autre (Préciser ci-dessous)</option>
+                                </select>
+                            </div>
+
+                            {deleteReason === 'Autre' && (
+                                <div className="space-y-2 animate-in fade-in duration-300">
+                                    <textarea 
+                                        rows="3"
+                                        placeholder="Veuillez préciser la raison..."
+                                        value={otherReason}
+                                        onChange={(e) => setOtherReason(e.target.value)}
+                                        className="w-full bg-dark/5 border-2 border-transparent focus:border-red-500/20 rounded-2xl px-6 py-4 focus:outline-none focus:bg-white transition-all font-bold text-sm text-dark resize-none font-sans"
+                                    />
+                                </div>
+                            )}
+
+                            <div className="space-y-3 border-t border-dark/5 pt-4">
+                                <label className="flex items-start gap-3 cursor-pointer select-none">
+                                    <input 
+                                        type="checkbox"
+                                        checked={checkUnderstand}
+                                        onChange={(e) => setCheckUnderstand(e.target.checked)}
+                                        className="w-5 h-5 accent-red-600 rounded mt-0.5 font-sans"
+                                    />
+                                    <span className="text-xs font-semibold text-dark/70">
+                                        Je comprends que ma vitrine publique sera désactivée immédiatement et ne sera plus visible.
+                                    </span>
+                                </label>
+
+                                <label className="flex items-start gap-3 cursor-pointer select-none">
+                                    <input 
+                                        type="checkbox"
+                                        checked={checkConfirm}
+                                        onChange={(e) => setCheckConfirm(e.target.checked)}
+                                        className="w-5 h-5 accent-red-600 rounded mt-0.5 font-sans"
+                                    />
+                                    <span className="text-xs font-semibold text-dark/70">
+                                        Je confirme vouloir supprimer définitivement mon compte et toutes ses données sous 24 heures.
+                                    </span>
+                                </label>
+                            </div>
+
+                            <div className="flex gap-4 pt-4 shrink-0">
+                                <button 
+                                    type="button"
+                                    onClick={() => setShowDeleteModal(false)}
+                                    className="flex-1 py-4 bg-dark/5 text-dark hover:bg-dark/10 rounded-2xl font-bold transition-all text-xs uppercase tracking-widest"
+                                >
+                                    Annuler
+                                </button>
+                                <button 
+                                    type="button"
+                                    onClick={handleDeleteAccount}
+                                    disabled={deleting}
+                                    className="flex-1 py-4 bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 rounded-2xl font-black transition-all text-xs uppercase tracking-widest flex items-center justify-center gap-2"
+                                >
+                                    {deleting ? <Loader2 className="animate-spin" size={14} /> : null}
+                                    Confirmer la suppression
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
