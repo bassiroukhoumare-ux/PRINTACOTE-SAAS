@@ -71,6 +71,7 @@ const AdminPage = ({ setPage }) => {
         format: ""
     });
     const [actionLoading, setActionLoading] = useState(false);
+    const [refreshTrigger, setRefreshTrigger] = useState(0);
 
     // Support Messaging States
     const [selectedFullMessage, setSelectedFullMessage] = useState(null);
@@ -158,6 +159,16 @@ const AdminPage = ({ setPage }) => {
         }
     };
 
+    const getPlanLabel = (planId) => {
+        if (!planId) return 'Aucune';
+        const plan = pricingPlans.find(p => p.id === planId);
+        if (plan) return plan.label;
+        if (planId === '1m') return '1 mois';
+        if (planId === '3m') return '3 mois';
+        if (planId === '1an') return '1 an';
+        return planId;
+    };
+
     const truncateMessage = (text, maxLength = 150) => {
         if (!text || text.length <= maxLength) return text;
         return text.substring(0, maxLength) + '...';
@@ -195,7 +206,7 @@ const AdminPage = ({ setPage }) => {
         } else {
             fetchAdminData();
         }
-    }, [isAuthenticated, activeTab]);
+    }, [isAuthenticated, activeTab, refreshTrigger]);
 
     // Charge la série temporelle RÉELLE des vues du site (admin_get_views_timeseries)
     // à l'ouverture de l'overview et à chaque changement de période.
@@ -217,7 +228,7 @@ const AdminPage = ({ setPage }) => {
         };
         fetchSeries();
         return () => { cancelled = true; };
-    }, [isAuthenticated, activeTab, overviewFilter]);
+    }, [isAuthenticated, activeTab, overviewFilter, refreshTrigger]);
 
     // Notifications : chargement au login + rafraîchissement à chaque changement d'onglet.
     const fetchNotifications = async () => {
@@ -1129,6 +1140,46 @@ const AdminPage = ({ setPage }) => {
         }
     };
 
+    const handleResetAllStatistics = async () => {
+        if (!window.confirm("Êtes-vous sûr de vouloir réinitialiser toutes les statistiques à zéro ? Cette action est irréversible et supprimera tout l'historique des vues et des clics.")) {
+            return;
+        }
+        setActionLoading(true);
+        try {
+            const { error } = await supabase.rpc('admin_reset_all_statistics');
+            if (error) {
+                console.warn("RPC admin_reset_all_statistics failed, trying direct deletes:", error.message);
+                
+                // Fallback 1: Reset views/clicks on printers
+                const { error: printersErr } = await supabase
+                    .from('printers')
+                    .update({ views: 0, clicks: 0 });
+                if (printersErr) throw printersErr;
+
+                // Fallback 2: Delete from site_views
+                const { error: viewsErr } = await supabase
+                    .from('site_views')
+                    .delete()
+                    .neq('id', '00000000-0000-0000-0000-000000000000'); // delete all
+                if (viewsErr) throw viewsErr;
+
+                // Fallback 3: Delete from printer_events
+                const { error: eventsErr } = await supabase
+                    .from('printer_events')
+                    .delete()
+                    .neq('id', '00000000-0000-0000-0000-000000000000'); // delete all
+                if (eventsErr) throw eventsErr;
+            }
+            showToast("Toutes les statistiques ont été réinitialisées avec succès !", "success");
+            setRefreshTrigger(prev => prev + 1);
+        } catch (err) {
+            console.error("Erreur lors de la réinitialisation des statistiques:", err);
+            showToast("Erreur lors de la réinitialisation des statistiques.", "error");
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
     const handleSaveBannerSettings = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -1866,6 +1917,23 @@ const AdminPage = ({ setPage }) => {
                                             Cette console vous permet de garder le contrôle sur le contenu publié sur **Printacoté**. 
                                             Veillez à désactiver ou supprimer les profils vides ou inappropriés. Toutes les actions de suppression sont définitives dans la base de données.
                                         </p>
+                                    </div>
+
+                                    <div className="bg-[#111116] border border-white/5 rounded-[2.5rem] p-8 space-y-4">
+                                        <h3 className="text-lg font-black uppercase tracking-wider text-white/70 font-bold">Actions de Maintenance</h3>
+                                        <p className="text-sm text-white/50 leading-relaxed">
+                                            Réinitialisez les compteurs de visites, les clics WhatsApp et l'historique du trafic réel du site.
+                                        </p>
+                                        <div className="pt-2">
+                                            <button
+                                                onClick={handleResetAllStatistics}
+                                                disabled={actionLoading}
+                                                className="px-5 py-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 rounded-2xl text-[10px] font-black uppercase tracking-wider transition-all disabled:opacity-50 flex items-center gap-2"
+                                            >
+                                                {actionLoading ? <Loader2 className="animate-spin" size={12} /> : <Trash2 size={12} />}
+                                                Réinitialiser les statistiques
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             )}
@@ -2927,7 +2995,7 @@ const AdminPage = ({ setPage }) => {
                                                             if (p.subscription_status === 'active' || isSubActive) {
                                                                 statusBadge = (
                                                                     <span className="px-2.5 py-1 rounded-full text-[9px] font-black uppercase border border-green-500/20 bg-green-500/10 text-green-400">
-                                                                        Actif
+                                                                        Activé
                                                                     </span>
                                                                 );
                                                             } else if (isTrialActive) {
@@ -2953,7 +3021,7 @@ const AdminPage = ({ setPage }) => {
                                                                     </td>
                                                                     <td className="p-4">{statusBadge}</td>
                                                                     <td className="p-4">
-                                                                        <span className="font-mono text-xs uppercase text-white/70">{p.subscription_plan || 'Aucune'}</span>
+                                                                        <span className="font-mono text-xs uppercase text-white/70">{getPlanLabel(p.subscription_plan)}</span>
                                                                     </td>
                                                                     <td className="p-4 text-xs font-medium text-white/60">
                                                                         {p.trial_ends_at ? new Date(p.trial_ends_at).toLocaleDateString('fr-FR') : '-'}
@@ -3542,19 +3610,25 @@ const AdminPage = ({ setPage }) => {
                                     onChange={(e) => {
                                         const newStatus = e.target.value;
                                         let newEndsAt = subForm.endsAt;
+                                        let newTrialEndsAt = subForm.trialEndsAt;
+                                        if (newStatus === 'trial' && !subForm.trialEndsAt) {
+                                            const d = new Date();
+                                            d.setDate(d.getDate() + 14);
+                                            newTrialEndsAt = d.toISOString().slice(0, 10);
+                                        }
                                         if (newStatus === 'active' && !subForm.endsAt) {
                                             const planMonths = subForm.plan === '1m' ? 1 : subForm.plan === '3m' ? 3 : 12;
                                             const d = new Date();
                                             d.setMonth(d.getMonth() + planMonths);
                                             newEndsAt = d.toISOString().slice(0, 10);
                                         }
-                                        setSubForm({ ...subForm, status: newStatus, endsAt: newEndsAt });
+                                        setSubForm({ ...subForm, status: newStatus, endsAt: newEndsAt, trialEndsAt: newTrialEndsAt });
                                     }}
                                     className="w-full bg-[#111116] border border-white/10 text-sm font-bold text-white rounded-xl px-4 py-3 focus:outline-none focus:border-[#C9A84C]/45"
                                 >
                                     <option value="trial" className="bg-[#111116]">Essai gratuit (Trial)</option>
-                                    <option value="active" className="bg-[#111116]">Actif (Payé)</option>
-                                    <option value="expired" className="bg-[#111116]">Expiré</option>
+                                                                    <option value="active" className="bg-[#111116]">Activé (Payé)</option>
+                                                                    <option value="expired" className="bg-[#111116]">Expiré</option>
                                 </select>
                             </div>
 
