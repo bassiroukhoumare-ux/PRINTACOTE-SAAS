@@ -113,7 +113,7 @@ const Hero = ({ setPage }) => {
                         <div className="overflow-hidden pb-[0.05em]">
                             <span
                                 className="hero-line block font-black text-white
-                                    text-[clamp(1.7rem,4.5vw,4rem)]"
+                                    text-[clamp(2.3rem,6vw,4.8rem)]"
                             >
                                 Votre imprimerie
                             </span>
@@ -123,7 +123,7 @@ const Hero = ({ setPage }) => {
                         <div className="overflow-hidden pb-[0.05em]">
                             <span
                                 className="hero-line block font-black text-white
-                                    text-[clamp(1.7rem,4.5vw,4rem)]"
+                                    text-[clamp(2.3rem,6vw,4.8rem)]"
                             >
                                 mérite sa propre
                             </span>
@@ -133,7 +133,7 @@ const Hero = ({ setPage }) => {
                         <div className="overflow-hidden pt-[0.1em]">
                             <span
                                 className="hero-line block font-black text-[#F5F5DC]
-                                    text-[clamp(1.9rem,5vw,4.5rem)]"
+                                    text-[clamp(2.5rem,6.5vw,5.2rem)]"
                             >
                                 <span ref={line3Ref} className="inline-block">
                                     {ROTATING_WORDS[wordIndex]}
@@ -143,27 +143,18 @@ const Hero = ({ setPage }) => {
                     </h1>
 
                     {/* ── SOUS-TITRE ── */}
-                    <h2 className="hero-subtitle text-base md:text-xl text-[#F5F2EB]/60 max-w-xl mx-auto font-medium leading-relaxed">
-                        Créez la vôtre en quelques minutes et laissez de nouveaux clients vous trouver près de chez eux.
+                    <h2 className="hero-subtitle text-xs md:text-sm text-[#F5F2EB]/60 max-w-md mx-auto font-medium leading-relaxed">
+                        Créez la vôtre en quelques minutes <br className="sm:hidden" />et laissez de nouveaux clients <br className="sm:hidden" />vous trouver près de chez vous.
                     </h2>
 
                     {/* ── CTA ── */}
-                    <div ref={ctaRef} className="hero-cta flex flex-col sm:flex-row gap-3 pt-4">
-                        <button
-                            onClick={() => setPage('printers')}
-                            className="group bg-white text-primary px-6 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-xl hover:scale-105 active:scale-95 transition-all w-fit mx-auto sm:mx-0 font-sans"
-                        >
-                            <Store size={16} />
-                            Trouver un imprimeur
-                            <ArrowRight size={16} />
-                        </button>
-
+                    <div ref={ctaRef} className="hero-cta flex justify-center pt-4">
                         <button
                             onClick={() => setPage('register')}
-                            className="bg-[#F5F5DC] text-[#3D0B37] px-6 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-xl hover:scale-105 active:scale-95 transition-all w-fit mx-auto sm:mx-0 font-sans"
+                            className="bg-[#F5F5DC] text-[#3D0B37] px-10 py-5 rounded-[2rem] text-base md:text-lg font-black flex items-center justify-center gap-3 shadow-2xl hover:scale-105 active:scale-95 transition-all w-fit font-sans"
                         >
-                            <Plus size={16} />
-                            Inscrire mon imprimerie
+                            <Plus size={20} />
+                            Inscrire mon imprimerie gratuitement
                         </button>
                     </div>
                 </div>

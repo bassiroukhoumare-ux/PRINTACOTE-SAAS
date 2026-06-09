@@ -861,20 +861,17 @@ const DashboardPage = ({ setPage, user }) => {
                             </p>
                         </div>
 
-                        {sub && sub.status === 'trial' && (
+                        {sub && sub.status === 'freemium' && (
                             <div className="p-6 bg-[#C9A84C]/10 border border-[#C9A84C]/25 text-[#FAF8F5] rounded-3xl flex items-start gap-4 text-left animate-in slide-in-from-top-4 duration-500">
                                 <div className="w-12 h-12 bg-[#C9A84C]/20 text-[#C9A84C] rounded-2xl flex items-center justify-center shrink-0 mt-0.5 shadow-lg shadow-[#C9A84C]/10">
                                     <Clock className="animate-pulse" size={24} />
                                 </div>
                                 <div className="space-y-1">
                                     <h4 className="font-black text-sm uppercase tracking-widest text-[#C9A84C] flex items-center gap-2">
-                                        Essai Premium de 14 jours actif
-                                        <span className="bg-[#C9A84C] text-[#0F0F13] px-2 py-0.5 rounded-full text-[9px] font-black font-mono">
-                                            {sub.daysLeft}j restants
-                                        </span>
+                                        Compte Freemium Actif
                                     </h4>
                                     <p className="text-xs text-[#FAF8F5]/70 font-semibold leading-relaxed">
-                                        Votre compte bénéficie actuellement de l'accès illimité à toutes les fonctionnalités premium. Pendant votre essai de 14 jours, votre profil est automatiquement mis en avant et boosté en tête des recherches pour vous apporter un maximum de prospects.
+                                        Votre compte dispose actuellement des limites gratuites (maximum 3 services, 3 photos de portfolio et pas de vente sur la boutique). Mettez à niveau votre compte pour débloquer l'accès complet et booster votre visibilité.
                                     </p>
                                 </div>
                             </div>
@@ -1404,7 +1401,7 @@ const DashboardPage = ({ setPage, user }) => {
                                 );
                              }
 
-                             if (sub.status === 'trial') {
+                             if (sub.status === 'freemium') {
                                  return (
                                      <div className="mb-8 p-6 bg-[#C9A84C]/10 border-2 border-[#C9A84C]/20 text-[#3D0B37] rounded-[2rem] flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in slide-in-from-top-4 duration-500">
                                          <div className="flex items-center gap-4 text-left">
@@ -1412,15 +1409,15 @@ const DashboardPage = ({ setPage, user }) => {
                                                  <Clock size={22} />
                                              </div>
                                              <div>
-                                                 <h4 className="font-black text-sm uppercase tracking-wider text-[#3D0B37]">Période d'essai gratuite</h4>
-                                                 <p className="text-xs text-[#3D0B37]/80 font-semibold mt-0.5">Il vous reste {sub.daysLeft} jour(s) d'essai gratuit. Profitez de toutes les fonctionnalités premium.</p>
+                                                 <h4 className="font-black text-sm uppercase tracking-wider text-[#3D0B37]">Compte Freemium</h4>
+                                                 <p className="text-xs text-[#3D0B37]/80 font-semibold mt-0.5">Vous utilisez le plan gratuit. Pour ajouter plus de 3 services, 3 projets ou publier sur la boutique, passez à l'offre Pro.</p>
                                              </div>
                                          </div>
                                          <button 
                                              onClick={() => setActiveTab('billing')}
                                              className="px-5 py-2.5 bg-[#C9A84C] text-[#0F0F13] rounded-xl font-black text-xs uppercase tracking-wider hover:scale-105 active:scale-95 transition-all shadow-md shadow-[#C9A84C]/10 shrink-0"
                                          >
-                                             S'abonner maintenant
+                                             Passer au Premium
                                          </button>
                                      </div>
                                  );

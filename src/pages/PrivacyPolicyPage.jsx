@@ -3,7 +3,7 @@ import { Shield, Lock, Eye } from 'lucide-react';
 
 const PrivacyPolicyPage = ({ setPage }) => {
     const sections = [
-        { title: "Collecte des Données", content: "Nous collectons les données nécessaires à votre inscription : nom, email, téléphone et informations sur votre entreprise d'impression." },
+        { title: "Collecte des Données", content: "Nous collectons les données nécessaires à votre inscription (nom de l'imprimerie, prénom, nom, e-mail, numéro WhatsApp/téléphone, ville, pays, adresse), les contenus que vous publiez (logo, couverture, services, portfolio, produits), ainsi que des statistiques de trafic anonymes (visites de votre profil public, clics sur les boutons de contact WhatsApp et téléphone) pour fournir des analyses d'audience aux profils Premium." },
         { title: "Utilisation des Données", content: "Vos données sont utilisées pour vous mettre en relation avec des clients et améliorer nos services de mise en relation." },
         { title: "Partage des Données", content: "Nous ne vendons jamais vos données personnelles à des tiers. Elles sont partagées uniquement avec les prestataires techniques nécessaires." },
         { title: "Protection des Données", content: "Vos données sont chiffrées et stockées sur des serveurs sécurisés bénéficiant des dernières normes de sécurité." },

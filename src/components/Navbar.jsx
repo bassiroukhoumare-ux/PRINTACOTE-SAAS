@@ -81,6 +81,14 @@ const Navbar = ({ setPage, currentPage, user }) => {
                     </div>
 
                     <div className="flex items-center gap-3 relative z-10">
+                        <button 
+                            onClick={() => setPage('printers')}
+                            className="hidden sm:flex items-center gap-2 border border-current hover:bg-current/10 px-5 py-2.5 rounded-full text-xs md:text-sm font-bold transition-all hover:scale-105 active:scale-95 shrink-0"
+                        >
+                            <Store size={14} />
+                            <span>Trouver un imprimeur</span>
+                        </button>
+
                         {user ? (
                             <button 
                                 onClick={() => setPage('dashboard')} 
@@ -141,6 +149,14 @@ const Navbar = ({ setPage, currentPage, user }) => {
                     </div>
 
                     <div className="mt-auto pt-8 border-t border-dark/5 flex flex-col gap-4">
+                        <button 
+                            onClick={() => { setPage('printers'); toggleSidebar(); }} 
+                            className="w-full border-2 border-[#3D0B37] text-[#3D0B37] py-4 rounded-2xl font-black flex items-center justify-center gap-2 hover:bg-[#3D0B37]/5 transition-all"
+                        >
+                            <Store size={18} />
+                            Trouver un imprimeur
+                        </button>
+
                         {!user ? (
                             <>
                                 <button onClick={() => { setPage('login'); toggleSidebar(); }} className="w-full bg-[#F5F5DC] text-[#3D0B37] py-4 rounded-2xl font-black shadow-xl shadow-black/10">Se connecter</button>

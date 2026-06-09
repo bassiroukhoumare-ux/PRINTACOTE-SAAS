@@ -47,7 +47,7 @@ export function isSubscriber(printer) {
 }
 
 export const FREE_LIMITS = {
-  maxServices: 3, maxPortfolio: 3, maxProducts: 2, canSocialLinks: false, canSeeStats: false,
+  maxServices: 3, maxPortfolio: 3, maxProducts: 0, canSocialLinks: false, canSeeStats: false,
 };
 const PRO_LIMITS = {
   maxServices: Infinity, maxPortfolio: Infinity, maxProducts: Infinity, canSocialLinks: true, canSeeStats: true,
@@ -61,7 +61,7 @@ const DAY_MS = 1000 * 60 * 60 * 24;
 
 /**
  * Calcule l'état d'abonnement d'un imprimeur.
- * @returns {{ status: 'trial'|'active'|'expired', hasAccess: boolean,
+ * @returns {{ status: 'trial'|'active'|'freemium', hasAccess: boolean,
  *   isTrial: boolean, endsAt: Date|null, daysLeft: number, planId: string|null, isGracePeriod: boolean }}
  */
 export function getSubscriptionState(printer) {
@@ -87,7 +87,7 @@ export function getSubscriptionState(printer) {
     status = 'trial';
     endsAt = trialEndsAt;
   } else {
-    status = 'expired';
+    status = 'freemium';
     endsAt = subEndsAt || trialEndsAt;
   }
 

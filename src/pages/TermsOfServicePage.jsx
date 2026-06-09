@@ -11,7 +11,7 @@ const TermsOfServicePage = ({ setPage }) => {
         { title: "Interdictions", content: "Il est strictement interdit de publier du contenu illégal, injurieux ou de tenter de nuire à l'intégrité technique de la plateforme." },
         { title: "Suspension de Compte", content: "Printacote se réserve le droit de suspendre tout compte ne respectant pas les présentes conditions ou nuisant à l'image du service." },
         { title: "Limitation de Responsabilité", content: "Printacote n'intervient pas dans les transactions financières directes entre imprimeurs et clients et décline toute responsabilité en cas de litige." },
-        { title: "Tarification", content: "L'inscription de base est gratuite. Printacote se réserve le droit de proposer des services premium payants à l'avenir." },
+        { title: "Tarification", content: "La plateforme fonctionne sur un modèle Freemium. L'inscription de base permet de publier gratuitement jusqu'à 3 services et 3 réalisations dans le portfolio. Les fonctionnalités avancées (gestion d'une boutique marketplace, publication de produits, statistiques de clics et de visites détaillées) nécessitent la souscription à un abonnement Premium payant." },
         { title: "Litiges", content: "Les parties s'efforceront de résoudre tout litige à l'amiable. À défaut, les tribunaux de Dakar seront seuls compétents." }
     ];
 

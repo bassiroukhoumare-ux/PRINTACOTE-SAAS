@@ -10,10 +10,9 @@ const Footer = ({ setPage }) => {
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-16 mb-20">
                     <div className="space-y-8">
                         <img src="/logo.png" alt="Printacote" className="h-16 w-auto" />
-                        <p className="text-[#3D0B37]/50 leading-relaxed font-medium">
-                            La première plateforme de mise en relation entre imprimeurs locaux et clients au Sénégal. Simplifier l'impression pour tous.
+                        <p className="text-[#3D0B37]/50 text-sm leading-relaxed font-medium">
+                            La plateforme de référence pour les imprimeurs professionnels au Sénégal. Créez votre vitrine digitale en quelques secondes, publiez vos services et réalisations, et connectez-vous directement avec de nouveaux clients locaux.
                         </p>
-
                     </div>
                     
                     <div>

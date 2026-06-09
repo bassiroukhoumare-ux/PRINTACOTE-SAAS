@@ -37,8 +37,8 @@ const Layout = ({ children, setPage, currentPage, user }) => {
                     <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-16">
                         <div className="col-span-1 md:col-span-2">
                             <img src="/logo.png" alt="Printacote" className="h-10 mb-8" />
-                            <p className="text-[#3D0B37]/60 max-w-md text-lg leading-relaxed font-medium">
-                                La première plateforme de mise en relation entre les imprimeurs professionnels et les clients exigeants. Connectez-vous à l'expertise mondiale.
+                            <p className="text-[#3D0B37]/60 max-w-md text-base leading-relaxed font-medium">
+                                La plateforme de référence pour les imprimeurs professionnels au Sénégal. Créez votre vitrine digitale en quelques secondes, publiez vos services et réalisations, et connectez-vous directement avec de nouveaux clients locaux.
                             </p>
                         </div>
                         <div>
