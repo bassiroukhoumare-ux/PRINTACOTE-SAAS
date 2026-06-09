@@ -1,113 +1,165 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ArrowRight, Store, Plus } from 'lucide-react';
 import gsap from 'gsap';
 
+const ROTATING_WORDS = [
+    'page en ligne.',
+    'page sur internet.',
+    'présence en ligne.',
+    'place sur internet.',
+    'espace en ligne.',
+    'adresse en ligne.',
+];
+
 const Hero = ({ setPage }) => {
     const heroRef = useRef(null);
+    const line3Ref = useRef(null);
+    const ctaRef = useRef(null);
+    const [wordIndex, setWordIndex] = useState(0);
 
+    // ── Entrance animation (lines appear all at once, bottom → top) ──
     useEffect(() => {
         const ctx = gsap.context(() => {
-            gsap.from('.hero-content > *', {
-                y: 50,
-                opacity: 0,
-                stagger: 0.1,
-                ease: 'power4.out',
-                duration: 1.2,
-                delay: 0.3,
-            });
-            
+            const tl = gsap.timeline({ defaults: { ease: 'power3.out' } });
+
             gsap.to('.hero-image', {
-                scale: 1.1,
-                duration: 20,
+                scale: 1.05,
+                duration: 16,
                 repeat: -1,
                 yoyo: true,
-                ease: 'none'
+                ease: 'none',
             });
 
-            gsap.from('.hero-letter', {
-                y: 100,
+            tl.from('.hero-line', {
+                y: '110%',
                 opacity: 0,
-                rotateX: -90,
-                stagger: 0.05,
-                duration: 1.2,
-                ease: 'back.out(1.7)',
-                delay: 1
+                stagger: 0.1,
+                duration: 0.85,
+                delay: 0.15,
             });
 
-            gsap.from('.animated-title-part', {
-                y: 100,
+            tl.from('.hero-subtitle', {
+                y: 14,
                 opacity: 0,
-                duration: 1.5,
-                ease: 'power4.out',
-                delay: 1.5
-            });
+                duration: 0.65,
+            }, '-=0.45');
+
+            if (ctaRef.current) {
+                tl.from(ctaRef.current.children, {
+                    y: 10,
+                    opacity: 0,
+                    stagger: 0.08,
+                    duration: 0.55,
+                    clearProps: 'all',
+                }, '-=0.4');
+            }
         }, heroRef);
+
         return () => ctx.revert();
     }, []);
 
+    // ── Rotating line 3 ──
+    useEffect(() => {
+        const interval = setInterval(() => {
+            const el = line3Ref.current;
+            if (!el) return;
+
+            // Slide out upward
+            gsap.to(el, {
+                y: '-40%',
+                opacity: 0,
+                duration: 0.38,
+                ease: 'power2.in',
+                onComplete: () => {
+                    setWordIndex(prev => (prev + 1) % ROTATING_WORDS.length);
+                    // Reset position below, then slide in
+                    gsap.fromTo(
+                        el,
+                        { y: '40%', opacity: 0 },
+                        { y: '0%', opacity: 1, duration: 0.45, ease: 'power3.out' }
+                    );
+                },
+            });
+        }, 2800);
+
+        return () => clearInterval(interval);
+    }, []);
+
     return (
-        <section ref={heroRef} className="relative min-h-screen w-full flex items-center justify-center overflow-hidden bg-primary pt-20">
-            {/* Background Layer */}
+        <section
+            ref={heroRef}
+            className="relative min-h-screen w-full flex items-center justify-center overflow-hidden bg-primary pt-20"
+        >
+            {/* Background */}
             <div className="absolute inset-0 z-0">
-                <img 
-                    src="https://images.unsplash.com/photo-1612815154858-60aa4c59eaa6?q=80&w=2500&auto=format&fit=crop" 
-                    alt="Printing background" 
+                <img
+                    src="https://images.unsplash.com/photo-1612815154858-60aa4c59eaa6?q=80&w=2500&auto=format&fit=crop"
+                    alt="Impression professionnelle"
                     className="hero-image w-full h-full object-cover opacity-30 mix-blend-overlay"
                 />
-                <div className="absolute inset-0 bg-gradient-to-b from-primary/80 via-primary/50 to-primary"></div>
-                <div className="absolute inset-0 bg-gradient-to-r from-primary via-transparent to-primary opacity-60"></div>
-                
-                {/* Decorative Elements */}
-                <div className="absolute top-1/4 left-10 w-64 h-64 bg-accent/20 rounded-full blur-[120px] animate-pulse"></div>
-                <div className="absolute bottom-1/4 right-10 w-96 h-96 bg-primary/40 rounded-full blur-[150px]"></div>
+                <div className="absolute inset-0 bg-gradient-to-b from-primary/80 via-primary/50 to-primary" />
+                <div className="absolute inset-0 bg-gradient-to-r from-primary via-transparent to-primary opacity-60" />
+                <div className="absolute top-1/4 left-10 w-64 h-64 bg-accent/20 rounded-full blur-[120px] animate-pulse" />
+                <div className="absolute bottom-1/4 right-10 w-96 h-96 bg-primary/40 rounded-full blur-[150px]" />
             </div>
 
             <div className="container mx-auto px-6 relative z-10">
-                <div className="flex flex-col items-center text-center max-w-4xl mx-auto space-y-6">
-                    <h1 className="flex flex-col gap-2 hero-content">
-                        <span className="text-5xl md:text-7xl font-black text-white leading-none tracking-tighter">Votre</span>
-                        <span 
-                            className="text-6xl md:text-8xl font-serif italic text-[#F5F5DC] leading-none tracking-tighter flex justify-center flex-wrap overflow-hidden"
-                            style={{ fontFamily: '"Times New Roman", Times, Georgia, serif' }}
-                        >
-                            {"imprimerie".split("").map((char, i) => (
-                                <span key={i} className="hero-letter inline-block">{char}</span>
-                            ))}
-                        </span>
-                        <div className="overflow-hidden pb-2">
-                            <span className="animated-title-part block text-5xl md:text-7xl font-black text-white leading-none tracking-tighter">mérite sa propre</span>
+                <div className="flex flex-col items-center text-center max-w-3xl mx-auto space-y-5">
+
+                    {/* ── TITRE ── */}
+                    <h1 className="flex flex-col items-center w-full select-none leading-[1.1] tracking-tight">
+
+                        {/* Ligne 1 */}
+                        <div className="overflow-hidden pb-[0.05em]">
+                            <span
+                                className="hero-line block font-black text-white
+                                    text-[clamp(1.7rem,4.5vw,4rem)]"
+                            >
+                                Votre imprimerie
+                            </span>
                         </div>
-                        <span 
-                            className="text-6xl md:text-8xl font-serif italic text-[#F5F5DC] leading-none tracking-tighter flex justify-center flex-wrap overflow-hidden"
-                            style={{ fontFamily: '"Times New Roman", Times, Georgia, serif' }}
-                        >
-                            {"page en ligne.".split(" ").map((word, wordIdx) => (
-                                <span key={wordIdx} className="inline-block whitespace-nowrap">
-                                    {word.split("").map((char, charIdx) => (
-                                        <span key={charIdx} className="hero-letter inline-block">{char}</span>
-                                    ))}
-                                    {wordIdx < 2 ? "\u00A0" : ""}
+
+                        {/* Ligne 2 */}
+                        <div className="overflow-hidden pb-[0.05em]">
+                            <span
+                                className="hero-line block font-black text-white
+                                    text-[clamp(1.7rem,4.5vw,4rem)]"
+                            >
+                                mérite sa propre
+                            </span>
+                        </div>
+
+                        {/* Ligne 3 — rotating, légèrement plus grande pour la mettre en valeur */}
+                        <div className="overflow-hidden pt-[0.1em]">
+                            <span
+                                className="hero-line block font-black text-[#F5F5DC]
+                                    text-[clamp(1.9rem,5vw,4.5rem)]"
+                            >
+                                <span ref={line3Ref} className="inline-block">
+                                    {ROTATING_WORDS[wordIndex]}
                                 </span>
-                            ))}
-                        </span>
+                            </span>
+                        </div>
                     </h1>
-                    
-                    <h2 className="text-base md:text-xl text-[#F5F2EB]/60 max-w-xl mx-auto font-medium leading-relaxed">
+
+                    {/* ── SOUS-TITRE ── */}
+                    <h2 className="hero-subtitle text-base md:text-xl text-[#F5F2EB]/60 max-w-xl mx-auto font-medium leading-relaxed">
                         Créez la vôtre en quelques minutes et laissez de nouveaux clients vous trouver près de chez eux.
                     </h2>
-                    
-                    <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                        <button 
-                            onClick={() => setPage('printers')} 
+
+                    {/* ── CTA ── */}
+                    <div ref={ctaRef} className="hero-cta flex flex-col sm:flex-row gap-3 pt-4">
+                        <button
+                            onClick={() => setPage('printers')}
                             className="group bg-white text-primary px-6 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-xl hover:scale-105 active:scale-95 transition-all w-fit mx-auto sm:mx-0 font-sans"
                         >
                             <Store size={16} />
                             Trouver un imprimeur
                             <ArrowRight size={16} />
                         </button>
-                        
-                        <button 
-                            onClick={() => setPage('register')} 
+
+                        <button
+                            onClick={() => setPage('register')}
                             className="bg-[#F5F5DC] text-[#3D0B37] px-6 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-xl hover:scale-105 active:scale-95 transition-all w-fit mx-auto sm:mx-0 font-sans"
                         >
                             <Plus size={16} />
@@ -117,9 +169,9 @@ const Hero = ({ setPage }) => {
                 </div>
             </div>
 
-            {/* Scroll Indicator */}
+            {/* Scroll indicator */}
             <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3 animate-bounce opacity-40">
-                <div className="w-px h-12 bg-gradient-to-b from-white to-transparent"></div>
+                <div className="w-px h-12 bg-gradient-to-b from-white to-transparent" />
             </div>
         </section>
     );
