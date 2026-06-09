@@ -63,44 +63,59 @@ const Hero = ({ setPage }) => {
             </div>
 
             <div className="container mx-auto px-6 relative z-10">
-                    <div className="flex flex-col items-center text-center max-w-4xl mx-auto space-y-6">
-                        <h1 className="flex flex-col gap-2">
-                            <span className="text-6xl md:text-8xl font-black text-white leading-none tracking-tighter">Trouvez</span>
-                            <span className="text-6xl md:text-8xl font-serif italic text-[#F5F5DC] leading-none tracking-tighter italic flex overflow-hidden">
-                                {"l'imprimerie".split("").map((char, i) => (
-                                    <span key={i} className="hero-letter inline-block">{char}</span>
-                                ))}
-                            </span>
-                            <div className="overflow-hidden pb-2">
-                                <span className="animated-title-part block text-2xl md:text-4xl font-bold text-[#F5F5DC]/80 tracking-tight">le plus proche de vous.</span>
-                            </div>
-                        </h1>
-                        
-                        <p className="text-base md:text-xl text-[#F5F2EB]/60 max-w-xl mx-auto font-medium leading-relaxed">
-                            Connectez-vous instantanément avec les meilleurs ateliers d'impression près de chez vous.
-                        </p>
-                        
-                        <div className="flex flex-col sm:flex-row gap-3 pt-4">
-                            <button 
-                                onClick={() => setPage('printers')} 
-                                className="group bg-white text-primary px-6 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-xl hover:scale-105 active:scale-95 transition-all w-fit mx-auto sm:mx-0"
-                            >
-                                <Store size={16} />
-                                Trouver un imprimeur
-                                <ArrowRight size={16} />
-                            </button>
-                            
-                            <button 
-                                onClick={() => setPage('register')} 
-                                className="bg-[#F5F5DC] text-[#3D0B37] px-6 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-xl hover:scale-105 active:scale-95 transition-all w-fit mx-auto sm:mx-0"
-                            >
-                                <Plus size={16} />
-                                Inscrire mon imprimerie
-                            </button>
+                <div className="flex flex-col items-center text-center max-w-4xl mx-auto space-y-6">
+                    <h1 className="flex flex-col gap-2 hero-content">
+                        <span className="text-5xl md:text-7xl font-black text-white leading-none tracking-tighter">Votre</span>
+                        <span 
+                            className="text-6xl md:text-8xl font-serif italic text-[#F5F5DC] leading-none tracking-tighter flex justify-center flex-wrap overflow-hidden"
+                            style={{ fontFamily: '"Times New Roman", Times, Georgia, serif' }}
+                        >
+                            {"imprimerie".split("").map((char, i) => (
+                                <span key={i} className="hero-letter inline-block">{char}</span>
+                            ))}
+                        </span>
+                        <div className="overflow-hidden pb-2">
+                            <span className="animated-title-part block text-5xl md:text-7xl font-black text-white leading-none tracking-tighter">mérite sa propre</span>
                         </div>
+                        <span 
+                            className="text-6xl md:text-8xl font-serif italic text-[#F5F5DC] leading-none tracking-tighter flex justify-center flex-wrap overflow-hidden"
+                            style={{ fontFamily: '"Times New Roman", Times, Georgia, serif' }}
+                        >
+                            {"page en ligne.".split(" ").map((word, wordIdx) => (
+                                <span key={wordIdx} className="inline-block whitespace-nowrap">
+                                    {word.split("").map((char, charIdx) => (
+                                        <span key={charIdx} className="hero-letter inline-block">{char}</span>
+                                    ))}
+                                    {wordIdx < 2 ? "\u00A0" : ""}
+                                </span>
+                            ))}
+                        </span>
+                    </h1>
+                    
+                    <h2 className="text-base md:text-xl text-[#F5F2EB]/60 max-w-xl mx-auto font-medium leading-relaxed">
+                        Créez la vôtre en quelques minutes et laissez de nouveaux clients vous trouver près de chez eux.
+                    </h2>
+                    
+                    <div className="flex flex-col sm:flex-row gap-3 pt-4">
+                        <button 
+                            onClick={() => setPage('printers')} 
+                            className="group bg-white text-primary px-6 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-xl hover:scale-105 active:scale-95 transition-all w-fit mx-auto sm:mx-0 font-sans"
+                        >
+                            <Store size={16} />
+                            Trouver un imprimeur
+                            <ArrowRight size={16} />
+                        </button>
+                        
+                        <button 
+                            onClick={() => setPage('register')} 
+                            className="bg-[#F5F5DC] text-[#3D0B37] px-6 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 shadow-xl hover:scale-105 active:scale-95 transition-all w-fit mx-auto sm:mx-0 font-sans"
+                        >
+                            <Plus size={16} />
+                            Inscrire mon imprimerie
+                        </button>
                     </div>
-
                 </div>
+            </div>
 
             {/* Scroll Indicator */}
             <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-3 animate-bounce opacity-40">
