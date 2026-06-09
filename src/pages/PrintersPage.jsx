@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Search, MapPin, Star, MessageCircle, Phone, ArrowRight, Filter, SlidersHorizontal, ChevronDown, Share2, CheckCircle2, X, Globe } from 'lucide-react';
+import { Search, MapPin, Star, MessageCircle, Phone, ArrowRight, Filter, SlidersHorizontal, ChevronDown, Share2, CheckCircle2, X, Globe, Clock } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import AdBanner from '../components/AdBanner';
+import { getSubscriptionState } from '../lib/subscription';
 
 const PrintersPage = ({ setPage, setSelectedPrinterId }) => {
     const [printers, setPrinters] = useState([]);
@@ -54,6 +55,13 @@ const PrintersPage = ({ setPage, setSelectedPrinterId }) => {
     );
 
     const sortedFilteredPrinters = [...filteredPrinters].sort((a, b) => {
+        const aState = getSubscriptionState(a);
+        const bState = getSubscriptionState(b);
+
+        if (aState.hasAccess !== bState.hasAccess) {
+            return aState.hasAccess ? -1 : 1;
+        }
+
         const aReviews = Array.isArray(a.reviews) ? a.reviews : [];
         const bReviews = Array.isArray(b.reviews) ? b.reviews : [];
         
@@ -181,65 +189,78 @@ const PrintersPage = ({ setPage, setSelectedPrinterId }) => {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 md:gap-10 relative z-10">
-                        {sortedFilteredPrinters.map((p) => (
-                            <div 
-                                key={p.id} 
-                                onClick={() => { setSelectedPrinterId(p.id); setPage('printer_detail'); }}
-                                className="group bg-white border border-dark/10 rounded-[1.5rem] sm:rounded-[3rem] overflow-hidden hover:shadow-2xl hover:shadow-primary/10 transition-all duration-500 cursor-pointer flex flex-col h-full"
-                            >
-                                <div className="h-32 sm:h-48 md:h-64 relative overflow-hidden">
-                                    <img 
-                                        src={p.cover_url || 'https://images.unsplash.com/photo-1562664347-4950157077a9?q=80&w=2500&auto=format&fit=crop'} 
-                                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
-                                    />
-                                    <div className="absolute inset-0 bg-gradient-to-t from-dark/80 via-dark/20 to-transparent"></div>
-                                    
-                                    <div className="absolute top-3 left-3 sm:top-6 sm:left-6 flex gap-2">
-                                        <button 
-                                            onClick={(e) => { e.stopPropagation(); sharePrinter(p.id); }}
-                                            className="bg-white/20 backdrop-blur-md p-1.5 sm:p-3 rounded-lg sm:rounded-xl text-white hover:bg-white/40 transition-all shadow-xl"
-                                        >
-                                            <Share2 size={12} className="sm:w-[18px] sm:h-[18px]" />
-                                        </button>
-                                    </div>
- 
-                                    <div className="absolute top-3 right-3 sm:top-6 sm:right-6 flex flex-col gap-1 sm:gap-2 items-end">
-                                        <div className="bg-white/90 backdrop-blur-md px-2 py-1 sm:px-4 sm:py-2 rounded-full text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-dark flex items-center gap-1 sm:gap-2 shadow-xl">
-                                            <div className="w-1 sm:w-1.5 sm:h-1.5 h-1 bg-[#25D366] rounded-full animate-pulse"></div>
-                                            Disponible
+                        {sortedFilteredPrinters.map((p) => {
+                            const pSub = getSubscriptionState(p);
+                            return (
+                                <div 
+                                    key={p.id} 
+                                    onClick={() => { setSelectedPrinterId(p.id); setPage('printer_detail'); }}
+                                    className={`group border rounded-[1.5rem] sm:rounded-[3rem] overflow-hidden hover:shadow-2xl hover:shadow-primary/10 transition-all duration-500 cursor-pointer flex flex-col h-full
+                                        ${pSub.hasAccess 
+                                            ? 'border-[#C9A84C]/40 bg-[#C9A84C]/5 ring-1 ring-[#C9A84C]/20 shadow-xl shadow-[#C9A84C]/5' 
+                                            : 'border-dark/10 bg-white'}`}
+                                >
+                                    <div className="h-32 sm:h-48 md:h-64 relative overflow-hidden">
+                                        <img 
+                                            src={p.cover_url || 'https://images.unsplash.com/photo-1562664347-4950157077a9?q=80&w=2500&auto=format&fit=crop'} 
+                                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
+                                        />
+                                        <div className="absolute inset-0 bg-gradient-to-t from-dark/80 via-dark/20 to-transparent"></div>
+                                        
+                                        <div className="absolute top-3 left-3 sm:top-6 sm:left-6 flex gap-2">
+                                            <button 
+                                                onClick={(e) => { e.stopPropagation(); sharePrinter(p.id); }}
+                                                className="bg-white/20 backdrop-blur-md p-1.5 sm:p-3 rounded-lg sm:rounded-xl text-white hover:bg-white/40 transition-all shadow-xl"
+                                            >
+                                                <Share2 size={12} className="sm:w-[18px] sm:h-[18px]" />
+                                            </button>
                                         </div>
-                                        {(() => {
-                                            const reviewsList = Array.isArray(p.reviews) ? p.reviews : [];
-                                            if (reviewsList.length === 0) return null;
-                                            const avg = (reviewsList.reduce((sum, r) => sum + (Number(r.rating) || 5), 0) / reviewsList.length).toFixed(1);
-                                            return (
-                                                <div className="bg-white text-dark px-2 py-1 sm:px-3 sm:py-1.5 rounded-full text-[9px] sm:text-xs font-black flex items-center gap-1 sm:gap-1.5 shadow-xl animate-in zoom-in-50">
-                                                    <Star size={10} className="text-yellow-600 sm:w-[14px] sm:h-[14px]" fill="currentColor" />
-                                                    <span>{avg} <span className="opacity-40 text-[8px] sm:text-[10px]">({reviewsList.length})</span></span>
+     
+                                        <div className="absolute top-3 right-3 sm:top-6 sm:right-6 flex flex-col gap-1 sm:gap-2 items-end">
+                                            <div className="bg-white/90 backdrop-blur-md px-2 py-1 sm:px-4 sm:py-2 rounded-full text-[8px] sm:text-[10px] font-black uppercase tracking-widest text-dark flex items-center gap-1 sm:gap-2 shadow-xl">
+                                                <div className="w-1 sm:w-1.5 sm:h-1.5 h-1 bg-[#25D366] rounded-full animate-pulse"></div>
+                                                Disponible
+                                            </div>
+                                            {(() => {
+                                                const reviewsList = Array.isArray(p.reviews) ? p.reviews : [];
+                                                if (reviewsList.length === 0) return null;
+                                                const avg = (reviewsList.reduce((sum, r) => sum + (Number(r.rating) || 5), 0) / reviewsList.length).toFixed(1);
+                                                return (
+                                                    <div className="bg-white text-dark px-2 py-1 sm:px-3 sm:py-1.5 rounded-full text-[9px] sm:text-xs font-black flex items-center gap-1 sm:gap-1.5 shadow-xl animate-in zoom-in-50">
+                                                        <Star size={10} className="text-yellow-600 sm:w-[14px] sm:h-[14px]" fill="currentColor" />
+                                                        <span>{avg} <span className="opacity-40 text-[8px] sm:text-[10px]">({reviewsList.length})</span></span>
+                                                    </div>
+                                                );
+                                            })()}
+                                        </div>
+                                        
+                                        <div className="absolute bottom-3 left-3 right-3 sm:bottom-6 sm:left-6 sm:right-6 flex items-center gap-2 sm:gap-4">
+                                            <div className="w-10 h-10 sm:w-16 sm:h-16 rounded-[0.8rem] sm:rounded-[1.2rem] border-2 border-white/20 overflow-hidden bg-white/10 backdrop-blur-md shadow-2xl shrink-0">
+                                                <img src={p.logo_url} className="w-full h-full object-cover" />
+                                            </div>
+                                            <div className="text-white min-w-0">
+                                                <div className="flex items-center gap-1.5 mb-1 sm:mb-2 flex-wrap">
+                                                    <h3 className="font-black text-xs sm:text-xl leading-none truncate">{p.name}</h3>
+                                                    {p.badge ? (
+                                                        <span className="shrink-0 px-1.5 py-0.5 rounded-md text-[6px] sm:text-[8px] font-black uppercase tracking-wider bg-white/20 backdrop-blur-md border border-white/20 text-white">
+                                                            {p.badge === 'Vérifié' ? '✓' : p.badge}
+                                                        </span>
+                                                    ) : pSub.status === 'trial' ? (
+                                                        <span className="shrink-0 px-1.5 py-0.5 rounded-md text-[6px] sm:text-[8px] font-black uppercase tracking-wider bg-[#C9A84C] text-[#0F0F13] font-mono shadow-md animate-pulse">
+                                                            Essai Premium
+                                                        </span>
+                                                    ) : pSub.status === 'active' ? (
+                                                        <span className="shrink-0 px-1.5 py-0.5 rounded-md text-[6px] sm:text-[8px] font-black uppercase tracking-wider bg-amber-500 text-white font-mono shadow-md">
+                                                            PRO
+                                                        </span>
+                                                    ) : null}
                                                 </div>
-                                            );
-                                        })()}
-                                    </div>
-                                    
-                                    <div className="absolute bottom-3 left-3 right-3 sm:bottom-6 sm:left-6 sm:right-6 flex items-center gap-2 sm:gap-4">
-                                        <div className="w-10 h-10 sm:w-16 sm:h-16 rounded-[0.8rem] sm:rounded-[1.2rem] border-2 border-white/20 overflow-hidden bg-white/10 backdrop-blur-md shadow-2xl shrink-0">
-                                            <img src={p.logo_url} className="w-full h-full object-cover" />
-                                        </div>
-                                        <div className="text-white min-w-0">
-                                            <div className="flex items-center gap-1.5 mb-1 sm:mb-2">
-                                                <h3 className="font-black text-xs sm:text-xl leading-none truncate">{p.name}</h3>
-                                                {p.badge && (
-                                                    <span className="shrink-0 px-1.5 py-0.5 rounded-md text-[6px] sm:text-[8px] font-black uppercase tracking-wider bg-white/20 backdrop-blur-md border border-white/20">
-                                                        {p.badge === 'Vérifié' ? '✓' : p.badge}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <div className="flex items-center gap-1 text-[7px] sm:text-[10px] opacity-80 uppercase tracking-widest font-black bg-white/10 w-fit px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md truncate">
-                                                <MapPin size={8} className="sm:w-[10px] sm:h-[10px]" /> <span className="truncate">{p.city}</span>
+                                                <div className="flex items-center gap-1 text-[7px] sm:text-[10px] opacity-80 uppercase tracking-widest font-black bg-white/10 w-fit px-1.5 py-0.5 sm:px-2 sm:py-1 rounded-md truncate">
+                                                    <MapPin size={8} className="sm:w-[10px] sm:h-[10px]" /> <span className="truncate">{p.city}</span>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
-                                </div>
                                 <div className="p-3 sm:p-6 md:p-10 space-y-3 sm:space-y-6 flex-1 flex flex-col">
                                     <p className="text-dark/60 font-medium line-clamp-2 sm:line-clamp-3 leading-relaxed text-[11px] sm:text-sm flex-1">
                                         {p.description || "Spécialiste de l'impression haute qualité. Nous accompagnons les entreprises et les particuliers dans tous leurs projets de communication visuelle."}
@@ -277,7 +298,8 @@ const PrintersPage = ({ setPage, setSelectedPrinterId }) => {
                                     </div>
                                 </div>
                             </div>
-                        ))}
+                        );
+                        })}
                         
                         {filteredPrinters.length === 0 && !loading && (
                             <div className="col-span-full py-32 text-center bg-white border-2 border-dashed border-dark/10 rounded-[3rem]">

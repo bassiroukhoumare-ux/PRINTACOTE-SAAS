@@ -819,6 +819,7 @@ const DashboardPage = ({ setPage, user }) => {
 
     if (!isProfileComplete) {
         wasIncompleteRef.current = true;
+        const sub = getSubscriptionState(printerData);
         return (
             <div className="min-h-screen bg-[#0F0F13] flex flex-col text-[#FAF8F5] font-sans selection:bg-[#C9A84C] selection:text-[#0F0F13]">
                 <div className="noise-overlay opacity-5 pointer-events-none"></div>
@@ -859,6 +860,25 @@ const DashboardPage = ({ setPage, user }) => {
                                 Pour garantir le sérieux et la qualité de la plateforme, vous devez configurer ces 4 éléments avant d'accéder au tableau de bord complet et d'activer votre vitrine.
                             </p>
                         </div>
+
+                        {sub && sub.status === 'trial' && (
+                            <div className="p-6 bg-[#C9A84C]/10 border border-[#C9A84C]/25 text-[#FAF8F5] rounded-3xl flex items-start gap-4 text-left animate-in slide-in-from-top-4 duration-500">
+                                <div className="w-12 h-12 bg-[#C9A84C]/20 text-[#C9A84C] rounded-2xl flex items-center justify-center shrink-0 mt-0.5 shadow-lg shadow-[#C9A84C]/10">
+                                    <Clock className="animate-pulse" size={24} />
+                                </div>
+                                <div className="space-y-1">
+                                    <h4 className="font-black text-sm uppercase tracking-widest text-[#C9A84C] flex items-center gap-2">
+                                        Essai Premium de 14 jours actif
+                                        <span className="bg-[#C9A84C] text-[#0F0F13] px-2 py-0.5 rounded-full text-[9px] font-black font-mono">
+                                            {sub.daysLeft}j restants
+                                        </span>
+                                    </h4>
+                                    <p className="text-xs text-[#FAF8F5]/70 font-semibold leading-relaxed">
+                                        Votre compte bénéficie actuellement de l'accès illimité à toutes les fonctionnalités premium. Pendant votre essai de 14 jours, votre profil est automatiquement mis en avant et boosté en tête des recherches pour vous apporter un maximum de prospects.
+                                    </p>
+                                </div>
+                            </div>
+                        )}
 
                         {/* Step 0 : Informations de l'entreprise (surtout inscriptions Google) */}
                         {!hasBusinessInfo && (

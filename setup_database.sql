@@ -37,6 +37,10 @@ CREATE TABLE IF NOT EXISTS printers (
     tiktok TEXT,
     reviews JSONB DEFAULT '[]'::jsonb,
     name_last_modified_at TIMESTAMP WITH TIME ZONE,
+    trial_ends_at TIMESTAMP WITH TIME ZONE,
+    subscription_status TEXT DEFAULT 'trial',
+    subscription_ends_at TIMESTAMP WITH TIME ZONE,
+    subscription_plan TEXT,
     owner_id UUID REFERENCES auth.users(id) ON DELETE CASCADE
 );
 
@@ -112,7 +116,9 @@ BEGIN
     cover_url,
     rating,
     views,
-    status
+    status,
+    trial_ends_at,
+    subscription_status
   ) VALUES (
     new.id,
     COALESCE(new.raw_user_meta_data->>'business_name', 'Mon Imprimerie'),
@@ -125,7 +131,9 @@ BEGIN
     'https://images.unsplash.com/photo-1562664347-4950157077a9?q=80&w=2500&auto=format&fit=crop',
     5.0,
     0,
-    'Désactivé'
+    'Désactivé',
+    now() + interval '14 days',
+    'trial'
   );
   RETURN NEW;
 END;
