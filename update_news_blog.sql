@@ -11,7 +11,9 @@ ALTER TABLE public.news ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT '{}'::text[
 ALTER TABLE public.news ADD COLUMN IF NOT EXISTS mentions UUID[] DEFAULT '{}'::uuid[];
 
 -- 2. Recréation de la fonction RPC admin_upsert_news avec support des nouveaux champs
+DROP FUNCTION IF EXISTS public.admin_upsert_news(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, BOOLEAN, TEXT, TEXT[], UUID[]);
 CREATE OR REPLACE FUNCTION public.admin_upsert_news(
+    p_token UUID,
     p_id UUID,
     p_title TEXT,
     p_excerpt TEXT,
@@ -27,6 +29,9 @@ RETURNS UUID AS $$
 DECLARE
     v_id UUID;
 BEGIN
+    -- Vérification de session
+    PERFORM public.internal_verify_admin_session(p_token);
+
     IF p_id IS NULL THEN
         INSERT INTO public.news (
             title, 
@@ -69,3 +74,6 @@ BEGIN
     RETURN v_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Révocation explicite des droits d'exécution publique
+REVOKE EXECUTE ON FUNCTION public.admin_upsert_news(UUID, UUID, TEXT, TEXT, TEXT, TEXT, TEXT, BOOLEAN, TEXT, TEXT[], UUID[]) FROM PUBLIC, anon, authenticated;

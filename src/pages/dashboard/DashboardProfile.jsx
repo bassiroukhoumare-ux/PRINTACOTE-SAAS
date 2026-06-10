@@ -63,35 +63,10 @@ const DashboardProfile = ({ printerData, onUpdate, showToast, limits, requireUpg
 
                 // Send email to printer (or try)
                 try {
-                    await fetch('https://api.resend.com/emails', {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': 'Bearer re_XeoRktvs_PsxnNiL6TgGc3Wz89BET2rY8',
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            from: 'Printacoté <onboarding@resend.dev>',
-                            to: user.email,
-                            subject: 'Confirmation de planification de suppression de compte',
-                            html: `
-                                <div style="font-family: sans-serif; padding: 20px; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #eee; border-radius: 8px;">
-                                    <h2 style="color: #ea580c;">Suppression de compte planifiée</h2>
-                                    <p>Bonjour ${printerData.name || 'Imprimeur'},</p>
-                                    <p>Nous vous informons que la suppression de votre compte Printacoté a été planifiée suite à votre demande.</p>
-                                    <p>Votre vitrine publique a été <strong>désactivée immédiatement</strong> et n'est plus visible par le public.</p>
-                                    <div style="background-color: #fef2f2; padding: 15px; border-radius: 8px; margin: 20px 0; border: 1px solid #fee2e2;">
-                                        <p style="margin: 0; color: #991b1b; font-weight: bold;">
-                                            La suppression définitive de toutes vos données aura lieu le : ${deletionDate.toLocaleString('fr-FR')} (dans 24 heures).
-                                        </p>
-                                    </div>
-                                    <p><strong>Vous avez changé d'avis ?</strong></p>
-                                    <p>Vous pouvez annuler cette procédure à tout moment durant les prochaines 24 heures en vous connectant simplement à votre tableau de bord et en clicking sur le bouton "Annuler la suppression".</p>
-                                    <p>Si vous n'intervenez pas, votre compte et l'ensemble de ses données seront définitivement et irréversiblement effacés.</p>
-                                    <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;" />
-                                    <p style="font-size: 12px; color: #666; text-align: center;">Printacoté - Le réseau des imprimeurs locaux</p>
-                                </div>
-                            `
-                        })
+                    await supabase.rpc('send_deletion_email', {
+                        p_printer_id: printerData.id,
+                        p_type: 'schedule_printer',
+                        p_reason: reason
                     });
                 } catch (emailErr) {
                     console.warn("Erreur envoi email suppression imprimante:", emailErr);
@@ -99,35 +74,10 @@ const DashboardProfile = ({ printerData, onUpdate, showToast, limits, requireUpg
 
                 // Send email to admin
                 try {
-                    await fetch('https://api.resend.com/emails', {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': 'Bearer re_XeoRktvs_PsxnNiL6TgGc3Wz89BET2rY8',
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            from: 'Printacoté <onboarding@resend.dev>',
-                            to: 'bskdezigner@gmail.com',
-                            subject: `Alerte Suppression Compte : ${printerData.name}`,
-                            html: `
-                                <div style="font-family: sans-serif; padding: 20px; color: #333;">
-                                    <h2 style="color: #991b1b;">Notification Administrateur : Demande de suppression de compte</h2>
-                                    <p>L'imprimerie <strong>${printerData.name}</strong> a planifié la suppression de son compte.</p>
-                                    <p><strong>Détails du compte :</strong></p>
-                                    <ul>
-                                        <li><strong>ID :</strong> ${printerData.id}</li>
-                                        <li><strong>Email de contact :</strong> ${user.email}</li>
-                                        <li><strong>Ville / Pays :</strong> ${printerData.city || '-'} / ${printerData.country || 'Sénégal'}</li>
-                                        <li><strong>Téléphone :</strong> ${printerData.phone || '-'}</li>
-                                    </ul>
-                                    <p><strong>Raison invoquée :</strong></p>
-                                    <div style="background-color: #f3f4f6; padding: 15px; border-radius: 8px; font-style: italic;">
-                                        ${reason || 'Aucune raison spécifiée.'}
-                                    </div>
-                                    <p>La suppression est planifiée au : <strong>${deletionDate.toLocaleString('fr-FR')}</strong>.</p>
-                                </div>
-                            `
-                        })
+                    await supabase.rpc('send_deletion_email', {
+                        p_printer_id: printerData.id,
+                        p_type: 'schedule_admin',
+                        p_reason: reason
                     });
                 } catch (emailErr) {
                     console.warn("Erreur envoi email suppression administrateur:", emailErr);

@@ -8,7 +8,7 @@
 CREATE OR REPLACE FUNCTION public.send_weekly_recap_email()
 RETURNS VOID AS $$
 DECLARE
-  v_resend_api_key TEXT := 're_XeoRktvs_PsxnNiL6TgGc3Wz89BET2rY8'; 
+  v_resend_api_key TEXT; 
   v_sender_email TEXT := 'notifications@printacote.com';
   v_admin_email TEXT := 'bskdezigner@gmail.com';
   
@@ -22,6 +22,11 @@ DECLARE
   
   v_email_body TEXT;
 BEGIN
+  -- Read key from secure configs
+  SELECT value INTO v_resend_api_key FROM public.secure_configs WHERE key = 'resend_api_key';
+  IF v_resend_api_key IS NULL THEN
+    RAISE EXCEPTION 'Clé API Resend manquante dans secure_configs.';
+  END IF;
   -- Query stats from the last 7 days
   SELECT count(*) INTO v_total_views 
   FROM public.printer_events 

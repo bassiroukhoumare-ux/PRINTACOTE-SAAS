@@ -34,13 +34,19 @@ CREATE POLICY "Anyone can post a comment" ON public.comments
     FOR INSERT WITH CHECK (true);
 
 -- 3. RPC admin : liste de TOUS les articles (publiés ou non).
-CREATE OR REPLACE FUNCTION public.admin_get_all_news()
+DROP FUNCTION IF EXISTS public.admin_get_all_news();
+CREATE OR REPLACE FUNCTION public.admin_get_all_news(p_token UUID)
 RETURNS SETOF public.news AS $$
-    SELECT * FROM public.news ORDER BY created_at DESC;
-$$ LANGUAGE sql SECURITY DEFINER;
+BEGIN
+    PERFORM public.internal_verify_admin_session(p_token);
+    RETURN QUERY SELECT * FROM public.news ORDER BY created_at DESC;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 4. RPC admin : créer ou mettre à jour un article (contourne la RLS).
+DROP FUNCTION IF EXISTS public.admin_upsert_news(UUID, TEXT, TEXT, TEXT, TEXT, TEXT, BOOLEAN);
 CREATE OR REPLACE FUNCTION public.admin_upsert_news(
+    p_token UUID,
     p_id UUID,
     p_title TEXT,
     p_excerpt TEXT,
@@ -53,6 +59,9 @@ RETURNS UUID AS $$
 DECLARE
     v_id UUID;
 BEGIN
+    -- Vérification de session
+    PERFORM public.internal_verify_admin_session(p_token);
+
     IF p_id IS NULL THEN
         INSERT INTO public.news (title, excerpt, content, image_url, read_time, published)
         VALUES (p_title, p_excerpt, p_content, p_image_url, COALESCE(p_read_time, '5 min'), COALESCE(p_published, true))
@@ -70,35 +79,57 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 5. RPC admin : supprimer un article.
-CREATE OR REPLACE FUNCTION public.admin_delete_news(p_id UUID)
+DROP FUNCTION IF EXISTS public.admin_delete_news(UUID);
+CREATE OR REPLACE FUNCTION public.admin_delete_news(p_token UUID, p_id UUID)
 RETURNS BOOLEAN AS $$
 BEGIN
+    -- Vérification de session
+    PERFORM public.internal_verify_admin_session(p_token);
+
     DELETE FROM public.news WHERE id = p_id;
     RETURN FOUND;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 6. RPC admin : tous les commentaires avec le titre de l'article.
-CREATE OR REPLACE FUNCTION public.admin_get_comments()
+DROP FUNCTION IF EXISTS public.admin_get_comments();
+CREATE OR REPLACE FUNCTION public.admin_get_comments(p_token UUID)
 RETURNS TABLE (
     id UUID, news_id UUID, news_title TEXT, author_name TEXT,
     author_email TEXT, content TEXT, approved BOOLEAN, created_at TIMESTAMPTZ
 ) AS $$
+BEGIN
+    -- Vérification de session
+    PERFORM public.internal_verify_admin_session(p_token);
+
+    RETURN QUERY
     SELECT c.id, c.news_id, n.title, c.author_name, c.author_email,
            c.content, c.approved, c.created_at
     FROM public.comments c
     LEFT JOIN public.news n ON n.id = c.news_id
     ORDER BY c.created_at DESC;
-$$ LANGUAGE sql SECURITY DEFINER;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 7. RPC admin : supprimer un commentaire.
-CREATE OR REPLACE FUNCTION public.admin_delete_comment(p_id UUID)
+DROP FUNCTION IF EXISTS public.admin_delete_comment(UUID);
+CREATE OR REPLACE FUNCTION public.admin_delete_comment(p_token UUID, p_id UUID)
 RETURNS BOOLEAN AS $$
 BEGIN
+    -- Vérification de session
+    PERFORM public.internal_verify_admin_session(p_token);
+
     DELETE FROM public.comments WHERE id = p_id;
     RETURN FOUND;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Révocation explicite des droits d'exécution publique
+REVOKE EXECUTE ON FUNCTION public.admin_get_all_news(UUID) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.admin_upsert_news(UUID, UUID, TEXT, TEXT, TEXT, TEXT, TEXT, BOOLEAN) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.admin_delete_news(UUID, UUID) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.admin_get_comments(UUID) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.admin_delete_comment(UUID, UUID) FROM PUBLIC, anon, authenticated;
 
 -- 8. Incrément des vues d'un article (public).
 CREATE OR REPLACE FUNCTION public.increment_news_views(p_id UUID)

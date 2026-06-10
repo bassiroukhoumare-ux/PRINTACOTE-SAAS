@@ -1,7 +1,7 @@
 import React, { useEffect, useRef } from 'react';
 import Hero from '../components/Hero';
 import AdBanner from '../components/AdBanner';
-import { ArrowRight, CheckCircle, MapPin, Star, ShieldCheck, Zap, Globe } from 'lucide-react';
+import { ArrowRight, CheckCircle, Star, Zap } from 'lucide-react';
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 

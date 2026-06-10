@@ -1,0 +1,25 @@
+{
+  "short_name": "Printacoté",
+  "name": "Printacoté — Trouvez l'imprimeur idéal près de chez vous",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48 32x32 16x16",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "/icon-192.png",
+      "type": "image/png",
+      "sizes": "192x192"
+    },
+    {
+      "src": "/icon-512.png",
+      "type": "image/png",
+      "sizes": "512x512"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#3D0A2E",
+  "background_color": "#FAF8F5"
+}

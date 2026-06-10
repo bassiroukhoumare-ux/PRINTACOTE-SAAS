@@ -217,9 +217,7 @@ const LoginPage = ({ setPage, setUser }) => {
                 recovery_code: code,
                 client_ip: clientIp,
                 client_location: clientLocation,
-                client_device: deviceDetails,
-                p_resend_api_key: import.meta.env.VITE_RESEND_API_KEY || null,
-                p_sender_email: import.meta.env.VITE_SENDER_EMAIL || 'onboarding@resend.dev'
+                client_device: deviceDetails
             });
             
             if (!rpcError) {

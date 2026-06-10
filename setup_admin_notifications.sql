@@ -65,23 +65,40 @@ CREATE TRIGGER trg_notify_new_portfolio AFTER UPDATE OF portfolio ON public.prin
     FOR EACH ROW EXECUTE FUNCTION public.notify_new_portfolio();
 
 -- ── RPC admin ─────────────────────────────────────────────────────────
-CREATE OR REPLACE FUNCTION public.admin_get_notifications()
+DROP FUNCTION IF EXISTS public.admin_get_notifications();
+CREATE OR REPLACE FUNCTION public.admin_get_notifications(p_token UUID)
 RETURNS SETOF public.admin_notifications AS $$
-    SELECT * FROM public.admin_notifications ORDER BY created_at DESC LIMIT 60;
-$$ LANGUAGE sql SECURITY DEFINER;
+BEGIN
+    PERFORM public.internal_verify_admin_session(p_token);
+    RETURN QUERY SELECT * FROM public.admin_notifications ORDER BY created_at DESC LIMIT 60;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION public.admin_mark_notifications_read()
+DROP FUNCTION IF EXISTS public.admin_mark_notifications_read();
+CREATE OR REPLACE FUNCTION public.admin_mark_notifications_read(p_token UUID)
 RETURNS BOOLEAN AS $$
 BEGIN
+    -- Vérification de session
+    PERFORM public.internal_verify_admin_session(p_token);
+
     UPDATE public.admin_notifications SET is_read = true WHERE is_read = false;
     RETURN true;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-CREATE OR REPLACE FUNCTION public.admin_clear_notifications()
+DROP FUNCTION IF EXISTS public.admin_clear_notifications();
+CREATE OR REPLACE FUNCTION public.admin_clear_notifications(p_token UUID)
 RETURNS BOOLEAN AS $$
 BEGIN
+    -- Vérification de session
+    PERFORM public.internal_verify_admin_session(p_token);
+
     DELETE FROM public.admin_notifications;
     RETURN true;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Révocation explicite des droits d'exécution publique
+REVOKE EXECUTE ON FUNCTION public.admin_get_notifications(UUID) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.admin_mark_notifications_read(UUID) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.admin_clear_notifications(UUID) FROM PUBLIC, anon, authenticated;

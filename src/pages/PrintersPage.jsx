@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, MapPin, Star, MessageCircle, Phone, ArrowRight, Filter, SlidersHorizontal, ChevronDown, Share2, CheckCircle2, X, Globe, Clock } from 'lucide-react';
+import { Search, MapPin, Star, MessageCircle, ArrowRight, SlidersHorizontal, Share2, X, Globe } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import AdBanner from '../components/AdBanner';
 import { getSubscriptionState } from '../lib/subscription';

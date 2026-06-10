@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS public.admin_messages (
 CREATE INDEX IF NOT EXISTS admin_messages_printer_idx ON public.admin_messages (printer_id);
 CREATE INDEX IF NOT EXISTS admin_messages_created_idx ON public.admin_messages (created_at DESC);
 
--- 2. Sécurité RLS sur les messages
+-- RLS sur les messages
 ALTER TABLE public.admin_messages ENABLE ROW LEVEL SECURITY;
 
 DROP POLICY IF EXISTS "Printers can read their own support messages" ON public.admin_messages;
@@ -38,8 +38,22 @@ CREATE POLICY "Printers can send support messages" ON public.admin_messages
         )
     );
 
--- 3. RPC : Statistiques globales du site (contourne RLS)
-CREATE OR REPLACE FUNCTION public.admin_get_global_stats()
+-- Helper interne pour vérifier la session administrateur (non exposé en RPC)
+CREATE OR REPLACE FUNCTION public.internal_verify_admin_session(p_token UUID)
+RETURNS BOOLEAN AS $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM public.admin_sessions 
+        WHERE token = p_token AND expires_at > now()
+    ) THEN
+        RAISE EXCEPTION 'Non autorisé';
+    END IF;
+    RETURN TRUE;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 2. RPC : Statistiques globales du site (contourne RLS)
+CREATE OR REPLACE FUNCTION public.admin_get_global_stats(p_token UUID)
 RETURNS JSONB AS $$
 DECLARE
     v_total_printers INTEGER;
@@ -48,8 +62,14 @@ DECLARE
     v_total_products INTEGER;
     v_total_views BIGINT;
     v_total_clicks BIGINT;
+    v_total_site_views BIGINT := 0;
+    v_total_visitors BIGINT := 0;
+    v_total_news INTEGER := 0;
     r RECORD;
 BEGIN
+    -- Vérification de session
+    PERFORM public.internal_verify_admin_session(p_token);
+
     SELECT COUNT(*), COALESCE(SUM(views), 0), COALESCE(SUM(clicks), 0)
     INTO v_total_printers, v_total_views, v_total_clicks
     FROM public.printers;
@@ -57,12 +77,24 @@ BEGIN
     -- Agréger le nombre de services et de réalisations stockés en JSONB
     FOR r IN SELECT services, portfolio FROM public.printers LOOP
         v_total_services := v_total_services + COALESCE(jsonb_array_length(r.services), 0);
-        v_total_portfolio := v_total_portfolio + COALESCE(jsonb_array_length(r.portfolio), 0);
+        v_total_portfolio := v_total_portfolio + COALESCE(array_length(r.portfolio, 1), 0);
     END LOOP;
 
     SELECT COUNT(*)
     INTO v_total_products
     FROM public.products;
+
+    -- Trafic réel du site (si la table existe déjà)
+    IF to_regclass('public.site_views') IS NOT NULL THEN
+        SELECT COUNT(*), COUNT(DISTINCT visitor_id)
+        INTO v_total_site_views, v_total_visitors
+        FROM public.site_views;
+    END IF;
+
+    -- Actualités publiées (si la table existe déjà)
+    IF to_regclass('public.news') IS NOT NULL THEN
+        SELECT COUNT(*) INTO v_total_news FROM public.news WHERE published = true;
+    END IF;
 
     RETURN jsonb_build_object(
         'totalPrinters', v_total_printers,
@@ -70,13 +102,16 @@ BEGIN
         'totalPortfolio', v_total_portfolio,
         'totalProducts', v_total_products,
         'totalViews', v_total_views,
-        'totalClicks', v_total_clicks
+        'totalClicks', v_total_clicks,
+        'totalSiteViews', v_total_site_views,
+        'totalVisitors', v_total_visitors,
+        'totalNews', v_total_news
     );
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 4. RPC : Liste des imprimeurs avec e-mail du propriétaire (contourne RLS)
-CREATE OR REPLACE FUNCTION public.admin_get_printers_list()
+-- 3. RPC : Liste des imprimeurs avec e-mail du propriétaire (contourne RLS)
+CREATE OR REPLACE FUNCTION public.admin_get_printers_list(p_token UUID)
 RETURNS TABLE (
     id UUID,
     created_at TIMESTAMPTZ,
@@ -95,9 +130,17 @@ RETURNS TABLE (
     rating NUMERIC,
     email TEXT,
     services JSONB,
-    portfolio JSONB
+    portfolio JSONB,
+    trial_ends_at TIMESTAMPTZ,
+    subscription_status TEXT,
+    subscription_ends_at TIMESTAMPTZ,
+    subscription_plan TEXT,
+    badge TEXT
 ) AS $$
 BEGIN
+    -- Vérification de session
+    PERFORM public.internal_verify_admin_session(p_token);
+
     RETURN QUERY
     SELECT 
         p.id,
@@ -117,17 +160,25 @@ BEGIN
         p.rating,
         u.email::text,            -- auth.users.email est varchar(255)
         p.services,
-        to_jsonb(p.portfolio)     -- printers.portfolio est text[] -> jsonb pour le front
+        to_jsonb(p.portfolio),    -- printers.portfolio est text[] -> jsonb pour le front
+        p.trial_ends_at,
+        p.subscription_status,
+        p.subscription_ends_at,
+        p.subscription_plan,
+        p.badge
     FROM public.printers p
     LEFT JOIN auth.users u ON p.owner_id = u.id
     ORDER BY p.created_at DESC;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 5. RPC : Activer/Désactiver le statut d'une boutique (contourne RLS)
-CREATE OR REPLACE FUNCTION public.admin_toggle_printer_status(p_printer_id UUID, p_status TEXT)
+-- 4. RPC : Activer/Désactiver le statut d'une boutique (contourne RLS)
+CREATE OR REPLACE FUNCTION public.admin_toggle_printer_status(p_token UUID, p_printer_id UUID, p_status TEXT)
 RETURNS BOOLEAN AS $$
 BEGIN
+    -- Vérification de session
+    PERFORM public.internal_verify_admin_session(p_token);
+
     UPDATE public.printers
     SET status = p_status
     WHERE id = p_printer_id;
@@ -135,19 +186,25 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 6. RPC : Supprimer un imprimeur (contourne RLS)
-CREATE OR REPLACE FUNCTION public.admin_delete_printer(p_printer_id UUID)
+-- 5. RPC : Supprimer un imprimeur (contourne RLS)
+CREATE OR REPLACE FUNCTION public.admin_delete_printer(p_token UUID, p_printer_id UUID)
 RETURNS BOOLEAN AS $$
 BEGIN
+    -- Vérification de session
+    PERFORM public.internal_verify_admin_session(p_token);
+
     DELETE FROM public.printers WHERE id = p_printer_id;
     RETURN FOUND;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 7. RPC : Modérer/Mettre à jour le portfolio d'un imprimeur (contourne RLS)
-CREATE OR REPLACE FUNCTION public.admin_update_printer_portfolio(p_printer_id UUID, p_portfolio JSONB)
+-- 6. RPC : Modérer/Mettre à jour le portfolio d'un imprimeur (contourne RLS)
+CREATE OR REPLACE FUNCTION public.admin_update_printer_portfolio(p_token UUID, p_printer_id UUID, p_portfolio JSONB)
 RETURNS BOOLEAN AS $$
 BEGIN
+    -- Vérification de session
+    PERFORM public.internal_verify_admin_session(p_token);
+
     -- printers.portfolio est text[] : on convertit le jsonb reçu du front en text[].
     UPDATE public.printers
     SET portfolio = CASE
@@ -159,10 +216,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 8. RPC : Modérer/Mettre à jour les services d'un imprimeur (contourne RLS)
-CREATE OR REPLACE FUNCTION public.admin_update_printer_services(p_printer_id UUID, p_services JSONB)
+-- 7. RPC : Modérer/Mettre à jour les services d'un imprimeur (contourne RLS)
+CREATE OR REPLACE FUNCTION public.admin_update_printer_services(p_token UUID, p_printer_id UUID, p_services JSONB)
 RETURNS BOOLEAN AS $$
 BEGIN
+    -- Vérification de session
+    PERFORM public.internal_verify_admin_session(p_token);
+
     UPDATE public.printers
     SET services = p_services
     WHERE id = p_printer_id;
@@ -170,19 +230,25 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 9. RPC : Supprimer un produit de la marketplace (contourne RLS)
-CREATE OR REPLACE FUNCTION public.admin_delete_product(p_product_id UUID)
+-- 8. RPC : Supprimer un produit de la marketplace (contourne RLS)
+CREATE OR REPLACE FUNCTION public.admin_delete_product(p_token UUID, p_product_id UUID)
 RETURNS BOOLEAN AS $$
 BEGIN
+    -- Vérification de session
+    PERFORM public.internal_verify_admin_session(p_token);
+
     DELETE FROM public.products WHERE id = p_product_id;
     RETURN FOUND;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 9b. RPC : Activer/Désactiver un produit de la marketplace (contourne RLS)
-CREATE OR REPLACE FUNCTION public.admin_toggle_product_status(p_product_id UUID, p_status TEXT)
+-- 9. RPC : Activer/Désactiver un produit de la marketplace (contourne RLS)
+CREATE OR REPLACE FUNCTION public.admin_toggle_product_status(p_token UUID, p_product_id UUID, p_status TEXT)
 RETURNS BOOLEAN AS $$
 BEGIN
+    -- Vérification de session
+    PERFORM public.internal_verify_admin_session(p_token);
+
     UPDATE public.products
     SET status = p_status
     WHERE id = p_product_id;
@@ -191,7 +257,7 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 10. RPC : Récupérer tous les messages support avec nom de l'imprimeur (contourne RLS)
-CREATE OR REPLACE FUNCTION public.admin_get_messages()
+CREATE OR REPLACE FUNCTION public.admin_get_messages(p_token UUID)
 RETURNS TABLE (
     id UUID,
     created_at TIMESTAMPTZ,
@@ -204,6 +270,9 @@ RETURNS TABLE (
     direction TEXT
 ) AS $$
 BEGIN
+    -- Vérification de session
+    PERFORM public.internal_verify_admin_session(p_token);
+
     RETURN QUERY
     SELECT 
         m.id,
@@ -222,11 +291,14 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 11. RPC : Envoyer un message depuis l'administration (support) (contourne RLS)
-CREATE OR REPLACE FUNCTION public.admin_send_message(p_printer_id UUID, p_subject TEXT, p_content TEXT)
+CREATE OR REPLACE FUNCTION public.admin_send_message(p_token UUID, p_printer_id UUID, p_subject TEXT, p_content TEXT)
 RETURNS UUID AS $$
 DECLARE
     v_msg_id UUID;
 BEGIN
+    -- Vérification de session
+    PERFORM public.internal_verify_admin_session(p_token);
+
     INSERT INTO public.admin_messages (printer_id, subject, content, direction, is_read)
     VALUES (p_printer_id, p_subject, p_content, 'admin_to_printer', false)
     RETURNING id INTO v_msg_id;
@@ -236,12 +308,15 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 12. RPC : Envoyer un message groupé (bulk) à une sélection d'imprimeurs (contourne RLS)
-CREATE OR REPLACE FUNCTION public.admin_send_message_bulk(p_printer_ids UUID[], p_subject TEXT, p_content TEXT)
+CREATE OR REPLACE FUNCTION public.admin_send_message_bulk(p_token UUID, p_printer_ids UUID[], p_subject TEXT, p_content TEXT)
 RETURNS INTEGER AS $$
 DECLARE
     v_pid UUID;
     v_count INTEGER := 0;
 BEGIN
+    -- Vérification de session
+    PERFORM public.internal_verify_admin_session(p_token);
+
     FOREACH v_pid IN ARRAY p_printer_ids LOOP
         INSERT INTO public.admin_messages (printer_id, subject, content, direction, is_read)
         VALUES (v_pid, p_subject, p_content, 'admin_to_printer', false);
@@ -253,9 +328,12 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- 13. RPC : Marquer les messages d'un imprimeur comme lus (contourne RLS)
-CREATE OR REPLACE FUNCTION public.admin_mark_messages_read(p_printer_id UUID)
+CREATE OR REPLACE FUNCTION public.admin_mark_messages_read(p_token UUID, p_printer_id UUID)
 RETURNS BOOLEAN AS $$
 BEGIN
+    -- Vérification de session
+    PERFORM public.internal_verify_admin_session(p_token);
+
     UPDATE public.admin_messages
     SET is_read = true
     WHERE printer_id = p_printer_id AND direction = 'printer_to_admin' AND is_read = false;
@@ -263,21 +341,22 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 13_printer. RPC : Marquer les messages reçus par l'imprimeur comme lus
-CREATE OR REPLACE FUNCTION public.printer_mark_messages_read(p_printer_id UUID)
+-- 14. RPC : Mettre à jour un produit de la marketplace (contourne RLS)
+CREATE OR REPLACE FUNCTION public.admin_update_product(
+    p_token UUID,
+    p_product_id UUID, 
+    p_name TEXT, 
+    p_price NUMERIC, 
+    p_promo_price NUMERIC, 
+    p_discount NUMERIC, 
+    p_description TEXT, 
+    p_options JSONB
+)
 RETURNS BOOLEAN AS $$
 BEGIN
-    UPDATE public.admin_messages
-    SET is_read = true
-    WHERE printer_id = p_printer_id AND direction = 'admin_to_printer' AND is_read = false;
-    RETURN FOUND;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+    -- Vérification de session
+    PERFORM public.internal_verify_admin_session(p_token);
 
--- 13b. RPC : Mettre à jour un produit de la marketplace (contourne RLS)
-CREATE OR REPLACE FUNCTION public.admin_update_product(p_product_id UUID, p_name TEXT, p_price NUMERIC, p_promo_price NUMERIC, p_discount NUMERIC, p_description TEXT, p_options JSONB)
-RETURNS BOOLEAN AS $$
-BEGIN
     UPDATE public.products
     SET 
         name = p_name,
@@ -291,7 +370,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 14. Table des paramètres système (pour la bannière de publicité)
+-- 15. Table des paramètres système (pour la bannière de publicité)
 CREATE TABLE IF NOT EXISTS public.system_settings (
     key          TEXT PRIMARY KEY,
     value        JSONB NOT NULL,
@@ -305,10 +384,13 @@ DROP POLICY IF EXISTS "Anyone can read system settings" ON public.system_setting
 CREATE POLICY "Anyone can read system settings" ON public.system_settings
     FOR SELECT USING (true);
 
--- RPC : Mettre à jour un paramètre système (contourne RLS)
-CREATE OR REPLACE FUNCTION public.admin_set_setting(p_key TEXT, p_value JSONB)
+-- 16. RPC : Mettre à jour un paramètre système (contourne RLS)
+CREATE OR REPLACE FUNCTION public.admin_set_setting(p_token UUID, p_key TEXT, p_value JSONB)
 RETURNS BOOLEAN AS $$
 BEGIN
+    -- Vérification de session
+    PERFORM public.internal_verify_admin_session(p_token);
+
     INSERT INTO public.system_settings (key, value, updated_at)
     VALUES (p_key, p_value, now())
     ON CONFLICT (key) DO UPDATE
@@ -318,10 +400,13 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 15. RPC : Mettre à jour le schéma de la base de données (contourne RLS)
-CREATE OR REPLACE FUNCTION public.admin_run_schema_updates()
+-- 17. RPC : Mettre à jour le schéma de la base de données (contourne RLS)
+CREATE OR REPLACE FUNCTION public.admin_run_schema_updates(p_token UUID)
 RETURNS BOOLEAN AS $$
 BEGIN
+    -- Vérification de session
+    PERFORM public.internal_verify_admin_session(p_token);
+
     -- Ajouter la colonne created_at à la table products si elle n'existe pas
     IF NOT EXISTS (
         SELECT 1 
@@ -333,3 +418,24 @@ BEGIN
     RETURN true;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+
+-- =====================================================================
+-- Révocation explicite des droits d'exécution publique (anon/authenticated)
+-- =====================================================================
+
+REVOKE EXECUTE ON FUNCTION public.admin_get_global_stats(UUID) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.admin_get_printers_list(UUID) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.admin_toggle_printer_status(UUID, UUID, TEXT) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.admin_delete_printer(UUID, UUID) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.admin_update_printer_portfolio(UUID, UUID, JSONB) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.admin_update_printer_services(UUID, UUID, JSONB) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.admin_delete_product(UUID, UUID) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.admin_toggle_product_status(UUID, UUID, TEXT) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.admin_get_messages(UUID) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.admin_send_message(UUID, UUID, TEXT, TEXT) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.admin_send_message_bulk(UUID, UUID[], TEXT, TEXT) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.admin_mark_messages_read(UUID, UUID) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.admin_update_product(UUID, UUID, TEXT, NUMERIC, NUMERIC, NUMERIC, TEXT, JSONB) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.admin_set_setting(UUID, TEXT, JSONB) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.admin_run_schema_updates(UUID) FROM PUBLIC, anon, authenticated;

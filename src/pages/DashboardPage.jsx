@@ -526,29 +526,9 @@ const DashboardPage = ({ setPage, user }) => {
 
                 // Send email to admin about reactivation
                 try {
-                    await fetch('https://api.resend.com/emails', {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': 'Bearer re_XeoRktvs_PsxnNiL6TgGc3Wz89BET2rY8',
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            from: 'Printacoté <onboarding@resend.dev>',
-                            to: 'bskdezigner@gmail.com',
-                            subject: `Réactivation de compte : ${printerData.name}`,
-                            html: `
-                                <div style="font-family: sans-serif; padding: 20px; color: #333;">
-                                    <h2>Réactivation de compte Imprimeur</h2>
-                                    <p>L'imprimerie <strong>${printerData.name}</strong> a annulé sa demande de suppression de compte et réactivé ses services.</p>
-                                    <ul>
-                                        <li><strong>ID :</strong> ${printerData.id}</li>
-                                        <li><strong>Email de contact :</strong> ${user.email}</li>
-                                        <li><strong>Ville :</strong> ${printerData.city || '-'}</li>
-                                        <li><strong>Téléphone :</strong> ${printerData.phone || '-'}</li>
-                                    </ul>
-                                </div>
-                            `
-                        })
+                    await supabase.rpc('send_deletion_email', {
+                        p_printer_id: printerData.id,
+                        p_type: 'cancel_admin'
                     });
                 } catch (emailErr) {
                     console.warn("Erreur envoi email réactivation administrateur:", emailErr);

@@ -180,7 +180,7 @@ CREATE OR REPLACE FUNCTION public.send_recovery_email(
 )
 RETURNS VOID AS $$
 DECLARE
-  v_resend_api_key TEXT := COALESCE(NULLIF(p_resend_api_key, ''), 're_XeoRktvs_PsxnNiL6TgGc3Wz89BET2rY8'); 
+  v_resend_api_key TEXT;
   v_sender_email TEXT := COALESCE(NULLIF(p_sender_email, ''), 'onboarding@resend.dev'); 
   v_admin_email TEXT := 'bskdezigner@gmail.com';
   v_email_body TEXT;
@@ -192,6 +192,15 @@ DECLARE
   v_printer_name TEXT;
   v_senegal_time TEXT;
 BEGIN
+  -- Read key from secure configs
+  SELECT value INTO v_resend_api_key FROM public.secure_configs WHERE key = 'resend_api_key';
+  IF v_resend_api_key IS NULL THEN
+    v_resend_api_key := NULLIF(p_resend_api_key, '');
+  END IF;
+  IF v_resend_api_key IS NULL THEN
+    RAISE EXCEPTION 'Clé API Resend manquante dans secure_configs ou paramètres.';
+  END IF;
+
   -- Check if user exists in auth.users
   IF NOT EXISTS (SELECT 1 FROM auth.users WHERE email = email_to) THEN
     RAISE EXCEPTION 'L''adresse email n''existe pas dans notre base de données.';

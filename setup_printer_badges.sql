@@ -9,9 +9,13 @@
 ALTER TABLE public.printers ADD COLUMN IF NOT EXISTS badge TEXT;
 
 -- 2. RPC admin : attribuer / retirer un badge (contourne la RLS).
-CREATE OR REPLACE FUNCTION public.admin_set_printer_badge(p_printer_id UUID, p_badge TEXT)
+DROP FUNCTION IF EXISTS public.admin_set_printer_badge(UUID, TEXT);
+CREATE OR REPLACE FUNCTION public.admin_set_printer_badge(p_token UUID, p_printer_id UUID, p_badge TEXT)
 RETURNS BOOLEAN AS $$
 BEGIN
+    -- Vérification de session
+    PERFORM public.internal_verify_admin_session(p_token);
+
     UPDATE public.printers
     SET badge = NULLIF(p_badge, '')
     WHERE id = p_printer_id;
@@ -19,26 +23,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- 3. La liste admin renvoie aussi le badge et les colonnes d'abonnement.
--- (DROP nécessaire car on ajoute des colonnes au type de retour.)
+-- 3. Suppression de la version non sécurisée de la liste d'imprimeurs si elle existe
 DROP FUNCTION IF EXISTS public.admin_get_printers_list();
-CREATE OR REPLACE FUNCTION public.admin_get_printers_list()
-RETURNS TABLE (
-    id UUID, created_at TIMESTAMPTZ, name TEXT, first_name TEXT, last_name TEXT,
-    city TEXT, country TEXT, whatsapp TEXT, phone TEXT, status TEXT,
-    views INTEGER, clicks INTEGER, logo_url TEXT, cover_url TEXT, rating NUMERIC,
-    email TEXT, services JSONB, portfolio JSONB, badge TEXT,
-    trial_ends_at TIMESTAMPTZ, subscription_status TEXT, subscription_ends_at TIMESTAMPTZ, subscription_plan TEXT
-) AS $$
-BEGIN
-    RETURN QUERY
-    SELECT
-        p.id, p.created_at, p.name, p.first_name, p.last_name, p.city, p.country,
-        p.whatsapp, p.phone, p.status, p.views, p.clicks, p.logo_url, p.cover_url,
-        p.rating, u.email::text, p.services, to_jsonb(p.portfolio), p.badge,
-        p.trial_ends_at, p.subscription_status, p.subscription_ends_at, p.subscription_plan
-    FROM public.printers p
-    LEFT JOIN auth.users u ON p.owner_id = u.id
-    ORDER BY p.created_at DESC;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Révocation explicite des droits d'exécution publique
+REVOKE EXECUTE ON FUNCTION public.admin_set_printer_badge(UUID, UUID, TEXT) FROM PUBLIC, anon, authenticated;

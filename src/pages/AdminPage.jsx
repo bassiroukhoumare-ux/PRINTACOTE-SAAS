@@ -15,7 +15,7 @@ import { compressImage } from '../lib/image';
 const AdminPage = ({ setPage }) => {
     const [password, setPassword] = useState('');
     const [isAuthenticated, setIsAuthenticated] = useState(() => {
-        return sessionStorage.getItem('admin_authenticated') === 'true';
+        return !!sessionStorage.getItem('admin_session_token');
     });
     const [authError, setAuthError] = useState('');
     const [activeTab, setActiveTab] = useState('overview');
@@ -215,7 +215,8 @@ const AdminPage = ({ setPage }) => {
         let cancelled = false;
         const fetchSeries = async () => {
             setSeriesLoading(true);
-            const { data, error } = await supabase.rpc('admin_get_views_timeseries', { p_period: overviewFilter });
+            const token = sessionStorage.getItem('admin_session_token');
+            const { data, error } = await supabase.rpc('admin_get_views_timeseries', { p_token: token, p_period: overviewFilter });
             if (!cancelled) {
                 if (error) {
                     console.warn('admin_get_views_timeseries indisponible:', error.message);
@@ -232,7 +233,8 @@ const AdminPage = ({ setPage }) => {
 
     // Notifications : chargement au login + rafraîchissement à chaque changement d'onglet.
     const fetchNotifications = async () => {
-        const { data, error } = await supabase.rpc('admin_get_notifications');
+        const token = sessionStorage.getItem('admin_session_token');
+        const { data, error } = await supabase.rpc('admin_get_notifications', { p_token: token });
         if (!error && Array.isArray(data)) setNotifications(data);
     };
     useEffect(() => {
@@ -240,41 +242,54 @@ const AdminPage = ({ setPage }) => {
     }, [isAuthenticated, activeTab]);
 
     const handleMarkNotificationsRead = async () => {
-        await supabase.rpc('admin_mark_notifications_read').then(undefined, () => {});
+        const token = sessionStorage.getItem('admin_session_token');
+        await supabase.rpc('admin_mark_notifications_read', { p_token: token }).then(undefined, () => {});
         setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
     };
     const handleClearNotifications = async () => {
-        await supabase.rpc('admin_clear_notifications').then(undefined, () => {});
+        const token = sessionStorage.getItem('admin_session_token');
+        await supabase.rpc('admin_clear_notifications', { p_token: token }).then(undefined, () => {});
         setNotifications([]);
     };
     const unreadNotifications = notifications.filter(n => !n.is_read).length;
 
-    const handleLogin = (e) => {
+    const handleLogin = async (e) => {
         e.preventDefault();
         setAuthError('');
-        if (password === 'BSKGOLMY221@@') {
-            setIsAuthenticated(true);
-            sessionStorage.setItem('admin_authenticated', 'true');
-            showToast("Authentification administrateur réussie !", "success");
-        } else {
-            setAuthError("Mot de passe incorrect.");
+        try {
+            const { data, error } = await supabase.rpc('admin_verify_password', { p_password: password });
+            if (error) {
+                setAuthError("Erreur d'authentification : " + error.message);
+                return;
+            }
+            if (data) {
+                sessionStorage.setItem('admin_session_token', data);
+                setIsAuthenticated(true);
+                showToast("Authentification administrateur réussie !", "success");
+            } else {
+                setAuthError("Mot de passe incorrect.");
+            }
+        } catch (err) {
+            console.error("Erreur de connexion:", err);
+            setAuthError("Une erreur est survenue lors de la connexion.");
         }
     };
 
     const handleLogout = () => {
         setIsAuthenticated(false);
-        sessionStorage.removeItem('admin_authenticated');
+        sessionStorage.removeItem('admin_session_token');
         setPage('home');
     };
 
     const fetchAdminData = async () => {
         setLoading(true);
         try {
+            const token = sessionStorage.getItem('admin_session_token');
             // Run schema updates to ensure columns are present
-            supabase.rpc('admin_run_schema_updates').then(undefined, e => console.warn(e));
+            supabase.rpc('admin_run_schema_updates', { p_token: token }).then(undefined, e => console.warn(e));
 
             if (activeTab === 'overview') {
-                const { data, error } = await supabase.rpc('admin_get_global_stats');
+                const { data, error } = await supabase.rpc('admin_get_global_stats', { p_token: token });
                 if (error) {
                     console.warn("RPC admin_get_global_stats failed, falling back to direct table queries:", error.message);
                     
@@ -305,7 +320,7 @@ const AdminPage = ({ setPage }) => {
                     });
                 }
             } else if (activeTab === 'printers' || activeTab === 'services' || activeTab === 'portfolio') {
-                const { data, error } = await supabase.rpc('admin_get_printers_list');
+                const { data, error } = await supabase.rpc('admin_get_printers_list', { p_token: token });
                 if (error) {
                     console.warn("RPC admin_get_printers_list failed, falling back to direct table query:", error.message);
                     const { data: tableData, error: tableError } = await supabase
@@ -338,14 +353,14 @@ const AdminPage = ({ setPage }) => {
             } else if (activeTab === 'support') {
                 // Charge aussi la liste des imprimeurs pour pouvoir contacter
                 // n'importe lequel (pas seulement ceux qui ont déjà écrit).
-                const { data: printersData } = await supabase.rpc('admin_get_printers_list');
+                const { data: printersData } = await supabase.rpc('admin_get_printers_list', { p_token: token });
                 if (Array.isArray(printersData)) {
                     setPrinters(printersData);
                 } else {
                     const { data: pt } = await supabase.from('printers').select('*').order('created_at', { ascending: false });
                     if (Array.isArray(pt)) setPrinters(pt);
                 }
-                const { data, error } = await supabase.rpc('admin_get_messages');
+                const { data, error } = await supabase.rpc('admin_get_messages', { p_token: token });
                 if (error) {
                     console.warn("RPC admin_get_messages failed, falling back to direct table query:", error.message);
                     const { data: tableData, error: tableError } = await supabase
@@ -375,9 +390,9 @@ const AdminPage = ({ setPage }) => {
                 }
             } else if (activeTab === 'news') {
                 const [newsRes, commentsRes, printersRes] = await Promise.all([
-                    supabase.rpc('admin_get_all_news'),
-                    supabase.rpc('admin_get_comments'),
-                    supabase.rpc('admin_get_printers_list')
+                    supabase.rpc('admin_get_all_news', { p_token: token }),
+                    supabase.rpc('admin_get_comments', { p_token: token }),
+                    supabase.rpc('admin_get_printers_list', { p_token: token })
                 ]);
                 setNewsList(Array.isArray(newsRes.data) ? newsRes.data : []);
                 setCommentsList(Array.isArray(commentsRes.data) ? commentsRes.data : []);
@@ -417,7 +432,7 @@ const AdminPage = ({ setPage }) => {
                     setBannerSettings(localBanner ? normalize(JSON.parse(localBanner)) : normalize({}));
                 }
             } else if (activeTab === 'pricing') {
-                const { data: printersData, error: printersErr } = await supabase.rpc('admin_get_printers_list');
+                const { data: printersData, error: printersErr } = await supabase.rpc('admin_get_printers_list', { p_token: token });
                 if (printersErr) {
                     const { data: directPt } = await supabase.from('printers').select('*').order('name', { ascending: true });
                     setPrinters(directPt || []);
@@ -447,10 +462,21 @@ const AdminPage = ({ setPage }) => {
     // Attribue (ou retire) un badge de profil à un imprimeur.
     const handleSetBadge = async (printerId, badge) => {
         try {
-            let { error } = await supabase.rpc('admin_set_printer_badge', {
+            const token = sessionStorage.getItem('admin_session_token');
+            let { error } = await supabase.rpc('admin_set_badge_or_set_printer_badge', {
+                p_token: token,
                 p_printer_id: printerId,
                 p_badge: badge || null
             });
+            // Try actual name of function we secured: admin_set_printer_badge
+            if (error) {
+                let res = await supabase.rpc('admin_set_printer_badge', {
+                    p_token: token,
+                    p_printer_id: printerId,
+                    p_badge: badge || null
+                });
+                error = res.error;
+            }
             if (error) {
                 console.warn("RPC admin_set_printer_badge failed, trying direct update:", error.message);
                 const { error: updateError } = await supabase
@@ -470,7 +496,9 @@ const AdminPage = ({ setPage }) => {
     const handleToggleStatus = async (printerId, currentStatus) => {
         const newStatus = currentStatus === 'En ligne' ? 'Désactivé' : 'En ligne';
         try {
+            const token = sessionStorage.getItem('admin_session_token');
             const { error } = await supabase.rpc('admin_toggle_printer_status', {
+                p_token: token,
                 p_printer_id: printerId,
                 p_status: newStatus
             });
@@ -493,7 +521,11 @@ const AdminPage = ({ setPage }) => {
     const handleDeletePrinter = async (printerId) => {
         if (!confirm("Voulez-vous vraiment supprimer définitivement cet imprimeur et toutes ses données associées ?")) return;
         try {
-            const { error } = await supabase.rpc('admin_delete_printer', { p_printer_id: printerId });
+            const token = sessionStorage.getItem('admin_session_token');
+            const { error } = await supabase.rpc('admin_delete_printer', {
+                p_token: token,
+                p_printer_id: printerId
+            });
             if (error) {
                 console.warn("RPC admin_delete_printer failed, falling back to direct delete:", error.message);
                 const { error: tableError } = await supabase
@@ -514,7 +546,9 @@ const AdminPage = ({ setPage }) => {
         if (!confirm(`Voulez-vous supprimer le service "${serviceName}" de cet imprimeur ?`)) return;
         const updatedServices = servicesList.filter(s => s.name !== serviceName);
         try {
+            const token = sessionStorage.getItem('admin_session_token');
             const { error } = await supabase.rpc('admin_update_printer_services', {
+                p_token: token,
                 p_printer_id: printerId,
                 p_services: updatedServices
             });
@@ -538,7 +572,9 @@ const AdminPage = ({ setPage }) => {
         if (!confirm("Voulez-vous supprimer cette réalisation du portfolio ?")) return;
         const updatedPortfolio = portfolioList.filter(item => getPortfolioImageUrl(item) !== imageUrl);
         try {
+            const token = sessionStorage.getItem('admin_session_token');
             const { error } = await supabase.rpc('admin_update_printer_portfolio', {
+                p_token: token,
                 p_printer_id: printerId,
                 p_portfolio: updatedPortfolio
             });
@@ -561,7 +597,11 @@ const AdminPage = ({ setPage }) => {
     const handleDeleteProduct = async (productId) => {
         if (!confirm("Voulez-vous supprimer ce produit de la marketplace ?")) return;
         try {
-            const { error } = await supabase.rpc('admin_delete_product', { p_product_id: productId });
+            const token = sessionStorage.getItem('admin_session_token');
+            const { error } = await supabase.rpc('admin_delete_product', {
+                p_token: token,
+                p_product_id: productId
+            });
             if (error) {
                 console.warn("RPC admin_delete_product failed, falling back to direct delete:", error.message);
                 const { error: tableError } = await supabase
@@ -581,7 +621,9 @@ const AdminPage = ({ setPage }) => {
     const handleToggleProductStatus = async (productId, currentStatus) => {
         const newStatus = currentStatus === 'En ligne' ? 'Désactivé' : 'En ligne';
         try {
+            const token = sessionStorage.getItem('admin_session_token');
             const { error } = await supabase.rpc('admin_toggle_product_status', {
+                p_token: token,
                 p_product_id: productId,
                 p_status: newStatus
             });
@@ -614,7 +656,9 @@ const AdminPage = ({ setPage }) => {
         const until = new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
         setActionLoading(true);
         try {
+            const token = sessionStorage.getItem('admin_session_token');
             const { error } = await supabase.rpc('admin_suspend_product', {
+                p_token: token,
                 p_product_id: suspendModalProduct.id,
                 p_until: until
             });
@@ -641,7 +685,9 @@ const AdminPage = ({ setPage }) => {
     // Lève la suspension immédiatement (remet le produit en ligne).
     const handleReactivateProduct = async (productId) => {
         try {
+            const token = sessionStorage.getItem('admin_session_token');
             const { error } = await supabase.rpc('admin_toggle_product_status', {
+                p_token: token,
                 p_product_id: productId,
                 p_status: 'En ligne'
             });
@@ -668,7 +714,9 @@ const AdminPage = ({ setPage }) => {
         const updatedOptions = { ...currentOptions, is_featured: isFeatured };
         
         try {
+            const token = sessionStorage.getItem('admin_session_token');
             const { error } = await supabase.rpc('admin_update_product', {
+                p_token: token,
                 p_product_id: product.id,
                 p_name: product.name,
                 p_price: Number(product.price),
@@ -734,7 +782,9 @@ const AdminPage = ({ setPage }) => {
         };
 
         try {
+            const token = sessionStorage.getItem('admin_session_token');
             const { error } = await supabase.rpc('admin_update_product', {
+                p_token: token,
                 p_product_id: editingProduct.id,
                 p_name: updatedProduct.name,
                 p_price: updatedProduct.price,
@@ -771,7 +821,9 @@ const AdminPage = ({ setPage }) => {
         e.preventDefault();
         if (!replyContent.trim() || !selectedPrinterId) return;
         try {
+            const token = sessionStorage.getItem('admin_session_token');
             const { error } = await supabase.rpc('admin_send_message', {
+                p_token: token,
                 p_printer_id: selectedPrinterId,
                 p_subject: "Réponse Support",
                 p_content: replyContent
@@ -805,7 +857,9 @@ const AdminPage = ({ setPage }) => {
             return;
         }
         try {
+            const token = sessionStorage.getItem('admin_session_token');
             const { data, error } = await supabase.rpc('admin_send_message_bulk', {
+                p_token: token,
                 p_printer_ids: selectedBulkPrinters,
                 p_subject: bulkSubject,
                 p_content: bulkContent
@@ -839,7 +893,11 @@ const AdminPage = ({ setPage }) => {
 
     const markAsRead = async (printerId) => {
         try {
-            const { error } = await supabase.rpc('admin_mark_messages_read', { p_printer_id: printerId });
+            const token = sessionStorage.getItem('admin_session_token');
+            const { error } = await supabase.rpc('admin_mark_messages_read', {
+                p_token: token,
+                p_printer_id: printerId
+            });
             if (error) {
                 console.warn("RPC admin_mark_messages_read failed, falling back to update:", error.message);
                 const { error: tableError } = await supabase
@@ -936,7 +994,9 @@ const AdminPage = ({ setPage }) => {
         const newlyAddedMentions = finalMentions.filter(id => !oldMentions.includes(id));
 
         try {
+            const token = sessionStorage.getItem('admin_session_token');
             const { data: savedId, error } = await supabase.rpc('admin_upsert_news', {
+                p_token: token,
                 p_id: newsForm.id,
                 p_title: newsForm.title,
                 p_excerpt: newsForm.excerpt,
@@ -1019,6 +1079,7 @@ const AdminPage = ({ setPage }) => {
                     : `Bonjour! Votre imprimerie a été mentionnée dans notre nouvel article de blog : "${newsForm.title}".\n\nVous pouvez lire l'article complet et le partager en cliquant ici : ${window.location.origin}/actualites?article=${savedArticleId}`;
                 
                 await supabase.rpc('admin_send_message_bulk', {
+                    p_token: token,
                     p_printer_ids: newlyAddedMentions,
                     p_subject: subject,
                     p_content: content
@@ -1054,7 +1115,8 @@ const AdminPage = ({ setPage }) => {
     const handleDeleteNews = async (id) => {
         if (!confirm("Supprimer définitivement cet article et ses commentaires ?")) return;
         try {
-            const { error } = await supabase.rpc('admin_delete_news', { p_id: id });
+            const token = sessionStorage.getItem('admin_session_token');
+            const { error } = await supabase.rpc('admin_delete_news', { p_token: token, p_id: id });
             if (error) throw error;
             showToast("Article supprimé.", "success");
             fetchAdminData();
@@ -1067,7 +1129,8 @@ const AdminPage = ({ setPage }) => {
     const handleDeleteComment = async (id) => {
         if (!confirm("Supprimer ce commentaire ?")) return;
         try {
-            const { error } = await supabase.rpc('admin_delete_comment', { p_id: id });
+            const token = sessionStorage.getItem('admin_session_token');
+            const { error } = await supabase.rpc('admin_delete_comment', { p_token: token, p_id: id });
             if (error) throw error;
             showToast("Commentaire supprimé.", "success");
             fetchAdminData();
@@ -1081,7 +1144,9 @@ const AdminPage = ({ setPage }) => {
         e.preventDefault();
         setLoadingPricing(true);
         try {
+            const token = sessionStorage.getItem('admin_session_token');
             const { error } = await supabase.rpc('admin_set_setting', {
+                p_token: token,
                 p_key: 'subscription_plans',
                 p_value: pricingPlans
             });
@@ -1108,7 +1173,9 @@ const AdminPage = ({ setPage }) => {
             const endsAtVal = subForm.endsAt && subForm.endsAt.trim() !== '' ? new Date(subForm.endsAt).toISOString() : null;
             const trialEndsAtVal = subForm.trialEndsAt && subForm.trialEndsAt.trim() !== '' ? new Date(subForm.trialEndsAt).toISOString() : null;
 
+            const token = sessionStorage.getItem('admin_session_token');
             let { error } = await supabase.rpc('admin_update_printer_subscription', {
+                p_token: token,
                 p_printer_id: selectedPrinterForSub.id,
                 p_status: subForm.status,
                 p_ends_at: endsAtVal,
@@ -1146,7 +1213,8 @@ const AdminPage = ({ setPage }) => {
         }
         setActionLoading(true);
         try {
-            const { error } = await supabase.rpc('admin_reset_all_statistics');
+            const token = sessionStorage.getItem('admin_session_token');
+            const { error } = await supabase.rpc('admin_reset_all_statistics', { p_token: token });
             if (error) {
                 console.warn("RPC admin_reset_all_statistics failed, trying direct deletes:", error.message);
                 
@@ -1188,7 +1256,9 @@ const AdminPage = ({ setPage }) => {
             // Save to localStorage for instant local fallback
             localStorage.setItem('publicity_banner', JSON.stringify(bannerSettings));
 
+            const token = sessionStorage.getItem('admin_session_token');
             const { error } = await supabase.rpc('admin_set_setting', {
+                p_token: token,
                 p_key: 'publicity_banner',
                 p_value: bannerSettings
             });

@@ -15,10 +15,16 @@ CREATE OR REPLACE FUNCTION public.notify_user_on_signup()
 RETURNS TRIGGER AS $$
 DECLARE
   v_email TEXT;
-  v_resend_api_key TEXT := 're_XeoRktvs_PsxnNiL6TgGc3Wz89BET2rY8'; 
+  v_resend_api_key TEXT; 
   v_sender_email TEXT := 'notifications@printacote.com'; 
   v_email_body TEXT;
 BEGIN
+  -- Read key from secure configs
+  SELECT value INTO v_resend_api_key FROM public.secure_configs WHERE key = 'resend_api_key';
+  IF v_resend_api_key IS NULL THEN
+    RAISE EXCEPTION 'Clé API Resend manquante dans secure_configs.';
+  END IF;
+
   -- Get user email from auth.users using owner_id
   SELECT email INTO v_email 
   FROM auth.users 

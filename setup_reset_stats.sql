@@ -4,9 +4,13 @@
 -- À exécuter dans l'éditeur SQL de Supabase.
 -- =====================================================================
 
-CREATE OR REPLACE FUNCTION public.admin_reset_all_statistics()
+DROP FUNCTION IF EXISTS public.admin_reset_all_statistics();
+CREATE OR REPLACE FUNCTION public.admin_reset_all_statistics(p_token UUID)
 RETURNS BOOLEAN AS $$
 BEGIN
+    -- Vérification de session
+    PERFORM public.internal_verify_admin_session(p_token);
+
     -- 1. Réinitialise les vues et clics de tous les profils d'imprimeurs à 0
     UPDATE public.printers
     SET views = 0,
@@ -22,3 +26,6 @@ BEGIN
     RETURN true;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Révocation explicite des droits d'exécution publique
+REVOKE EXECUTE ON FUNCTION public.admin_reset_all_statistics(UUID) FROM PUBLIC, anon, authenticated;

@@ -3,7 +3,9 @@
 -- À exécuter dans l'éditeur SQL de Supabase.
 -- =====================================================================
 
+DROP FUNCTION IF EXISTS public.admin_update_printer_subscription(UUID, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, TEXT);
 CREATE OR REPLACE FUNCTION public.admin_update_printer_subscription(
+    p_token UUID,
     p_printer_id UUID,
     p_status TEXT,
     p_ends_at TIMESTAMPTZ,
@@ -12,6 +14,9 @@ CREATE OR REPLACE FUNCTION public.admin_update_printer_subscription(
 )
 RETURNS BOOLEAN AS $$
 BEGIN
+    -- Vérification de session
+    PERFORM public.internal_verify_admin_session(p_token);
+
     UPDATE public.printers
     SET subscription_status = p_status,
         subscription_ends_at = p_ends_at,
@@ -24,3 +29,6 @@ BEGIN
     RETURN FOUND;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Révocation explicite des droits d'exécution publique
+REVOKE EXECUTE ON FUNCTION public.admin_update_printer_subscription(UUID, UUID, TEXT, TIMESTAMPTZ, TIMESTAMPTZ, TEXT) FROM PUBLIC, anon, authenticated;

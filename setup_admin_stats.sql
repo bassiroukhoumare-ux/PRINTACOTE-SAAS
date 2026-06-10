@@ -42,11 +42,15 @@ GRANT EXECUTE ON FUNCTION public.record_site_view(TEXT, TEXT) TO anon, authentic
 --            'year'  (12 derniers mois, par mois).
 -- Renvoie un tableau JSONB [{ "ts": <timestamptz du bucket>, "value": <nb réel> }],
 -- zéros inclus (zero-filling via generate_series) pour un graphique lisible.
-CREATE OR REPLACE FUNCTION public.admin_get_views_timeseries(p_period TEXT)
+DROP FUNCTION IF EXISTS public.admin_get_views_timeseries(TEXT);
+CREATE OR REPLACE FUNCTION public.admin_get_views_timeseries(p_token UUID, p_period TEXT)
 RETURNS JSONB AS $$
 DECLARE
     result JSONB;
 BEGIN
+    -- Vérification de session
+    PERFORM public.internal_verify_admin_session(p_token);
+
     IF p_period = 'today' THEN
         SELECT jsonb_agg(jsonb_build_object('ts', g.bucket, 'value', COALESCE(c.cnt, 0)) ORDER BY g.bucket)
         INTO result
@@ -158,9 +162,13 @@ ALTER TABLE public.products ADD COLUMN IF NOT EXISTS suspended_until TIMESTAMPTZ
 -- RPC : suspendre un produit jusqu'à une date donnée (statut 'Suspendu').
 -- Le marketplace public filtre status = 'En ligne' → le produit devient
 -- réellement invisible côté site sans être supprimé.
-CREATE OR REPLACE FUNCTION public.admin_suspend_product(p_product_id UUID, p_until TIMESTAMPTZ)
+DROP FUNCTION IF EXISTS public.admin_suspend_product(UUID, TIMESTAMPTZ);
+CREATE OR REPLACE FUNCTION public.admin_suspend_product(p_token UUID, p_product_id UUID, p_until TIMESTAMPTZ)
 RETURNS BOOLEAN AS $$
 BEGIN
+    -- Vérification de session
+    PERFORM public.internal_verify_admin_session(p_token);
+
     UPDATE public.products
     SET status = 'Suspendu',
         suspended_until = p_until
@@ -195,54 +203,9 @@ GRANT EXECUTE ON FUNCTION public.reactivate_expired_products() TO anon, authenti
 --    Remplace admin_get_global_stats de setup_admin.sql en y ajoutant :
 --    totalSiteViews, totalVisitors (distincts), totalNews.
 -- ---------------------------------------------------------------------
-CREATE OR REPLACE FUNCTION public.admin_get_global_stats()
-RETURNS JSONB AS $$
-DECLARE
-    v_total_printers INTEGER;
-    v_total_services INTEGER := 0;
-    v_total_portfolio INTEGER := 0;
-    v_total_products INTEGER;
-    v_total_views BIGINT;
-    v_total_clicks BIGINT;
-    v_total_site_views BIGINT := 0;
-    v_total_visitors BIGINT := 0;
-    v_total_news INTEGER := 0;
-    r RECORD;
-BEGIN
-    SELECT COUNT(*), COALESCE(SUM(views), 0), COALESCE(SUM(clicks), 0)
-    INTO v_total_printers, v_total_views, v_total_clicks
-    FROM public.printers;
+-- Suppression de la version non sécurisée de statistiques globales si elle existe
+DROP FUNCTION IF EXISTS public.admin_get_global_stats();
 
-    -- NB : printers.services est de type jsonb, printers.portfolio est text[].
-    FOR r IN SELECT services, portfolio FROM public.printers LOOP
-        v_total_services := v_total_services + COALESCE(jsonb_array_length(r.services), 0);
-        v_total_portfolio := v_total_portfolio + COALESCE(array_length(r.portfolio, 1), 0);
-    END LOOP;
-
-    SELECT COUNT(*) INTO v_total_products FROM public.products;
-
-    -- Trafic réel du site (si la table existe déjà)
-    IF to_regclass('public.site_views') IS NOT NULL THEN
-        SELECT COUNT(*), COUNT(DISTINCT visitor_id)
-        INTO v_total_site_views, v_total_visitors
-        FROM public.site_views;
-    END IF;
-
-    -- Actualités publiées (si la table existe déjà)
-    IF to_regclass('public.news') IS NOT NULL THEN
-        SELECT COUNT(*) INTO v_total_news FROM public.news WHERE published = true;
-    END IF;
-
-    RETURN jsonb_build_object(
-        'totalPrinters', v_total_printers,
-        'totalServices', v_total_services,
-        'totalPortfolio', v_total_portfolio,
-        'totalProducts', v_total_products,
-        'totalViews', v_total_views,
-        'totalClicks', v_total_clicks,
-        'totalSiteViews', v_total_site_views,
-        'totalVisitors', v_total_visitors,
-        'totalNews', v_total_news
-    );
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+-- Révocation explicite des droits d'exécution publique
+REVOKE EXECUTE ON FUNCTION public.admin_get_views_timeseries(UUID, TEXT) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.admin_suspend_product(UUID, UUID, TIMESTAMPTZ) FROM PUBLIC, anon, authenticated;
