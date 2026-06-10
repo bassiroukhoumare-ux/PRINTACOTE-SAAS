@@ -21,6 +21,7 @@ import { getSubscriptionState, getTierLimits } from '../lib/subscription';
 const DashboardPage = ({ setPage, user }) => {
     const [activeTab, setActiveTab] = useState('overview');
     const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [printerData, setPrinterData] = useState(null);
     const [loading, setLoading] = useState(true);
     const [autoOpenModal, setAutoOpenModal] = useState(false);
@@ -773,7 +774,7 @@ const DashboardPage = ({ setPage, user }) => {
         { id: 'marketplace', label: 'Ma Boutique', icon: Store },
         { id: 'reviews', label: 'Avis Clients', icon: Star },
         { id: 'billing', label: 'Facturation', icon: CreditCard },
-        { id: 'community', label: 'Communauté WhatsApp', icon: Users },
+        { id: 'community', label: 'Communauté', icon: Users },
         { id: 'support', label: 'Contact Support', icon: MessageCircle },
     ];
 
@@ -1233,20 +1234,86 @@ const DashboardPage = ({ setPage, user }) => {
                 </div>
             </div>
 
-            {/* Mobile Bottom Navigation Bar */}
-            <div className="lg:hidden fixed bottom-6 left-6 right-6 z-[100] bg-[#F5F5DC] border border-[#3D0B37]/10 rounded-full px-6 py-4 flex justify-around items-center shadow-2xl shadow-[#3D0B37]/20">
-                {menuItems.filter(item => !['billing', 'support', 'community'].includes(item.id)).map((item) => (
+            {/* Mobile Bottom Navigation Bar with "+" Dropdown Menu */}
+            {isMobileMenuOpen && (
+                <>
+                    {/* Backdrop */}
+                    <div className="lg:hidden fixed inset-0 z-[98] bg-primary/20 backdrop-blur-xs" onClick={() => setIsMobileMenuOpen(false)}></div>
+                    
+                    {/* Floating contextual menu */}
+                    <div className="lg:hidden fixed bottom-28 left-6 right-6 z-[99] bg-[#F5F5DC] border border-[#3D0B37]/10 rounded-[2rem] p-6 shadow-2xl animate-in slide-in-from-bottom-4 zoom-in-95 duration-300 flex flex-col gap-3">
+                        <div className="text-[9px] font-black uppercase tracking-widest text-[#3D0B37]/40 border-b border-[#3D0B37]/5 pb-2">Plus d'options</div>
+                        <div className="grid grid-cols-2 gap-3">
+                            {menuItems.filter(item => ['marketplace', 'reviews', 'community', 'billing', 'support'].includes(item.id)).map(item => (
+                                <button
+                                    key={item.id}
+                                    onClick={() => {
+                                        setActiveTab(item.id);
+                                        setIsMobileMenuOpen(false);
+                                    }}
+                                    className={`flex items-center gap-3 p-4 rounded-2xl font-bold transition-all text-xs text-left
+                                        ${activeTab === item.id 
+                                            ? 'bg-primary text-white shadow-lg' 
+                                            : 'bg-[#FAF8F5] text-[#3D0B37]/80 border border-[#3D0B37]/5 hover:bg-primary/5 hover:text-primary'}`}
+                                >
+                                    <item.icon size={16} />
+                                    <span>{item.id === 'community' ? 'Communauté' : item.label}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                </>
+            )}
+
+            <div className="lg:hidden fixed bottom-6 left-6 right-6 z-[100] bg-[#F5F5DC] border border-[#3D0B37]/10 rounded-full px-6 py-3 flex justify-between items-center shadow-2xl shadow-[#3D0B37]/20 select-none">
+                {/* Left side items */}
+                <div className="flex-1 flex justify-around">
+                    {menuItems.filter(item => ['overview', 'profile'].includes(item.id)).map((item) => (
+                        <button
+                            key={item.id}
+                            onClick={() => {
+                                setActiveTab(item.id);
+                                setIsMobileMenuOpen(false);
+                            }}
+                            className={`flex flex-col items-center gap-1 transition-all ${activeTab === item.id ? 'text-[#3D0B37] scale-105 font-black' : 'text-[#3D0B37]/45 hover:text-[#3D0B37]/75'}`}
+                        >
+                            <item.icon size={20} strokeWidth={activeTab === item.id ? 2.5 : 2} />
+                            <span className="text-[8px] font-black uppercase tracking-wider">
+                                {item.id === 'overview' ? 'Accueil' : 'Profil'}
+                            </span>
+                        </button>
+                    ))}
+                </div>
+
+                {/* Center "+" Button */}
+                <div className="px-2 shrink-0">
                     <button
-                        key={item.id}
-                        onClick={() => setActiveTab(item.id)}
-                        className={`flex flex-col items-center gap-1.5 transition-all ${activeTab === item.id ? 'text-[#3D0B37] scale-110 font-black' : 'text-[#3D0B37]/40 hover:text-[#3D0B37]/70'}`}
+                        onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+                        className={`w-12 h-12 rounded-full flex items-center justify-center text-white transition-all transform shadow-lg hover:scale-105 active:scale-95 duration-300
+                            ${isMobileMenuOpen ? 'bg-red-500 rotate-45' : 'bg-primary'}`}
                     >
-                        <item.icon size={22} strokeWidth={activeTab === item.id ? 2.5 : 2} />
-                        <span className="text-[8px] font-black uppercase tracking-wider">
-                            {item.id === 'overview' ? 'Accueil' : item.id === 'profile' ? 'Profil' : item.id === 'services' ? 'Services' : item.id === 'portfolio' ? 'Portfolio' : item.id === 'marketplace' ? 'Boutique' : 'Avis'}
-                        </span>
+                        <Plus size={22} className="transition-transform duration-300" />
                     </button>
-                ))}
+                </div>
+
+                {/* Right side items */}
+                <div className="flex-1 flex justify-around">
+                    {menuItems.filter(item => ['services', 'portfolio'].includes(item.id)).map((item) => (
+                        <button
+                            key={item.id}
+                            onClick={() => {
+                                setActiveTab(item.id);
+                                setIsMobileMenuOpen(false);
+                            }}
+                            className={`flex flex-col items-center gap-1 transition-all ${activeTab === item.id ? 'text-[#3D0B37] scale-105 font-black' : 'text-[#3D0B37]/45 hover:text-[#3D0B37]/75'}`}
+                        >
+                            <item.icon size={20} strokeWidth={activeTab === item.id ? 2.5 : 2} />
+                            <span className="text-[8px] font-black uppercase tracking-wider">
+                                {item.id === 'services' ? 'Services' : 'Portfolio'}
+                            </span>
+                        </button>
+                    ))}
+                </div>
             </div>
 
             {/* Main Content Area */}
@@ -1490,7 +1557,7 @@ const DashboardPage = ({ setPage, user }) => {
                                     {/* Colonne Gauche : QR Code */}
                                     <div className="flex flex-col items-center text-center space-y-6">
                                         <div className="bg-[#fcfbf9] p-6 rounded-[2.5rem] border border-[#3D0B37]/15 shadow-xl max-w-sm w-full aspect-square overflow-hidden flex items-center justify-center">
-                                            <img src="/whatsapp-community.png" alt="QR Code WhatsApp Printacoté Communauté" className="w-full h-full object-contain rounded-2xl" />
+                                            <img src="/whatsapp-community.jpg" alt="QR Code WhatsApp Printacoté Communauté" className="w-full h-full object-contain rounded-2xl" />
                                         </div>
                                         <div className="max-w-xs space-y-2">
                                             <p className="text-sm font-bold text-dark/70">
