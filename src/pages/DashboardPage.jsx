@@ -6,7 +6,7 @@ import {
     LayoutDashboard, User, Wrench, Image as ImageIcon,
     Store, CreditCard, LogOut, Menu, X, Eye, Star,
     MessageCircle, Plus, ChevronRight, Bell, CheckCircle2, Loader2, AlertCircle,
-    Crown, Clock, Phone, MapPin, Globe
+    Crown, Clock, Phone, MapPin, Globe, Users
 } from 'lucide-react';
 import DashboardOverview from './dashboard/DashboardOverview';
 import DashboardProfile from './dashboard/DashboardProfile';
@@ -773,6 +773,7 @@ const DashboardPage = ({ setPage, user }) => {
         { id: 'marketplace', label: 'Ma Boutique', icon: Store },
         { id: 'reviews', label: 'Avis Clients', icon: Star },
         { id: 'billing', label: 'Facturation', icon: CreditCard },
+        { id: 'community', label: 'Communauté WhatsApp', icon: Users },
         { id: 'support', label: 'Contact Support', icon: MessageCircle },
     ];
 
@@ -1209,6 +1210,13 @@ const DashboardPage = ({ setPage, user }) => {
                 <img src="/logo.png" alt="Logo" className="h-8 w-auto" />
                 <div className="flex items-center gap-2">
                     <button 
+                        onClick={() => setActiveTab('community')} 
+                        className="p-2.5 bg-green-500/10 text-[#25D366] rounded-xl hover:scale-105 active:scale-95 transition-transform flex items-center gap-1.5 font-black text-[10px] uppercase tracking-wider shadow-sm border border-green-500/20"
+                    >
+                        <Users size={14} />
+                        Communauté
+                    </button>
+                    <button 
                         onClick={() => setActiveTab('support')} 
                         className="p-2.5 bg-primary/10 text-primary rounded-xl hover:scale-105 active:scale-95 transition-transform flex items-center gap-1.5 font-black text-[10px] uppercase tracking-wider shadow-sm border border-primary/20"
                     >
@@ -1227,7 +1235,7 @@ const DashboardPage = ({ setPage, user }) => {
 
             {/* Mobile Bottom Navigation Bar */}
             <div className="lg:hidden fixed bottom-6 left-6 right-6 z-[100] bg-[#F5F5DC] border border-[#3D0B37]/10 rounded-full px-6 py-4 flex justify-around items-center shadow-2xl shadow-[#3D0B37]/20">
-                {menuItems.filter(item => !['billing', 'support'].includes(item.id)).map((item) => (
+                {menuItems.filter(item => !['billing', 'support', 'community'].includes(item.id)).map((item) => (
                     <button
                         key={item.id}
                         onClick={() => setActiveTab(item.id)}
@@ -1472,6 +1480,61 @@ const DashboardPage = ({ setPage, user }) => {
                         {activeTab === 'reviews' && <DashboardReviews printerData={printerData} onUpdate={fetchPrinterData} showToast={showToast} />}
                         {activeTab === 'billing' && (
                             <SubscriptionPanel printerData={printerData} user={user} showToast={showToast} />
+                        )}
+
+                        {activeTab === 'community' && (
+                            <div className="bg-white border border-dark/5 rounded-[3rem] p-10 md:p-12 shadow-2xl relative overflow-hidden animate-in fade-in duration-500">
+                                <div className="absolute top-0 right-0 w-[50%] h-full bg-gradient-to-l from-primary/5 to-transparent pointer-events-none"></div>
+                                
+                                <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 relative z-10 items-center">
+                                    {/* Colonne Gauche : QR Code */}
+                                    <div className="flex flex-col items-center text-center space-y-6">
+                                        <div className="bg-[#fcfbf9] p-6 rounded-[2.5rem] border border-[#3D0B37]/15 shadow-xl max-w-sm w-full aspect-square overflow-hidden flex items-center justify-center">
+                                            <img src="/whatsapp-community.png" alt="QR Code WhatsApp Printacoté Communauté" className="w-full h-full object-contain rounded-2xl" />
+                                        </div>
+                                        <div className="max-w-xs space-y-2">
+                                            <p className="text-sm font-bold text-dark/70">
+                                                Scannez ce code QR pour rejoindre la communauté Printacoté.
+                                            </p>
+                                            <p className="text-[11px] text-dark/40 font-medium">
+                                                Ouvrez l'appareil photo ou le scanner de WhatsApp sur votre téléphone pour rejoindre instantanément.
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    {/* Colonne Droite : Message + Bouton d'accès direct */}
+                                    <div className="space-y-8">
+                                        <div>
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-[#C9A84C] bg-[#C9A84C]/10 px-3 py-1.5 rounded-full border border-[#C9A84C]/20">
+                                                Communauté d'entraide
+                                            </span>
+                                            <h2 className="text-3xl md:text-4xl font-black tracking-tight text-[#3D0B37] mt-4 mb-3">
+                                                Rejoindre la communauté WhatsApp
+                                            </h2>
+                                            <p className="text-dark/60 text-sm md:text-base font-medium leading-relaxed">
+                                                Rejoignez notre groupe WhatsApp d'imprimeurs et de professionnels du secteur. Échangez des conseils de production, partagez des opportunités commerciales et échangez avec les autres passionnés de l'impression en Afrique.
+                                            </p>
+                                        </div>
+
+                                        <div className="space-y-4">
+                                            <div className="flex items-start gap-3 text-xs text-dark/50">
+                                                <div className="w-1.5 h-1.5 bg-[#25D366] rounded-full mt-1.5 shrink-0 animate-ping"></div>
+                                                <p className="font-semibold">
+                                                    Groupe actif de discussion avec d'autres professionnels de l'impression numérique et offset.
+                                                </p>
+                                            </div>
+                                            
+                                            <button
+                                                onClick={() => window.open('https://chat.whatsapp.com/FHRX9bhnJOV0VLjzAxLqCX?s=cl&p=i&ilr=4', '_blank')}
+                                                className="w-full sm:w-auto bg-[#25D366] text-white px-8 py-5 rounded-2xl font-black text-base shadow-xl shadow-green-500/10 hover:scale-[1.02] active:scale-95 transition-all flex items-center justify-center gap-3 hover:translate-y-[-1px]"
+                                            >
+                                                <MessageCircle size={20} />
+                                                Rejoindre la communauté
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         )}
 
                         {upgradeReason && (
