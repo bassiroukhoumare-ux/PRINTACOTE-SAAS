@@ -811,15 +811,40 @@ const DashboardPage = ({ setPage, user }) => {
                 <input type="file" ref={coverRef} onChange={(e) => handleOnboardingFile(e, 'cover')} accept="image/*" className="hidden" />
                 <input type="file" ref={portfolioRef} onChange={(e) => handleOnboardingFile(e, 'portfolio')} accept="image/*" className="hidden" />
 
-                <header className="px-8 py-6 border-b border-white/10 flex justify-between items-center bg-[#0F0F13]/85 backdrop-blur-xl sticky top-0 z-50">
-                    <img src="/logo.png" alt="Logo" className="h-10 w-auto brightness-200" />
-                    <button 
-                        onClick={handleLogout} 
-                        className="px-6 py-3 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl hover:bg-red-500/20 active:scale-95 transition-all font-black text-xs uppercase tracking-wider flex items-center gap-2"
-                    >
-                        <LogOut size={16} />
-                        Déconnexion
-                    </button>
+                <header className="px-4 sm:px-8 py-4 sm:py-6 border-b border-white/10 flex justify-between items-center bg-[#0F0F13]/85 backdrop-blur-xl sticky top-0 z-50 gap-3">
+                    <img src="/logo.png" alt="Logo" className="h-8 sm:h-10 w-auto brightness-200 shrink-0" />
+                    <div className="flex items-center gap-2">
+                        {/* Communauté */}
+                        <a
+                            href="https://chat.whatsapp.com/FHRX9bhnJOV0VLjzAxLqCX?s=cl&p=i&ilr=4"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center gap-1.5 px-2.5 sm:px-4 py-2 sm:py-2.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-xl hover:bg-green-500/20 active:scale-95 transition-all font-black text-[10px] sm:text-xs uppercase tracking-wider"
+                        >
+                            <Users size={14} className="shrink-0" />
+                            <span className="hidden sm:inline">Communauté</span>
+                        </a>
+
+                        {/* Support */}
+                        <button
+                            className="flex items-center gap-1.5 px-2.5 sm:px-4 py-2 sm:py-2.5 bg-[#C9A84C]/10 text-[#C9A84C] border border-[#C9A84C]/20 rounded-xl hover:bg-[#C9A84C]/20 active:scale-95 transition-all font-black text-[10px] sm:text-xs uppercase tracking-wider"
+                            onClick={() => {
+                                window.open('https://wa.me/221709465891?text=Bonjour%20Support%20Printacoté,%20j\'ai%20besoin%20d\'aide%20lors%20de%20la%20configuration%20de%20mon%20compte.', '_blank');
+                            }}
+                        >
+                            <MessageCircle size={14} className="shrink-0" />
+                            <span className="hidden sm:inline">Support</span>
+                        </button>
+
+                        {/* Déconnexion */}
+                        <button
+                            onClick={handleLogout}
+                            className="flex items-center gap-1.5 px-2.5 sm:px-4 py-2 sm:py-2.5 bg-red-500/10 text-red-400 border border-red-500/20 rounded-xl hover:bg-red-500/20 active:scale-95 transition-all font-black text-[10px] sm:text-xs uppercase tracking-wider"
+                        >
+                            <LogOut size={14} className="shrink-0" />
+                            <span className="hidden sm:inline">Déconnexion</span>
+                        </button>
+                    </div>
                 </header>
 
                 <main className="flex-1 flex items-center justify-center p-6 md:p-12 relative z-10">
