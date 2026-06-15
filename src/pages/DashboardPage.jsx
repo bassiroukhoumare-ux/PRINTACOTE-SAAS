@@ -1679,14 +1679,17 @@ const DashboardPage = ({ setPage, user }) => {
                                                     body: formData
                                                 });
 
-                                                // 2. Insérer dans admin_messages pour la messagerie admin de Supabase
+                                                // 2. Insérer via l'Edge Function rate-limitée
                                                 if (printerData?.id && !printerData.isMock) {
-                                                    await supabase.from('admin_messages').insert({
-                                                        printer_id: printerData.id,
-                                                        subject: subject,
-                                                        content: message,
-                                                        direction: 'printer_to_admin'
+                                                    const { data: msgRes, error: msgErr } = await supabase.functions.invoke('support-message', {
+                                                        body: { subject, content: message },
                                                     });
+                                                    if (msgErr || !msgRes?.ok) {
+                                                        let serverMsg = '';
+                                                        try { serverMsg = (await msgErr?.context?.json())?.error; } catch { /* corps illisible */ }
+                                                        showToast(serverMsg || msgRes?.error || "Envoi du message impossible.", "error");
+                                                        return;
+                                                    }
                                                     fetchMyMessages();
                                                 } else if (printerData?.isMock) {
                                                     const newMockMsg = {
