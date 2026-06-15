@@ -32,3 +32,20 @@ verify_jwt = true
 # La sécurité repose sur la signature HMAC X-Webhook-Signature.
 [functions.geniuspay-webhook]
 verify_jwt = false
+
+# Récupération de mot de passe : appelée avant login -> pas de JWT.
+# La sécurité repose sur le rate limit Redis + le REVOKE de la RPC.
+[functions.recovery-request]
+verify_jwt = false
+
+# Message support : imprimeur connecté -> JWT vérifié.
+[functions.support-message]
+verify_jwt = true
+
+# Liste publique des imprimeurs (cache Redis) : pas de JWT.
+[functions.printers-list]
+verify_jwt = false
+
+# Stats globales admin (cache Redis) : pas de JWT, gardée par x-admin-token.
+[functions.admin-stats]
+verify_jwt = false

@@ -211,38 +211,26 @@ const LoginPage = ({ setPage, setUser }) => {
         let rpcErrorMessage = '';
 
         try {
-            // Try 7-argument RPC (standard migration)
-            const { error: rpcError } = await supabase.rpc('send_recovery_email', {
-                email_to: email,
-                recovery_code: code,
-                client_ip: clientIp,
-                client_location: clientLocation,
-                client_device: deviceDetails
+            // Passe par l'Edge Function rate-limitée (seule autorisée à déclencher la RPC).
+            const { data, error: fnError } = await supabase.functions.invoke('recovery-request', {
+                body: {
+                    email,
+                    recovery_code: code,
+                    client_ip: clientIp,
+                    client_location: clientLocation,
+                    client_device: deviceDetails,
+                },
             });
-            
-            if (!rpcError) {
+            if (!fnError && data?.ok) {
                 emailSent = true;
             } else {
-                console.warn("RPC recovery email call (7 args) failed:", rpcError.message);
-                rpcErrorMessage = rpcError.message;
-                
-                // Fallback to original 2-argument signature if schema doesn't match new signature (code: PGRST202)
-                if (rpcError.code === 'PGRST202') {
-                    console.log("Attempting fallback to 2-argument RPC...");
-                    const { error: fallbackError } = await supabase.rpc('send_recovery_email', {
-                        email_to: email,
-                        recovery_code: code
-                    });
-                    
-                    if (!fallbackError) {
-                        emailSent = true;
-                    } else {
-                        rpcErrorMessage = fallbackError.message;
-                    }
-                }
+                // Sur une réponse non-2xx, supabase-js range le corps dans fnError.context (Response).
+                let serverMsg = '';
+                try { serverMsg = (await fnError?.context?.json())?.error; } catch { /* corps illisible */ }
+                rpcErrorMessage = serverMsg || data?.error || fnError?.message || "Échec de l'envoi du code.";
             }
         } catch (err) {
-            console.warn("RPC recovery email call error:", err.message);
+            console.warn("recovery-request error:", err.message);
             rpcErrorMessage = err.message;
         }
 
