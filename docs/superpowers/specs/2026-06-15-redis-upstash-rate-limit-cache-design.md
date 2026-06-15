@@ -42,26 +42,34 @@ Client Upstash via REST (adapté à Deno/serverless), exposant :
   sinon exécute `fetcher()`, stocke le résultat (`SET` + `EX ttlSec`) et le renvoie.
   En cas d'erreur Redis : exécute et renvoie `fetcher()` sans cacher.
 
-## 2. Phase 1 — Rate limiting (3 Edge Functions)
+## 2. Phase 1 — Rate limiting (2 Edge Functions)
+
+> **Correction de conception (constat code) :** tous les emails partent déjà côté serveur
+> via des fonctions Postgres + `pg_net` → Resend (la clé vit dans la table `secure_configs`,
+> pas dans `VITE_RESEND_API_KEY` qui est inutilisée). Il n'y a **aucun envoi d'email côté
+> client** à intercepter → la fonction `send-email` initialement prévue est **supprimée**.
+> Le seul email déclenché par une action utilisateur est la récupération, couverte par
+> `recovery-request`.
 
 Le frontend remplace les appels directs par `supabase.functions.invoke('<fn>')`.
 
 | Fonction | Clé de limite | Limite | `verify_jwt` |
 |---|---|---|---|
 | `recovery-request` | `rl:recovery:<email>` + `rl:recovery:ip:<ip>` | 3 / 15 min par email · 10 / h par IP | `false` |
-| `send-email` | `rl:email:ip:<ip>` (+ destinataire) | 5 / h | `false` |
 | `support-message` | `rl:support:<userId>` | 5 / min · 30 / h | `true` |
 
 Détails :
 
-- **`recovery-request`** : reçoit `{ email }`, applique les deux limites, puis déclenche
-  l'envoi du code de récupération (reprend le flux OTP existant de `LoginPage.jsx`). En cas
-  de dépassement → `429` avec message explicite.
-- **`send-email`** : reçoit le payload d'email, applique la limite, puis appelle **Resend
-  côté serveur**. Bonus sécurité : déplace `RESEND_API_KEY` du frontend (`VITE_RESEND_API_KEY`,
-  aujourd'hui exposée) vers un secret d'Edge Function.
+- **`recovery-request`** : reçoit `{ email }`, applique les deux limites, puis appelle la RPC
+  `send_recovery_email` **côté serveur via la clé service role** (génère le code, envoie l'email).
+  En cas de dépassement → `429` avec message explicite.
+  **Blindage (anti-contournement)** : on `REVOKE EXECUTE` sur `send_recovery_email` pour les rôles
+  `anon` et `authenticated`. Ainsi un appel `supabase.rpc('send_recovery_email')` direct depuis le
+  navigateur échoue ; seule l'Edge Function (service role, qui ignore le REVOKE) peut la déclencher.
+  Le rate limit devient donc **effectif**, pas seulement cosmétique.
 - **`support-message`** : reçoit `{ message }`, identifie l'imprimeur via le JWT Supabase,
-  applique la limite, puis insère dans `admin_messages` (`direction = 'printer_to_admin'`).
+  applique la limite, puis insère dans `admin_messages` (`direction = 'printer_to_admin'`)
+  avec la clé service role.
 
 L'IP est lue depuis les en-têtes de la requête (`x-forwarded-for`).
 
@@ -88,11 +96,10 @@ L'IP est lue depuis les en-têtes de la requête (`x-forwarded-for`).
 supabase secrets set \
   UPSTASH_REDIS_REST_URL=... \
   UPSTASH_REDIS_REST_TOKEN=... \
-  RESEND_API_KEY=... \
   ADMIN_API_TOKEN=<valeur générée aléatoirement>
 ```
 
-Ajouter les 5 fonctions dans `supabase/config.toml` avec leur `verify_jwt` respectif
+Ajouter les 4 fonctions dans `supabase/config.toml` avec leur `verify_jwt` respectif
 (cf. tableaux ci-dessus), en suivant le format des fonctions `*-checkout` / `*-webhook`
 existantes.
 
@@ -100,10 +107,9 @@ existantes.
 
 | Emplacement | Avant | Après |
 |---|---|---|
-| `LoginPage.jsx` (récupération) | flux OTP local / `send_recovery_email` | `invoke('recovery-request')` |
-| Envois d'emails (Resend) | appel Resend côté client | `invoke('send-email')` |
+| `LoginPage.jsx` (récupération) | `supabase.rpc('send_recovery_email')` direct | `invoke('recovery-request')` |
 | `DashboardPage.jsx` (Contact Support) | insert direct `admin_messages` | `invoke('support-message')` |
-| Accueil / marketplace | requête directe `printers` | `invoke('printers-list')` |
+| `PrintersPage.jsx` (liste publique) | requête directe `printers` | `invoke('printers-list')` |
 | `AdminPage.jsx` (vue d'ensemble) | `rpc('admin_get_global_stats')` | `invoke('admin-stats')` + header `x-admin-token` |
 
 ## 6. Hors périmètre (Phase 3, ultérieure)
