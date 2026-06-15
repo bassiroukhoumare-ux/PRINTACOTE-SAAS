@@ -289,17 +289,19 @@ const AdminPage = ({ setPage }) => {
             supabase.rpc('admin_run_schema_updates', { p_token: token }).then(undefined, e => console.warn(e));
 
             if (activeTab === 'overview') {
-                const { data, error } = await supabase.rpc('admin_get_global_stats', { p_token: token });
-                if (error) {
-                    console.warn("RPC admin_get_global_stats failed, falling back to direct table queries:", error.message);
-                    
+                const { data, error } = await supabase.functions.invoke('admin-stats', {
+                    headers: { 'x-admin-token': import.meta.env.VITE_ADMIN_API_TOKEN || '' },
+                });
+                if (error || !data?.stats) {
+                    console.warn("admin-stats EF failed, falling back to direct table queries:", error?.message);
+
                     const [printersRes, productsRes] = await Promise.all([
                         supabase.from('printers').select('id, services, portfolio, views, clicks'),
                         supabase.from('products').select('id', { count: 'exact', head: true })
                     ]);
-                    
+
                     const printersList = printersRes.data || [];
-                    
+
                     const calculatedStats = {
                         totalPrinters: printersList.length,
                         totalServices: printersList.reduce((acc, p) => acc + (p.services?.length || 0), 0),
@@ -310,14 +312,7 @@ const AdminPage = ({ setPage }) => {
                     };
                     setStats(calculatedStats);
                 } else {
-                    setStats(data || {
-                        totalPrinters: 0,
-                        totalServices: 0,
-                        totalPortfolio: 0,
-                        totalProducts: 0,
-                        totalViews: 0,
-                        totalClicks: 0
-                    });
+                    setStats(data.stats);
                 }
             } else if (activeTab === 'printers' || activeTab === 'services' || activeTab === 'portfolio') {
                 const { data, error } = await supabase.rpc('admin_get_printers_list', { p_token: token });
