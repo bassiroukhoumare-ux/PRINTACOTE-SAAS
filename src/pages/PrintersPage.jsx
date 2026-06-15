@@ -29,13 +29,10 @@ const PrintersPage = ({ setPage, setSelectedPrinterId }) => {
 
     const fetchPrinters = async () => {
         setLoading(true);
-        const { data, error } = await supabase
-            .from('printers')
-            .select('*')
-            .order('created_at', { ascending: false });
+        const { data, error } = await supabase.functions.invoke('printers-list');
 
-        if (!error && data) {
-            setPrinters(data);
+        if (!error && data?.printers) {
+            setPrinters(data.printers);
         }
         setLoading(false);
     };
